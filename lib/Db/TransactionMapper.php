@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Db;
 
 use OCP\AppFramework\Db\QBMapper;
-use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
 /**

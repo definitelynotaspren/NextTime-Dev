@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Service;
 
+use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Db\Volunteer;
 use OCA\TimeBank\Db\VolunteerMapper;
-use OCA\TimeBank\Db\RequestMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 class VolunteerService {
@@ -16,7 +16,7 @@ class VolunteerService {
 
 	public function __construct(
 		VolunteerMapper $volunteerMapper,
-		RequestMapper $requestMapper
+		RequestMapper $requestMapper,
 	) {
 		$this->volunteerMapper = $volunteerMapper;
 		$this->requestMapper = $requestMapper;

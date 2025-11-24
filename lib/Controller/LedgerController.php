@@ -21,7 +21,7 @@ class LedgerController extends Controller {
 		string $appName,
 		IRequest $request,
 		TransactionService $transactionService,
-		?string $userId
+		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->transactionService = $transactionService;

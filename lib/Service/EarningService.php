@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Service;
 
+use OCA\TimeBank\Db\CategoryMapper;
 use OCA\TimeBank\Db\Earning;
 use OCA\TimeBank\Db\EarningMapper;
-use OCA\TimeBank\Db\CategoryMapper;
 use OCA\TimeBank\Db\Vote;
 use OCA\TimeBank\Db\VoteMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -24,7 +24,7 @@ class EarningService {
 		CategoryMapper $categoryMapper,
 		VoteMapper $voteMapper,
 		BalanceService $balanceService,
-		TransactionService $transactionService
+		TransactionService $transactionService,
 	) {
 		$this->earningMapper = $earningMapper;
 		$this->categoryMapper = $categoryMapper;
@@ -75,9 +75,9 @@ class EarningService {
 		return array_map(function ($claim) {
 			$votes = $this->voteMapper->findByEarning($claim->getId());
 			$data = $claim->jsonSerialize();
-			$data['votes'] = array_map(fn($v) => $v->jsonSerialize(), $votes);
-			$data['approveCount'] = count(array_filter($votes, fn($v) => $v->getVote() === 'approve'));
-			$data['rejectCount'] = count(array_filter($votes, fn($v) => $v->getVote() === 'reject'));
+			$data['votes'] = array_map(fn ($v) => $v->jsonSerialize(), $votes);
+			$data['approveCount'] = count(array_filter($votes, fn ($v) => $v->getVote() === 'approve'));
+			$data['rejectCount'] = count(array_filter($votes, fn ($v) => $v->getVote() === 'reject'));
 			return $data;
 		}, $claims);
 	}
@@ -159,7 +159,7 @@ class EarningService {
 		$requiredVotes = 3;
 
 		if (count($votes) >= $requiredVotes) {
-			$approvals = count(array_filter($votes, fn($v) => $v->getVote() === 'approve'));
+			$approvals = count(array_filter($votes, fn ($v) => $v->getVote() === 'approve'));
 			$rejections = count($votes) - $approvals;
 
 			if ($approvals > $rejections) {
