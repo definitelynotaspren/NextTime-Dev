@@ -21,7 +21,7 @@ class CommentController extends Controller {
 		string $appName,
 		IRequest $request,
 		CommentService $commentService,
-		?string $userId
+		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->commentService = $commentService;

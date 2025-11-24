@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Service;
 
+use OCA\TimeBank\Db\CommentMapper;
 use OCA\TimeBank\Db\Request;
 use OCA\TimeBank\Db\RequestMapper;
-use OCA\TimeBank\Db\VolunteerMapper;
-use OCA\TimeBank\Db\CommentMapper;
 use OCA\TimeBank\Db\UserStatsMapper;
+use OCA\TimeBank\Db\VolunteerMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 class RequestService {
@@ -22,7 +22,7 @@ class RequestService {
 		RequestMapper $requestMapper,
 		VolunteerMapper $volunteerMapper,
 		CommentMapper $commentMapper,
-		UserStatsMapper $statsMapper
+		UserStatsMapper $statsMapper,
 	) {
 		$this->requestMapper = $requestMapper;
 		$this->volunteerMapper = $volunteerMapper;
@@ -86,7 +86,7 @@ class RequestService {
 		return [
 			'request' => $request->jsonSerialize(),
 			'volunteers' => $enrichedVolunteers,
-			'comments' => array_map(fn($c) => $c->jsonSerialize(), $comments),
+			'comments' => array_map(fn ($c) => $c->jsonSerialize(), $comments),
 		];
 	}
 

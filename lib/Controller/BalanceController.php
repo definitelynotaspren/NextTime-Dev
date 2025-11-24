@@ -28,7 +28,7 @@ class BalanceController extends Controller {
 		BalanceService $balanceService,
 		TransactionService $transactionService,
 		IGroupManager $groupManager,
-		?string $userId
+		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->balanceService = $balanceService;
@@ -54,7 +54,7 @@ class BalanceController extends Controller {
 
 		$balances = $this->balanceService->getAllBalances($limit, $offset);
 
-		return new DataResponse(array_map(fn($b) => $b->jsonSerialize(), $balances));
+		return new DataResponse(array_map(fn ($b) => $b->jsonSerialize(), $balances));
 	}
 
 	#[NoAdminRequired]
