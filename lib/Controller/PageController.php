@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\AppTemplate\Controller;
+namespace OCA\TimeBank\Controller;
 
-use OCA\AppTemplate\AppInfo\Application;
+use OCA\TimeBank\AppInfo\Application;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -12,9 +12,6 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\TemplateResponse;
 
-/**
- * @psalm-suppress UnusedClass
- */
 class PageController extends Controller {
 	#[NoCSRFRequired]
 	#[NoAdminRequired]
