@@ -72,7 +72,7 @@ class TransactionService {
 		$total = $this->transactionMapper->count();
 
 		return [
-			'transactions' => array_map(fn($t) => $t->jsonSerialize(), $transactions),
+			'transactions' => array_map(fn ($t) => $t->jsonSerialize(), $transactions),
 			'total' => $total,
 			'limit' => $limit,
 			'offset' => $offset,
@@ -87,7 +87,7 @@ class TransactionService {
 		$total = $this->transactionMapper->countByUser($userId);
 
 		return [
-			'transactions' => array_map(fn($t) => $t->jsonSerialize(), $transactions),
+			'transactions' => array_map(fn ($t) => $t->jsonSerialize(), $transactions),
 			'total' => $total,
 			'limit' => $limit,
 			'offset' => $offset,

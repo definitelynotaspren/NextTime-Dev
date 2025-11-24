@@ -22,7 +22,7 @@ class VolunteerController extends Controller {
 		string $appName,
 		IRequest $request,
 		VolunteerService $volunteerService,
-		?string $userId
+		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->volunteerService = $volunteerService;
@@ -83,6 +83,6 @@ class VolunteerController extends Controller {
 	#[ApiRoute(verb: 'GET', url: '/api/volunteers/my')]
 	public function myOffers(): DataResponse {
 		$offers = $this->volunteerService->getMyVolunteerOffers($this->userId);
-		return new DataResponse(array_map(fn($v) => $v->jsonSerialize(), $offers));
+		return new DataResponse(array_map(fn ($v) => $v->jsonSerialize(), $offers));
 	}
 }
