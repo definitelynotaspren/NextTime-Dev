@@ -25,7 +25,7 @@ class CategoryController extends Controller {
 		IRequest $request,
 		CategoryService $categoryService,
 		IGroupManager $groupManager,
-		?string $userId
+		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->categoryService = $categoryService;
@@ -38,7 +38,7 @@ class CategoryController extends Controller {
 	#[ApiRoute(verb: 'GET', url: '/api/categories')]
 	public function index(): DataResponse {
 		$categories = $this->categoryService->getAll();
-		return new DataResponse(array_map(fn($c) => $c->jsonSerialize(), $categories));
+		return new DataResponse(array_map(fn ($c) => $c->jsonSerialize(), $categories));
 	}
 
 	#[NoAdminRequired]
@@ -89,7 +89,7 @@ class CategoryController extends Controller {
 			'icon' => $this->request->getParam('icon'),
 		];
 
-		$data = array_filter($data, fn($v) => $v !== null);
+		$data = array_filter($data, fn ($v) => $v !== null);
 
 		try {
 			$category = $this->categoryService->update($id, $data);

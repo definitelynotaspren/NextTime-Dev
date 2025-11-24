@@ -22,7 +22,7 @@ class RequestController extends Controller {
 		string $appName,
 		IRequest $request,
 		RequestService $requestService,
-		?string $userId
+		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->requestService = $requestService;
@@ -39,7 +39,7 @@ class RequestController extends Controller {
 			'priority' => $this->request->getParam('priority'),
 		];
 
-		$filters = array_filter($filters, fn($v) => $v !== null);
+		$filters = array_filter($filters, fn ($v) => $v !== null);
 
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
@@ -95,7 +95,7 @@ class RequestController extends Controller {
 			'location' => $this->request->getParam('location'),
 		];
 
-		$data = array_filter($data, fn($v) => $v !== null);
+		$data = array_filter($data, fn ($v) => $v !== null);
 
 		try {
 			$request = $this->requestService->updateRequest($id, $this->userId, $data);

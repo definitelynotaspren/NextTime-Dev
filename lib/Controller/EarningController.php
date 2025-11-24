@@ -25,7 +25,7 @@ class EarningController extends Controller {
 		IRequest $request,
 		EarningService $earningService,
 		IGroupManager $groupManager,
-		?string $userId
+		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->earningService = $earningService;
@@ -57,7 +57,7 @@ class EarningController extends Controller {
 	#[ApiRoute(verb: 'GET', url: '/api/earnings/my')]
 	public function myClaims(): DataResponse {
 		$claims = $this->earningService->getUserClaims($this->userId);
-		return new DataResponse(array_map(fn($c) => $c->jsonSerialize(), $claims));
+		return new DataResponse(array_map(fn ($c) => $c->jsonSerialize(), $claims));
 	}
 
 	#[NoAdminRequired]
@@ -69,7 +69,7 @@ class EarningController extends Controller {
 		}
 
 		$claims = $this->earningService->getPendingClaims();
-		return new DataResponse(array_map(fn($c) => $c->jsonSerialize(), $claims));
+		return new DataResponse(array_map(fn ($c) => $c->jsonSerialize(), $claims));
 	}
 
 	#[NoAdminRequired]
