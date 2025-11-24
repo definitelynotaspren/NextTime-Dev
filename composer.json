@@ -1,17 +1,17 @@
 {
-	"name": "nextcloud/app_template",
-	"description": "An example description",
+	"name": "nextcloud/timebank",
+	"description": "Community time banking system for tracking and exchanging services",
 	"license": "AGPL-3.0-or-later",
 	"authors": [
 		{
-			"name": "example",
-			"email": "example@example.com",
-			"homepage": "https://example.com"
+			"name": "Community Time Bank",
+			"email": "community@timebank.org",
+			"homepage": "https://github.com/timebank"
 		}
 	],
 	"autoload": {
 		"psr-4": {
-			"OCA\\AppTemplate\\": "lib/"
+			"OCA\\TimeBank\\": "lib/"
 		}
 	},
 	"scripts": {
