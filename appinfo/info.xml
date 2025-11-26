@@ -23,6 +23,7 @@ using hours as currency. Features include:
     <category>SPREN</category>
     <bugs>https://github.com/definitelynotaspren/NextTime-Dev/issues</bugs>
 
+
     <dependencies>
         <nextcloud min-version="27" max-version="32"/>
         <php min-version="8.1"/>
