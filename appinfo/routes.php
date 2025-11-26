@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 return [
 	'routes' => [
-		// Page routes
+		// Page routes (these stay as regular routes)
 		['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
-
+	],
+	'ocs' => [
 		// Request API
 		['name' => 'request#index', 'url' => '/api/requests', 'verb' => 'GET'],
 		['name' => 'request#myRequests', 'url' => '/api/requests/my', 'verb' => 'GET'],
