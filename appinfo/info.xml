@@ -20,8 +20,8 @@ using hours as currency. Features include:
     <licence>agpl</licence>
     <author mail="community@timebank.org" homepage="https://github.com/timebank">Community Time Bank</author>
     <namespace>TimeBank</namespace>
-    <category>organization</category>
-    <bugs>https://github.com/timebank/issues</bugs>
+    <category>SPREN</category>
+    <bugs>https://github.com/definitelynotaspren/NextTime-Dev/issues</bugs>
 
     <dependencies>
         <nextcloud min-version="27" max-version="32"/>
