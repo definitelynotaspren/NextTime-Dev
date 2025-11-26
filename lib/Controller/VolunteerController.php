@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\VolunteerService;
-use OCP\AppFramework\Controller;
+use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -13,7 +13,7 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
-class VolunteerController extends Controller {
+class VolunteerController extends OCSController {
 
 	private VolunteerService $volunteerService;
 	private ?string $userId;

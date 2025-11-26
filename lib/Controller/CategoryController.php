@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\CategoryService;
-use OCP\AppFramework\Controller;
+use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -14,7 +14,7 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
 
-class CategoryController extends Controller {
+class CategoryController extends OCSController {
 
 	private CategoryService $categoryService;
 	private IGroupManager $groupManager;
