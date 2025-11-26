@@ -36,10 +36,35 @@ class EarningController extends Controller {
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/earnings/claim')]
 	public function claim(): DataResponse {
+		// Validate required fields
+		$categoryId = $this->request->getParam('categoryId');
+		$hoursClaimed = $this->request->getParam('hoursClaimed');
+		$description = $this->request->getParam('description');
+
+		if (!$categoryId || !is_numeric($categoryId)) {
+			return new DataResponse(['error' => 'Valid category ID is required'], Http::STATUS_BAD_REQUEST);
+		}
+
+		if (!$hoursClaimed || !is_numeric($hoursClaimed) || (float)$hoursClaimed <= 0) {
+			return new DataResponse(['error' => 'Hours claimed must be a positive number'], Http::STATUS_BAD_REQUEST);
+		}
+
+		if ((float)$hoursClaimed > 1000) {
+			return new DataResponse(['error' => 'Hours claimed cannot exceed 1000'], Http::STATUS_BAD_REQUEST);
+		}
+
+		if (empty($description) || strlen(trim($description)) < 10) {
+			return new DataResponse(['error' => 'Description must be at least 10 characters'], Http::STATUS_BAD_REQUEST);
+		}
+
+		if (strlen($description) > 5000) {
+			return new DataResponse(['error' => 'Description cannot exceed 5000 characters'], Http::STATUS_BAD_REQUEST);
+		}
+
 		$data = [
-			'categoryId' => (int)$this->request->getParam('categoryId'),
-			'hoursClaimed' => (float)$this->request->getParam('hoursClaimed'),
-			'description' => $this->request->getParam('description'),
+			'categoryId' => (int)$categoryId,
+			'hoursClaimed' => (float)$hoursClaimed,
+			'description' => trim($description),
 			'evidenceFileId' => $this->request->getParam('evidenceFileId')
 				? (int)$this->request->getParam('evidenceFileId') : null,
 		];
@@ -104,8 +129,12 @@ class EarningController extends Controller {
 
 		$reason = $this->request->getParam('reason');
 
+		if (empty($reason) || strlen(trim($reason)) < 10) {
+			return new DataResponse(['error' => 'Rejection reason must be at least 10 characters'], Http::STATUS_BAD_REQUEST);
+		}
+
 		try {
-			$earning = $this->earningService->rejectClaim($id, $this->userId, $reason);
+			$earning = $this->earningService->rejectClaim($id, $this->userId, trim($reason));
 			return new DataResponse($earning->jsonSerialize());
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
@@ -133,8 +162,12 @@ class EarningController extends Controller {
 		$vote = $this->request->getParam('vote');
 		$comment = $this->request->getParam('comment');
 
+		if (!in_array($vote, ['approve', 'reject', 'abstain'], true)) {
+			return new DataResponse(['error' => 'Vote must be approve, reject, or abstain'], Http::STATUS_BAD_REQUEST);
+		}
+
 		try {
-			$result = $this->earningService->recordVote($id, $this->userId, $vote, $comment);
+			$result = $this->earningService->recordVote($id, $this->userId, $vote, $comment ? trim($comment) : null);
 			return new DataResponse($result);
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
