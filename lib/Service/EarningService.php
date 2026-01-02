@@ -137,40 +137,84 @@ class EarningService {
 	}
 
 	/**
+	 * Records a vote for an earning claim and automatically resolves the claim
+	 * if the required number of votes has been reached.
+	 *
 	 * @return array{complete: bool, result: string|null}
+	 * @throws \Exception if the voter has already voted on this claim
 	 */
 	public function recordVote(int $earningId, string $voterId, string $vote, ?string $comment = null): array {
+		$this->validateVoterEligibility($earningId, $voterId);
+		$this->createVoteRecord($earningId, $voterId, $vote, $comment);
+
+		$votingResult = $this->checkVotingComplete($earningId);
+
+		if ($votingResult['complete']) {
+			$this->resolveClaimByVote($earningId, $votingResult['result']);
+		}
+
+		return $votingResult;
+	}
+
+	/**
+	 * Validates that a voter hasn't already voted on a claim.
+	 *
+	 * @throws \Exception if the voter has already voted
+	 */
+	private function validateVoterEligibility(int $earningId, string $voterId): void {
 		if ($this->voteMapper->hasVoted($earningId, $voterId)) {
 			throw new \Exception('You have already voted on this claim');
 		}
+	}
 
+	/**
+	 * Creates and persists a vote record.
+	 */
+	private function createVoteRecord(int $earningId, string $voterId, string $vote, ?string $comment): void {
 		$voteRecord = new Vote();
 		$voteRecord->setEarningId($earningId);
 		$voteRecord->setVoterId($voterId);
 		$voteRecord->setVote($vote);
+
 		if ($comment) {
 			$voteRecord->setComment($comment);
 		}
+
 		$voteRecord->setCreatedAt(new \DateTime());
-
 		$this->voteMapper->insert($voteRecord);
+	}
 
+	/**
+	 * Checks if voting is complete and determines the result.
+	 *
+	 * @return array{complete: bool, result: string|null}
+	 */
+	private function checkVotingComplete(int $earningId): array {
 		$votes = $this->voteMapper->findByEarning($earningId);
 		$requiredVotes = 3;
 
-		if (count($votes) >= $requiredVotes) {
-			$approvals = count(array_filter($votes, fn ($v) => $v->getVote() === 'approve'));
-			$rejections = count($votes) - $approvals;
-
-			if ($approvals > $rejections) {
-				$this->approveClaim($earningId, 'voting-system');
-				return ['complete' => true, 'result' => 'approved'];
-			} else {
-				$this->rejectClaim($earningId, 'voting-system', 'Rejected by vote');
-				return ['complete' => true, 'result' => 'rejected'];
-			}
+		if (count($votes) < $requiredVotes) {
+			return ['complete' => false, 'result' => null];
 		}
 
-		return ['complete' => false, 'result' => null];
+		$approvals = count(array_filter($votes, fn ($v) => $v->getVote() === 'approve'));
+		$rejections = count($votes) - $approvals;
+
+		$result = $approvals > $rejections ? 'approved' : 'rejected';
+
+		return ['complete' => true, 'result' => $result];
+	}
+
+	/**
+	 * Applies the voting result to the claim.
+	 *
+	 * @throws DoesNotExistException
+	 */
+	private function resolveClaimByVote(int $earningId, string $result): void {
+		if ($result === 'approved') {
+			$this->approveClaim($earningId, 'voting-system');
+		} else {
+			$this->rejectClaim($earningId, 'voting-system', 'Rejected by vote');
+		}
 	}
 }
