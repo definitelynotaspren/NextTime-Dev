@@ -195,19 +195,19 @@ onMounted(() => {
 	background: var(--color-background-hover);
 	padding: 16px;
 	border-radius: 8px;
-	border-left: 4px solid var(--color-border);
+	border-inline-start: 4px solid var(--color-border);
 }
 
 .transaction-item.earned {
-	border-left-color: var(--color-success);
+	border-inline-start-color: var(--color-success);
 }
 
 .transaction-item.spent {
-	border-left-color: var(--color-primary);
+	border-inline-start-color: var(--color-primary);
 }
 
 .transaction-item.adjusted {
-	border-left-color: var(--color-warning);
+	border-inline-start-color: var(--color-warning);
 }
 
 .tx-main {

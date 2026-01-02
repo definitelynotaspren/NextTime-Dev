@@ -107,15 +107,15 @@ const formatDate = (dateString: string | null) => {
 }
 
 .request-card.priority-urgent {
-	border-left: 4px solid var(--color-error);
+	border-inline-start: 4px solid var(--color-error);
 }
 
 .request-card.priority-normal {
-	border-left: 4px solid var(--color-primary);
+	border-inline-start: 4px solid var(--color-primary);
 }
 
 .request-card.priority-flexible {
-	border-left: 4px solid var(--color-success);
+	border-inline-start: 4px solid var(--color-success);
 }
 
 .card-header {
