@@ -9,6 +9,7 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
+import MapComponent from '../components/MapComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -137,6 +138,16 @@ onMounted(() => {
 			</div>
 
 			<div class="sidebar">
+				<!-- Location Map -->
+				<div v-if="requestStore.currentRequest.request.location" class="location-map-section">
+					<h3>Location</h3>
+					<MapComponent
+						:requests="[requestStore.currentRequest.request]"
+						:zoom="14"
+						class="location-map"
+					/>
+				</div>
+
 				<div class="volunteer-section">
 					<h3>Volunteers ({{ requestStore.currentRequest.volunteers.length }})</h3>
 
@@ -282,6 +293,24 @@ onMounted(() => {
 .comment-date {
 	color: var(--color-text-lighter);
 	font-size: 12px;
+}
+
+.location-map-section {
+	background: var(--color-background-hover);
+	padding: 16px;
+	border-radius: 8px;
+	margin-bottom: 20px;
+}
+
+.location-map-section h3 {
+	margin-top: 0;
+	margin-bottom: 12px;
+}
+
+.location-map {
+	height: 300px;
+	border-radius: 8px;
+	overflow: hidden;
 }
 
 .volunteer-section {

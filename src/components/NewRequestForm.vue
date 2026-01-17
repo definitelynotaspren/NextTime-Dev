@@ -6,6 +6,7 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
+import LocationPicker from './LocationPicker.vue'
 
 const emit = defineEmits<{
 	(e: 'created'): void
@@ -152,12 +153,9 @@ const submit = async () => {
 		</div>
 
 		<div class="form-group">
-			<label for="location">Location (optional)</label>
-			<NcTextField
-				id="location"
+			<LocationPicker
 				v-model="location"
-				placeholder="Where is help needed?"
-				:disabled="submitting"
+				:show-map="true"
 			/>
 		</div>
 
