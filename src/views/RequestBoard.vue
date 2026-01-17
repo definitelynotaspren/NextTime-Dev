@@ -10,6 +10,7 @@ import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import RequestCard from '../components/RequestCard.vue'
 import NewRequestForm from '../components/NewRequestForm.vue'
+import MapComponent from '../components/MapComponent.vue'
 
 const router = useRouter()
 const requestStore = useRequestStore()
@@ -19,6 +20,7 @@ const showNewRequestModal = ref(false)
 const selectedStatus = ref<string | null>(null)
 const selectedCategory = ref<number | null>(null)
 const selectedPriority = ref<string | null>(null)
+const viewMode = ref<'grid' | 'map'>('grid')
 
 const statusOptions = [
 	{ id: '', label: 'All Status' },
@@ -59,6 +61,12 @@ const clearFilters = () => {
 
 const viewRequest = (id: number) => {
 	router.push({ name: 'RequestDetail', params: { id } })
+}
+
+const onMarkerClick = (data: { type: 'request' | 'offer', id: number }) => {
+	if (data.type === 'request') {
+		viewRequest(data.id)
+	}
 }
 
 const onRequestCreated = () => {
@@ -105,6 +113,21 @@ onMounted(() => {
 			<NcButton @click="clearFilters">Clear Filters</NcButton>
 		</div>
 
+		<div class="view-toggle">
+			<NcButton
+				:type="viewMode === 'grid' ? 'primary' : 'secondary'"
+				@click="viewMode = 'grid'"
+			>
+				Grid View
+			</NcButton>
+			<NcButton
+				:type="viewMode === 'map' ? 'primary' : 'secondary'"
+				@click="viewMode = 'map'"
+			>
+				Map View
+			</NcButton>
+		</div>
+
 		<NcLoadingIcon v-if="requestStore.loading" :size="44" />
 
 		<NcEmptyContent v-else-if="requestStore.error" name="Error">
@@ -119,12 +142,19 @@ onMounted(() => {
 			</template>
 		</NcEmptyContent>
 
-		<div v-else class="board-grid">
+		<div v-else-if="viewMode === 'grid'" class="board-grid">
 			<RequestCard
 				v-for="request in requestStore.requests"
 				:key="request.id"
 				:request="request"
 				@click="viewRequest(request.id)"
+			/>
+		</div>
+
+		<div v-else-if="viewMode === 'map'" class="board-map">
+			<MapComponent
+				:requests="requestStore.requests"
+				@marker-click="onMarkerClick"
 			/>
 		</div>
 
@@ -184,10 +214,23 @@ onMounted(() => {
 	flex-wrap: wrap;
 }
 
+.view-toggle {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 20px;
+}
+
 .board-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
 	gap: 20px;
+}
+
+.board-map {
+	height: 600px;
+	border-radius: 8px;
+	overflow: hidden;
+	margin-bottom: 20px;
 }
 
 .board-pagination {
