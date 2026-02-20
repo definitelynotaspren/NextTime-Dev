@@ -10,12 +10,12 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
-use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
 
-class BalanceController extends OCSController {
+class BalanceController extends Controller {
 
 	private BalanceService $balanceService;
 	private TransactionService $transactionService;
@@ -40,28 +40,28 @@ class BalanceController extends OCSController {
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/balance/my')]
-	public function my(): DataResponse {
+	public function my(): JSONResponse {
 		$balance = $this->balanceService->getBalance($this->userId);
-		return new DataResponse($balance->jsonSerialize());
+		return new JSONResponse($balance->jsonSerialize());
 	}
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/balance/all')]
-	public function all(): DataResponse {
+	public function all(): JSONResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 100);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
 
 		$balances = $this->balanceService->getAllBalances($limit, $offset);
 
-		return new DataResponse(array_map(fn ($b) => $b->jsonSerialize(), $balances));
+		return new JSONResponse(array_map(fn ($b) => $b->jsonSerialize(), $balances));
 	}
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/balance/adjust')]
-	public function adjust(): DataResponse {
+	public function adjust(): JSONResponse {
 		if (!$this->groupManager->isAdmin($this->userId)) {
-			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
+			return new JSONResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
 		}
 
 		$targetUserId = $this->request->getParam('userId');
@@ -78,9 +78,9 @@ class BalanceController extends OCSController {
 			$this->transactionService->recordAdjustment($targetUserId, $hours, $reason, $this->userId);
 
 			$balance = $this->balanceService->getBalance($targetUserId);
-			return new DataResponse($balance->jsonSerialize());
+			return new JSONResponse($balance->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
 		}
 	}
 }

@@ -2,11 +2,7 @@
 
 declare(strict_types=1);
 
-// API routes are defined using #[ApiRoute] attributes in the controllers
-// that extend OCSController. Only page routes need to be defined here.
-return [
-	'routes' => [
-		// Page routes
-		['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
-	],
-];
+// All routes are registered via PHP 8 attributes on the controllers:
+//   #[FrontpageRoute] for the page route in PageController
+//   #[ApiRoute]       for all API endpoints
+return ['routes' => []];

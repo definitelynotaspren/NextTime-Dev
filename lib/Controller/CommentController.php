@@ -8,11 +8,11 @@ use OCA\TimeBank\Service\CommentService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
-use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 
-class CommentController extends OCSController {
+class CommentController extends Controller {
 
 	private CommentService $commentService;
 	private ?string $userId;
@@ -30,7 +30,7 @@ class CommentController extends OCSController {
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/requests/{requestId}/comments')]
-	public function create(int $requestId): DataResponse {
+	public function create(int $requestId): JSONResponse {
 		$data = [
 			'comment' => $this->request->getParam('comment'),
 			'parentId' => $this->request->getParam('parentId')
@@ -39,20 +39,20 @@ class CommentController extends OCSController {
 
 		try {
 			$comment = $this->commentService->create($requestId, $this->userId, $data);
-			return new DataResponse($comment->jsonSerialize(), Http::STATUS_CREATED);
+			return new JSONResponse($comment->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
 		}
 	}
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'DELETE', url: '/api/comments/{id}')]
-	public function delete(int $id): DataResponse {
+	public function delete(int $id): JSONResponse {
 		try {
 			$this->commentService->delete($id, $this->userId);
-			return new DataResponse(['success' => true]);
+			return new JSONResponse(['success' => true]);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
 		}
 	}
 }

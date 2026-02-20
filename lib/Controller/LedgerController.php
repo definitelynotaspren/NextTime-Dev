@@ -8,11 +8,11 @@ use OCA\TimeBank\Service\TransactionService;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
-use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 
-class LedgerController extends OCSController {
+class LedgerController extends Controller {
 
 	private TransactionService $transactionService;
 	private ?string $userId;
@@ -31,36 +31,36 @@ class LedgerController extends OCSController {
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/ledger')]
-	public function index(): DataResponse {
+	public function index(): JSONResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
 
 		$data = $this->transactionService->getPublicLedger($limit, $offset);
 
-		return new DataResponse($data);
+		return new JSONResponse($data);
 	}
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/ledger/my')]
-	public function myTransactions(): DataResponse {
+	public function myTransactions(): JSONResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
 
 		$data = $this->transactionService->getUserTransactions($this->userId, $limit, $offset);
 
-		return new DataResponse($data);
+		return new JSONResponse($data);
 	}
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/ledger/user/{userId}')]
-	public function userTransactions(string $userId): DataResponse {
+	public function userTransactions(string $userId): JSONResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
 
 		$data = $this->transactionService->getUserTransactions($userId, $limit, $offset);
 
-		return new DataResponse($data);
+		return new JSONResponse($data);
 	}
 }
