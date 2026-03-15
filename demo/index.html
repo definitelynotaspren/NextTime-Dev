@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NextTime — Community Time Bank Demo</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.prod.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --primary:        #0082c9;
+      --primary-hover:  #006aa3;
+      --primary-text:   #ffffff;
+      --success:        #46ba61;
+      --warning:        #e9b513;
+      --error:          #e9322d;
+      --bg:             #f2f2f2;
+      --bg-hover:       #e8e8e8;
+      --bg-dark:        #555555;
+      --surface:        #ffffff;
+      --border:         #dbdbdb;
+      --text:           #222222;
+      --text-light:     #767676;
+      --sidebar-width:  220px;
+      --radius:         8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           background: var(--bg); color: var(--text); font-size: 14px; }
+
+    /* ── Layout ── */
+    #app { display: flex; height: 100vh; overflow: hidden; }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      flex-shrink: 0; overflow-y: auto;
+    }
+    .sidebar-header {
+      padding: 18px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h2 { font-size: 16px; font-weight: 700; color: var(--primary); }
+    .sidebar-header small { color: var(--text-light); font-size: 11px; }
+    .sidebar-user {
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--primary); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .user-info { min-width: 0; }
+    .user-name { font-size: 13px; font-weight: 600; }
+    .user-balance { font-size: 11px; color: var(--text-light); }
+
+    nav { padding: 8px 0; flex: 1; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; cursor: pointer;
+      color: var(--text); text-decoration: none;
+      border-radius: 0; transition: background 0.15s;
+    }
+    .nav-item:hover { background: var(--bg-hover); }
+    .nav-item.active { background: var(--primary); color: white; }
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .nav-item .label { font-size: 13px; }
+
+    .content {
+      flex: 1; overflow-y: auto;
+      padding: 24px;
+    }
+
+    /* ── Common UI components ── */
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    h2 { font-size: 17px; font-weight: 600; }
+    h3 { font-size: 15px; font-weight: 600; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 6px; font-size: 13px;
+      font-weight: 500; cursor: pointer; border: 1px solid transparent;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+    .btn-default { background: var(--surface); color: var(--text); border-color: var(--border); }
+    .btn-default:hover:not(:disabled) { background: var(--bg-hover); }
+    .btn-danger  { background: var(--error); color: white; border-color: var(--error); }
+    .btn-success { background: var(--success); color: white; border-color: var(--success); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    input, textarea, select {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; font-family: inherit;
+      background: var(--surface); color: var(--text);
+      transition: border-color 0.15s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none; border-color: var(--primary);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; font-size: 13px; }
+
+    .form-group { margin-bottom: 14px; }
+    .form-row { display: flex; gap: 14px; }
+    .form-row .form-group { flex: 1; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; text-transform: uppercase; font-weight: 600;
+    }
+    .badge-open    { background: var(--success); color: white; }
+    .badge-progress { background: var(--warning); color: white; }
+    .badge-completed { background: var(--bg-dark); color: white; }
+    .badge-pending  { background: var(--primary); color: white; }
+    .badge-approved { background: var(--success); color: white; }
+    .badge-rejected { background: var(--error); color: white; }
+    .badge-voting   { background: var(--warning); color: white; }
+    .badge-urgent   { background: var(--error); color: white; }
+    .badge-normal   { background: var(--primary); color: white; }
+    .badge-flexible { background: var(--success); color: white; }
+    .badge-cat      { background: var(--bg-hover); color: var(--text); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px;
+    }
+
+    .empty-state {
+      text-align: center; padding: 40px 20px;
+      color: var(--text-light);
+      background: var(--bg-hover); border-radius: var(--radius);
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+    .alert { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
+    .alert-success { background: #d7f5df; color: #1a5c2a; border: 1px solid #a5dbb5; }
+    .alert-error   { background: #fde8e8; color: #7a1a1a; border: 1px solid #f5b8b8; }
+
+    .pagination {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    .pagination span { font-size: 13px; color: var(--text-light); }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal-box {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 24px; width: 580px; max-width: 95vw; max-height: 90vh;
+      overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .modal-box h2 { margin-bottom: 18px; }
+
+    /* ── Request Card ── */
+    .request-card {
+      background: var(--surface); border: 2px solid var(--border);
+      border-radius: var(--radius); padding: 16px; cursor: pointer;
+      transition: all 0.18s;
+    }
+    .request-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px rgba(0,0,0,.09);
+      transform: translateY(-2px);
+    }
+    .request-card.priority-urgent { border-left: 4px solid var(--error); }
+    .request-card.priority-normal { border-left: 4px solid var(--primary); }
+    .request-card.priority-flexible { border-left: 4px solid var(--success); }
+
+    .card-header { display: flex; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+    .card-title { font-size: 16px; font-weight: 600; margin: 6px 0; }
+    .card-description { color: var(--text-light); font-size: 13px; line-height: 1.5; margin: 6px 0; }
+    .card-meta {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      margin: 10px 0; font-size: 12px; color: var(--text-light);
+    }
+    .meta-item { display: flex; align-items: center; gap: 4px; }
+    .card-footer {
+      display: flex; justify-content: space-between;
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--border); font-size: 12px; color: var(--text-light);
+    }
+
+    /* ── Board ── */
+    .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .board-filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-end; }
+    .board-filters select { width: auto; min-width: 130px; }
+    .view-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .board-map { height: 560px; border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+
+    /* ── Balance ── */
+    .balance-hero {
+      background: linear-gradient(135deg, var(--primary), #0066aa);
+      color: white; padding: 36px; border-radius: var(--radius);
+      text-align: center; margin-bottom: 24px;
+    }
+    .balance-hero h1 { color: white; font-size: 20px; opacity: .9; margin-bottom: 8px; }
+    .balance-amount { font-size: 64px; font-weight: 700; line-height: 1; }
+    .balance-amount span { font-size: 22px; font-weight: 400; opacity: .8; margin-left: 6px; }
+    .balance-updated { margin-top: 8px; font-size: 12px; opacity: .7; }
+
+    .tx-list { display: flex; flex-direction: column; gap: 8px; }
+    .tx-item {
+      background: var(--bg-hover); padding: 14px; border-radius: 6px;
+      border-left: 4px solid var(--border);
+    }
+    .tx-item.earned { border-left-color: var(--success); }
+    .tx-item.spent  { border-left-color: var(--primary); }
+    .tx-item.adjusted { border-left-color: var(--warning); }
+    .tx-main { display: flex; gap: 10px; margin-bottom: 6px; }
+    .tx-type { font-weight: 600; min-width: 75px; }
+    .tx-item.earned .tx-type { color: var(--success); }
+    .tx-item.spent  .tx-type { color: var(--primary); }
+    .tx-desc { flex: 1; }
+    .tx-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-light); }
+
+    /* ── Ledger table ── */
+    .ledger-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .ledger-table th, .ledger-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    .ledger-table th { background: var(--bg-hover); font-weight: 600; }
+    .ledger-table tr:hover td { background: var(--bg-hover); }
+    .ledger-table .hours-col { font-weight: 700; color: var(--primary); }
+    .ledger-table .desc-col { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Claims / approvals ── */
+    .claim-card {
+      background: var(--bg-hover); padding: 16px; border-radius: var(--radius);
+      margin-bottom: 14px;
+    }
+    .claim-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .claim-hours { font-weight: 600; margin-bottom: 6px; font-size: 13px; }
+    .claim-desc { color: var(--text-light); margin-bottom: 12px; font-size: 13px; }
+    .claim-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── Request detail ── */
+    .detail-layout { display: flex; gap: 28px; margin-top: 18px; }
+    .detail-main  { flex: 2; min-width: 0; }
+    .detail-sidebar { flex: 1; min-width: 260px; }
+    .detail-header { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .request-meta-row { display: flex; flex-wrap: wrap; gap: 16px; color: var(--text-light); margin: 10px 0 18px; font-size: 13px; }
+    .description-box { background: var(--bg-hover); padding: 14px; border-radius: 6px; margin-bottom: 18px; font-size: 14px; line-height: 1.6; }
+    .comment { background: var(--bg-hover); padding: 12px; border-radius: 6px; margin-bottom: 8px; }
+    .comment-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: var(--text-light); }
+    .comment p { font-size: 13px; line-height: 1.5; }
+    .add-comment { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .vol-card { background: var(--surface); border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-bottom: 8px; }
+    .vol-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .vol-stats { font-size: 11px; color: var(--text-light); margin-top: 6px; display: flex; gap: 12px; }
+
+    /* ── Submit earning ── */
+    .earning-layout { display: flex; gap: 32px; }
+    .earning-form { flex: 1; max-width: 480px; }
+    .earning-history { flex: 1; }
+    .hours-calc { margin-top: 6px; font-size: 13px; color: var(--success); }
+
+    /* ── Misc ── */
+    .section-title { margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .section-space { margin-bottom: 36px; }
+    .subtitle { color: var(--text-light); margin-bottom: 16px; font-size: 13px; }
+    .back-btn { margin-bottom: 16px; }
+    .no-items { color: var(--text-light); padding: 20px; text-align: center; background: var(--bg-hover); border-radius: 6px; }
+    .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 700px) {
+      .sidebar { width: 48px; }
+      .sidebar .label, .sidebar-header h2, .sidebar-header small, .sidebar-user .user-info { display: none; }
+      .detail-layout, .earning-layout { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+const { createRouter, createWebHashHistory, useRouter, useRoute, RouterLink } = VueRouter;
+
+/* ══════════════════════════════════════════════
+   MOCK DATA
+══════════════════════════════════════════════ */
+const CATEGORIES = [
+  { id: 1, name: 'Gardening',    earnRate: 1.0 },
+  { id: 2, name: 'Tech Support', earnRate: 1.5 },
+  { id: 3, name: 'Medical Care', earnRate: 2.0 },
+  { id: 4, name: 'Childcare',    earnRate: 1.5 },
+  { id: 5, name: 'Transport',    earnRate: 1.0 },
+  { id: 6, name: 'Home Repair',  earnRate: 1.25 },
+  { id: 7, name: 'Cooking',      earnRate: 1.0 },
+  { id: 8, name: 'Language',     earnRate: 1.5 },
+];
+
+const REQUESTS = reactive([
+  { id: 1, requesterId: 'alice', title: 'Help with spring garden cleanup',
+    description: 'My backyard needs a thorough cleanup after winter. Lots of dead leaves, some light pruning needed for the rose bushes, and general tidying up. I have all the tools.',
+    categoryId: 1, hoursBudget: 4, status: 'open', priority: 'normal',
+    deadline: '2026-04-15', location: '45.5152,-122.6784',
+    volunteerCount: 2, commentCount: 3 },
+  { id: 2, requesterId: 'bob', title: 'Set up home network & WiFi',
+    description: 'My new router arrived but I'm confused by the mesh network setup. Also need help moving files from old laptop to new one. Would take maybe 2–3 hours total.',
+    categoryId: 2, hoursBudget: 3, status: 'open', priority: 'urgent',
+    deadline: '2026-03-20', location: '45.5225,-122.6702',
+    volunteerCount: 1, commentCount: 1 },
+  { id: 3, requesterId: 'carol', title: 'Weekly grocery runs for elderly neighbor',
+    description: 'My neighbor Mrs. Chen (85) can no longer drive. Needs rides to the grocery store and pharmacy twice a week. She is very sweet and always has tea ready!',
+    categoryId: 5, hoursBudget: 2, status: 'in_progress', priority: 'urgent',
+    deadline: null, location: '45.5080,-122.6900',
+    volunteerCount: 1, commentCount: 5 },
+  { id: 4, requesterId: 'demo.user', title: 'Need help learning Spanish conversation',
+    description: 'I've been using Duolingo for 6 months but struggle with actual conversation. Looking for a fluent or native speaker to practice with weekly, 1 hour sessions.',
+    categoryId: 8, hoursBudget: 6, status: 'open', priority: 'flexible',
+    deadline: '2026-06-01', location: null,
+    volunteerCount: 3, commentCount: 2 },
+  { id: 5, requesterId: 'demo.user', title: 'Fix leaking kitchen faucet',
+    description: 'The kitchen faucet has a slow drip that's gotten worse. I think it needs new washers or cartridge. I have basic tools but not the expertise.',
+    categoryId: 6, hoursBudget: 2, status: 'completed', priority: 'normal',
+    deadline: '2026-03-01', location: '45.5150,-122.6800',
+    volunteerCount: 1, commentCount: 4 },
+  { id: 6, requesterId: 'eve', title: 'After-school homework help — math',
+    description: 'My 10-year-old struggles with fractions and long division. Looking for a patient helper 2 hours a week (after school). We're flexible on schedule.',
+    categoryId: 4, hoursBudget: 4, status: 'open', priority: 'normal',
+    deadline: null, location: '45.5300,-122.6600',
+    volunteerCount: 0, commentCount: 1 },
+  { id: 7, requesterId: 'frank', title: 'Meal prep for post-surgery recovery',
+    description: 'Recovering from knee surgery for 3 weeks. Would love help prepping healthy, simple meals twice a week. I have dietary restrictions (no gluten, low sodium).',
+    categoryId: 7, hoursBudget: 3, status: 'open', priority: 'urgent',
+    deadline: '2026-03-25', location: '45.5400,-122.6500',
+    volunteerCount: 2, commentCount: 6 },
+  { id: 8, requesterId: 'grace', title: 'Blood pressure monitoring assistance',
+    description: 'Need someone with nursing or medical background to check my blood pressure and review my medication schedule monthly. Diagnosed with hypertension last year.',
+    categoryId: 3, hoursBudget: 1, status: 'open', priority: 'normal',
+    deadline: null, location: '45.5050,-122.7000',
+    volunteerCount: 1, commentCount: 0 },
+]);
+
+const VOLUNTEERS = {
+  1: [
+    { id: 1, volunteerId: 'henry', proposedHours: 4, message: 'I love gardening! Have been doing it for 10 years.', status: 'offered', completedInCategory: 8, totalHoursProvided: 22 },
+    { id: 2, volunteerId: 'demo.user', proposedHours: 3, message: 'Happy to help out on a weekend.', status: 'offered', completedInCategory: 2, totalHoursProvided: 7 },
+  ],
+  2: [
+    { id: 3, volunteerId: 'irene', proposedHours: 3, message: 'I'm a network engineer, can definitely help.', status: 'accepted', completedInCategory: 15, totalHoursProvided: 40 },
+  ],
+  3: [
+    { id: 4, volunteerId: 'jane', proposedHours: 2, message: '', status: 'accepted', completedInCategory: 5, totalHoursProvided: 18 },
+  ],
+  4: [
+    { id: 5, volunteerId: 'karl', proposedHours: 2, message: 'Native Spanish speaker, happy to practice!', status: 'offered', completedInCategory: 3, totalHoursProvided: 9 },
+    { id: 6, volunteerId: 'lisa', proposedHours: 1, message: 'Lived in Mexico for 5 years.', status: 'offered', completedInCategory: 7, totalHoursProvided: 21 },
+    { id: 7, volunteerId: 'maria', proposedHours: 2, message: '', status: 'offered', completedInCategory: 10, totalHoursProvided: 30 },
+  ],
+};
+
+const COMMENTS = {
+  1: [
+    { id: 1, userId: 'henry', comment: 'I can bring my own leaf blower if that helps!', createdAt: '2026-03-10T09:00:00Z' },
+    { id: 2, userId: 'alice', comment: 'That would be amazing, thank you!', createdAt: '2026-03-10T10:30:00Z' },
+    { id: 3, userId: 'irene', comment: 'Is early morning okay? Around 8am?', createdAt: '2026-03-11T08:15:00Z' },
+  ],
+  2: [
+    { id: 4, userId: 'bob', comment: 'Router model is Eero 6+, if that helps.', createdAt: '2026-03-12T14:00:00Z' },
+  ],
+  3: [
+    { id: 5, userId: 'carol', comment: 'Tuesdays and Fridays would work best.', createdAt: '2026-03-09T10:00:00Z' },
+    { id: 6, userId: 'jane', comment: 'I'm free those days! Will confirm.', createdAt: '2026-03-09T11:00:00Z' },
+    { id: 7, userId: 'carol', comment: 'Great — she prefers the 10am slot.', createdAt: '2026-03-10T09:30:00Z' },
+    { id: 8, userId: 'mrs_chen_neighbor', comment: 'This service is wonderful, thank you!', createdAt: '2026-03-12T15:00:00Z' },
+    { id: 9, userId: 'carol', comment: '❤️', createdAt: '2026-03-12T15:30:00Z' },
+  ],
+};
+
+const EARNINGS = reactive([
+  { id: 1, userId: 'henry',     categoryId: 1, hoursClaimed: 4, actualHoursEarned: 4.0,  description: 'Completed spring cleanup for Alice — 4 hours, removed all debris and pruned roses.', status: 'pending', createdAt: '2026-03-13T10:00:00Z', approveCount: 0, rejectCount: 0 },
+  { id: 2, userId: 'irene',     categoryId: 2, hoursClaimed: 3, actualHoursEarned: 4.5,  description: 'Set up mesh WiFi and migrated all files for Bob. Took about 3 hours.', status: 'pending', createdAt: '2026-03-12T16:00:00Z', approveCount: 0, rejectCount: 0 },
+  { id: 3, userId: 'jane',      categoryId: 5, hoursClaimed: 2, actualHoursEarned: 2.0,  description: 'Grocery run + pharmacy visit with Mrs. Chen (Tuesday)', status: 'voting', createdAt: '2026-03-11T12:00:00Z', approveCount: 3, rejectCount: 1 },
+  { id: 4, userId: 'demo.user', categoryId: 6, hoursClaimed: 2, actualHoursEarned: 2.5,  description: 'Fixed faucet cartridge for Frank — purchased part, ~2hrs total.', status: 'approved', createdAt: '2026-03-08T14:00:00Z', approveCount: 0, rejectCount: 0 },
+  { id: 5, userId: 'demo.user', categoryId: 2, hoursClaimed: 1.5, actualHoursEarned: 2.25, description: 'Helped Eve setup her laptop and email. 1.5 hours.', status: 'rejected', createdAt: '2026-03-05T11:00:00Z', approveCount: 0, rejectCount: 0 },
+]);
+
+const TRANSACTIONS = [
+  { id: 1, fromUserId: null,        toUserId: 'demo.user', hours: 10,   description: 'Welcome bonus — new member credit', transactionType: 'adjusted', referenceType: 'system', createdAt: '2026-01-01T00:00:00Z' },
+  { id: 2, fromUserId: 'carol',     toUserId: 'henry',     hours: 4,    description: 'Garden cleanup — request #1', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-02-15T11:00:00Z' },
+  { id: 3, fromUserId: 'bob',       toUserId: 'irene',     hours: 4.5,  description: 'Network setup & file transfer', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-02-20T14:00:00Z' },
+  { id: 4, fromUserId: null,        toUserId: 'demo.user', hours: 2.5,  description: 'Home repair service — faucet fix', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-03-08T15:00:00Z' },
+  { id: 5, fromUserId: 'demo.user', toUserId: 'karl',      hours: 1,    description: 'Spanish conversation session #1', transactionType: 'spent',  referenceType: 'request', createdAt: '2026-03-09T18:00:00Z' },
+  { id: 6, fromUserId: 'demo.user', toUserId: 'eve',       hours: 2,    description: 'Laptop setup and email help', transactionType: 'spent',  referenceType: 'earning', createdAt: '2026-03-10T12:00:00Z' },
+  { id: 7, fromUserId: 'frank',     toUserId: 'lisa',      hours: 3,    description: 'Meal prep — 3 sessions', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-03-11T19:00:00Z' },
+  { id: 8, fromUserId: null,        toUserId: 'grace',     hours: 2,    description: 'Admin adjustment — data correction', transactionType: 'adjusted', referenceType: 'system', createdAt: '2026-03-12T09:00:00Z' },
+];
+
+const MY_TRANSACTIONS = TRANSACTIONS.filter(t => t.fromUserId === 'demo.user' || t.toUserId === 'demo.user');
+
+const BALANCE = reactive({ balance: 9.5, updatedAt: '2026-03-14T08:00:00Z' });
+
+let nextId = 100;
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function getCategoryById(id) {
+  return CATEGORIES.find(c => c.id === id) || null;
+}
+
+function getCategoryName(id) {
+  return getCategoryById(id)?.name || 'Other';
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtDateTime(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleString();
+}
+
+function truncate(str, max = 120) {
+  if (!str) return '';
+  return str.length <= max ? str : str.slice(0, max) + '…';
+}
+
+function statusBadgeClass(s) {
+  if (s === 'open') return 'badge badge-open';
+  if (s === 'in_progress') return 'badge badge-progress';
+  if (s === 'completed') return 'badge badge-completed';
+  return 'badge';
+}
+
+function priorityBadgeClass(p) {
+  return `badge badge-${p}`;
+}
+
+/* ══════════════════════════════════════════════
+   COMPONENTS
+══════════════════════════════════════════════ */
+
+/* ── RequestCard ── */
+const RequestCard = {
+  props: ['request'],
+  emits: ['click'],
+  setup(props) {
+    const cat = computed(() => getCategoryName(props.request.categoryId));
+    const desc = computed(() => truncate(props.request.description));
+    const deadlineFmt = computed(() => fmtDate(props.request.deadline));
+    return { cat, desc, deadlineFmt, statusBadgeClass, priorityBadgeClass };
+  },
+  template: `
+    <div :class="'request-card priority-' + request.priority" @click="$emit('click')">
+      <div class="card-header">
+        <span class="badge badge-cat">{{ cat }}</span>
+        <span :class="statusBadgeClass(request.status)">{{ request.status.replace('_',' ') }}</span>
+      </div>
+      <div class="card-title">{{ request.title }}</div>
+      <div class="card-description">{{ desc }}</div>
+      <div class="card-meta">
+        <span class="meta-item">⏱ {{ request.hoursBudget }} hrs</span>
+        <span v-if="request.location" class="meta-item">📍 {{ request.location }}</span>
+        <span v-if="request.deadline" class="meta-item">📅 {{ deadlineFmt }}</span>
+        <span class="meta-item"><span :class="priorityBadgeClass(request.priority)">{{ request.priority }}</span></span>
+      </div>
+      <div class="card-footer">
+        <span>👤 {{ request.volunteerCount || 0 }} volunteer(s)</span>
+        <span>💬 {{ request.commentCount || 0 }}</span>
+      </div>
+    </div>
+  `
+};
+
+/* ── NewRequestModal ── */
+const NewRequestModal = {
+  emits: ['created', 'cancel'],
+  setup(_, { emit }) {
+    const title = ref('');
+    const description = ref('');
+    const categoryId = ref('');
+    const hoursBudget = ref('');
+    const priority = ref('normal');
+    const deadline = ref('');
+    const location = ref('');
+    const submitting = ref(false);
+    const error = ref('');
+
+    const isValid = computed(() =>
+      title.value.trim() && description.value.trim() && categoryId.value && parseFloat(hoursBudget.value) > 0
+    );
+
+    function submit() {
+      if (!isValid.value) return;
+      submitting.value = true;
+      setTimeout(() => {
+        const newReq = {
+          id: ++nextId,
+          requesterId: 'demo.user',
+          title: title.value,
+          description: description.value,
+          categoryId: parseInt(categoryId.value),
+          hoursBudget: parseFloat(hoursBudget.value),
+          status: 'open',
+          priority: priority.value,
+          deadline: deadline.value || null,
+          location: location.value || null,
+          volunteerCount: 0,
+          commentCount: 0,
+        };
+        REQUESTS.unshift(newReq);
+        submitting.value = false;
+        emit('created');
+      }, 600);
+    }
+
+    return { title, description, categoryId, hoursBudget, priority, deadline, location, submitting, error, isValid, submit, CATEGORIES };
+  },
+  template: `
+    <div class="modal-overlay" @click.self="$emit('cancel')">
+      <div class="modal-box">
+        <h2>Post a New Request</h2>
+        <div v-if="error" class="alert alert-error">{{ error }}</div>
+        <div class="form-group">
+          <label>Title *</label>
+          <input v-model="title" placeholder="What do you need help with?" />
+        </div>
+        <div class="form-group">
+          <label>Description *</label>
+          <textarea v-model="description" rows="4" placeholder="Describe your need in detail…"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category *</label>
+            <select v-model="categoryId">
+              <option value="">Select category…</option>
+              <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Hours Budget *</label>
+            <input v-model="hoursBudget" type="number" min="0.5" step="0.5" placeholder="Est. hours" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Priority</label>
+            <select v-model="priority">
+              <option value="urgent">Urgent</option>
+              <option value="normal">Normal</option>
+              <option value="flexible">Flexible</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Deadline (optional)</label>
+            <input v-model="deadline" type="date" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Location (optional)</label>
+          <input v-model="location" placeholder="Address or lat,lng" />
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-default" @click="$emit('cancel')" :disabled="submitting">Cancel</button>
+          <button class="btn btn-primary" @click="submit" :disabled="!isValid || submitting">
+            {{ submitting ? 'Posting…' : 'Post Request' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  `
+};
+
+/* ══════════════════════════════════════════════
+   VIEWS
+══════════════════════════════════════════════ */
+
+/* ── RequestBoard ── */
+const RequestBoard = {
+  components: { RequestCard, NewRequestModal },
+  setup() {
+    const router = useRouter();
+    const showModal = ref(false);
+    const filterStatus = ref('');
+    const filterCategory = ref('');
+    const filterPriority = ref('');
+    const viewMode = ref('grid');
+    let mapInstance = null;
+    const mapEl = ref(null);
+
+    const filtered = computed(() => {
+      return REQUESTS.filter(r => {
+        if (filterStatus.value && r.status !== filterStatus.value) return false;
+        if (filterCategory.value && String(r.categoryId) !== filterCategory.value) return false;
+        if (filterPriority.value && r.priority !== filterPriority.value) return false;
+        return true;
+      });
+    });
+
+    function clearFilters() {
+      filterStatus.value = '';
+      filterCategory.value = '';
+      filterPriority.value = '';
+    }
+
+    function viewRequest(id) {
+      router.push({ name: 'RequestDetail', params: { id } });
+    }
+
+    // Map
+    watch(viewMode, (val) => {
+      if (val === 'map') nextTick(() => initMap());
+      else { if (mapInstance) { mapInstance.remove(); mapInstance = null; } }
+    });
+
+    function initMap() {
+      if (!mapEl.value || mapInstance) return;
+      mapInstance = new maplibregl.Map({
+        container: mapEl.value,
+        style: 'https://demotiles.maplibre.org/style.json',
+        center: [-122.68, 45.51],
+        zoom: 11,
+      });
+      mapInstance.on('load', () => addMapMarkers());
+    }
+
+    function addMapMarkers() {
+      filtered.value.forEach(req => {
+        if (!req.location) return;
+        const parts = req.location.split(',').map(Number);
+        if (parts.length !== 2 || isNaN(parts[0])) return;
+        const el = document.createElement('div');
+        el.textContent = '🆘';
+        el.style.cssText = 'font-size:22px;cursor:pointer;';
+        const popup = new maplibregl.Popup({ offset: 20 })
+          .setHTML(`<div style="padding:10px;min-width:180px"><strong>${req.title}</strong><br><small>${getCategoryName(req.categoryId)} · ${req.hoursBudget}h</small></div>`);
+        new maplibregl.Marker({ element: el })
+          .setLngLat([parts[1], parts[0]])
+          .setPopup(popup)
+          .addTo(mapInstance);
+        el.addEventListener('click', () => viewRequest(req.id));
+      });
+    }
+
+    onMounted(() => {});
+    return { CATEGORIES, filtered, showModal, filterStatus, filterCategory, filterPriority, viewMode, mapEl, clearFilters, viewRequest };
+  },
+  template: `
+    <div>
+      <div class="board-header">
+        <h1>Community Time Bank</h1>
+        <button class="btn btn-primary" @click="showModal = true">+ Post New Need</button>
+      </div>
+      <div class="board-filters">
+        <select v-model="filterStatus">
+          <option value="">All Statuses</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select v-model="filterCategory">
+          <option value="">All Categories</option>
+          <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
+        </select>
+        <select v-model="filterPriority">
+          <option value="">All Priorities</option>
+          <option value="urgent">Urgent</option>
+          <option value="normal">Normal</option>
+          <option value="flexible">Flexible</option>
+        </select>
+        <button class="btn btn-default" @click="clearFilters">Clear</button>
+      </div>
+      <div class="view-toggle">
+        <button :class="viewMode==='grid'?'btn btn-primary':'btn btn-default'" @click="viewMode='grid'">☰ Grid</button>
+        <button :class="viewMode==='map'?'btn btn-primary':'btn btn-default'" @click="viewMode='map'">🗺 Map</button>
+      </div>
+
+      <div v-if="filtered.length === 0" class="empty-state">
+        <div class="icon">📋</div>
+        <div>No requests match your filters.</div>
+      </div>
+
+      <div v-else-if="viewMode === 'grid'" class="board-grid">
+        <RequestCard v-for="req in filtered" :key="req.id" :request="req" @click="viewRequest(req.id)" />
+      </div>
+
+      <div v-else class="board-map">
+        <div ref="mapEl" style="width:100%;height:100%"></div>
+      </div>
+
+      <NewRequestModal v-if="showModal" @created="showModal=false" @cancel="showModal=false" />
+    </div>
+  `
+};
+
+/* ── RequestDetail ── */
+const RequestDetail = {
+  props: ['id'],
+  setup(props) {
+    const router = useRouter();
+    const reqId = computed(() => parseInt(props.id));
+    const request = computed(() => REQUESTS.find(r => r.id === reqId.value));
+    const volunteers = computed(() => VOLUNTEERS[reqId.value] || []);
+    const comments = computed(() => COMMENTS[reqId.value] || []);
+    const category = computed(() => getCategoryById(request.value?.categoryId));
+
+    const proposedHours = ref('');
+    const volunteerMsg = ref('');
+    const newComment = ref('');
+    const volSuccess = ref(false);
+    const commentSuccess = ref(false);
+
+    const mapEl = ref(null);
+    let mapInstance = null;
+
+    function submitVolunteer() {
+      if (!proposedHours.value) return;
+      const v = {
+        id: ++nextId,
+        volunteerId: 'demo.user',
+        proposedHours: parseFloat(proposedHours.value),
+        message: volunteerMsg.value,
+        status: 'offered',
+        completedInCategory: 2,
+        totalHoursProvided: 7,
+      };
+      if (!VOLUNTEERS[reqId.value]) VOLUNTEERS[reqId.value] = [];
+      VOLUNTEERS[reqId.value].push(v);
+      if (request.value) request.value.volunteerCount = (request.value.volunteerCount || 0) + 1;
+      proposedHours.value = '';
+      volunteerMsg.value = '';
+      volSuccess.value = true;
+      setTimeout(() => volSuccess.value = false, 3000);
+    }
+
+    function submitComment() {
+      if (!newComment.value.trim()) return;
+      const c = { id: ++nextId, userId: 'demo.user', comment: newComment.value, createdAt: new Date().toISOString() };
+      if (!COMMENTS[reqId.value]) COMMENTS[reqId.value] = [];
+      COMMENTS[reqId.value].push(c);
+      if (request.value) request.value.commentCount = (request.value.commentCount || 0) + 1;
+      newComment.value = '';
+      commentSuccess.value = true;
+      setTimeout(() => commentSuccess.value = false, 3000);
+    }
+
+    onMounted(() => {
+      nextTick(() => {
+        if (mapEl.value && request.value?.location) {
+          const parts = request.value.location.split(',').map(Number);
+          if (parts.length === 2 && !isNaN(parts[0])) {
+            mapInstance = new maplibregl.Map({
+              container: mapEl.value,
+              style: 'https://demotiles.maplibre.org/style.json',
+              center: [parts[1], parts[0]],
+              zoom: 14,
+            });
+            mapInstance.on('load', () => {
+              const el = document.createElement('div');
+              el.textContent = '🆘';
+              el.style.fontSize = '24px';
+              new maplibregl.Marker({ element: el })
+                .setLngLat([parts[1], parts[0]])
+                .addTo(mapInstance);
+            });
+          }
+        }
+      });
+    });
+
+    return { request, volunteers, comments, category, proposedHours, volunteerMsg, newComment, volSuccess, commentSuccess, mapEl, submitVolunteer, submitComment, fmtDate, fmtDateTime, statusBadgeClass, priorityBadgeClass, getCategoryName };
+  },
+  template: `
+    <div>
+      <button class="btn btn-default back-btn" @click="$router.push({name:'Board'})">← Back to Board</button>
+      <div v-if="!request" class="empty-state"><div>Request not found.</div></div>
+      <div v-else class="detail-layout">
+        <div class="detail-main">
+          <div class="detail-header">
+            <span class="badge badge-cat">{{ getCategoryName(request.categoryId) }}</span>
+            <span :class="statusBadgeClass(request.status)">{{ request.status.replace('_',' ') }}</span>
+            <span :class="priorityBadgeClass(request.priority)">{{ request.priority }}</span>
+          </div>
+          <h1>{{ request.title }}</h1>
+          <div class="request-meta-row">
+            <span>⏱ {{ request.hoursBudget }} hrs budget</span>
+            <span v-if="request.location">📍 {{ request.location }}</span>
+            <span v-if="request.deadline">📅 Due {{ fmtDate(request.deadline) }}</span>
+            <span>👤 {{ request.requesterId }}</span>
+          </div>
+
+          <div class="description-box">{{ request.description }}</div>
+
+          <h3 style="margin-bottom:12px">Comments ({{ comments.length }})</h3>
+          <div class="add-comment">
+            <textarea v-model="newComment" rows="2" placeholder="Add a comment…"></textarea>
+            <div>
+              <button class="btn btn-primary" @click="submitComment" :disabled="!newComment.trim()">Post Comment</button>
+            </div>
+            <div v-if="commentSuccess" class="alert alert-success">Comment posted!</div>
+          </div>
+          <div v-for="c in comments" :key="c.id" class="comment">
+            <div class="comment-header">
+              <strong>{{ c.userId }}</strong>
+              <span>{{ fmtDateTime(c.createdAt) }}</span>
+            </div>
+            <p>{{ c.comment }}</p>
+          </div>
+        </div>
+
+        <div class="detail-sidebar">
+          <div v-if="request.location" class="card" style="margin-bottom:16px;padding:14px">
+            <h3 style="margin-bottom:10px">Location</h3>
+            <div ref="mapEl" style="height:220px;border-radius:6px;overflow:hidden"></div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-bottom:12px">Volunteers ({{ volunteers.length }})</h3>
+            <div v-if="request.status === 'open'" style="margin-bottom:16px">
+              <h4 style="margin-bottom:8px">Offer to Help</h4>
+              <div class="form-group">
+                <label>Hours you can contribute</label>
+                <input v-model="proposedHours" type="number" min="0.5" step="0.5" placeholder="e.g. 2" />
+              </div>
+              <div class="form-group">
+                <textarea v-model="volunteerMsg" rows="2" placeholder="Why are you a good fit? (optional)"></textarea>
+              </div>
+              <button class="btn btn-primary" @click="submitVolunteer" :disabled="!proposedHours">Volunteer</button>
+              <div v-if="volSuccess" class="alert alert-success" style="margin-top:8px">Volunteered!</div>
+            </div>
+            <div v-if="volunteers.length === 0" class="no-items">No volunteers yet.</div>
+            <div v-for="v in volunteers" :key="v.id" class="vol-card">
+              <div class="vol-header">
+                <strong>{{ v.volunteerId }}</strong>
+                <span class="badge" :class="'badge-' + (v.status === 'offered' ? 'pending' : v.status)">{{ v.status }}</span>
+              </div>
+              <div style="font-size:13px;color:var(--primary);font-weight:600">{{ v.proposedHours }} hrs proposed</div>
+              <div v-if="v.message" style="font-style:italic;color:var(--text-light);font-size:13px;margin-top:4px">"{{ v.message }}"</div>
+              <div class="vol-stats">
+                <span>{{ v.completedInCategory }} done in category</span>
+                <span>{{ v.totalHoursProvided }} hrs total</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+};
+
+/* ── MyRequests ── */
+const MyRequests = {
+  components: { RequestCard },
+  setup() {
+    const router = useRouter();
+    const myReqs = computed(() => REQUESTS.filter(r => r.requesterId === 'demo.user'));
+    return { myReqs, router };
+  },
+  template: `
+    <div>
+      <h1 style="margin-bottom:20px">My Requests</h1>
+      <div v-if="myReqs.length === 0" class="empty-state">
+        <div class="icon">📋</div>
+        <div>You haven't posted any requests yet.</div>
+        <button class="btn btn-primary" style="margin-top:14px" @click="router.push({name:'Board'})">Post a Request</button>
+      </div>
+      <div v-else class="board-grid">
+        <RequestCard v-for="req in myReqs" :key="req.id" :request="req" @click="router.push({name:'RequestDetail', params:{id:req.id}})" />
+      </div>
+    </div>
+  `
+};
+
+/* ── SubmitEarning ── */
+const SubmitEarning = {
+  setup() {
+    const categoryId = ref('');
+    const hoursClaimed = ref('');
+    const description = ref('');
+    const submitting = ref(false);
+    const success = ref(false);
+    const error = ref('');
+
+    const myClaims = computed(() => EARNINGS.filter(e => e.userId === 'demo.user').sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+
+    const selectedCat = computed(() => getCategoryById(parseInt(categoryId.value)));
+    const calculatedHours = computed(() => {
+      if (!hoursClaimed.value || !selectedCat.value) return 0;
+      return parseFloat(hoursClaimed.value) * selectedCat.value.earnRate;
+    });
+    const isValid = computed(() =>
+      categoryId.value && hoursClaimed.value && parseFloat(hoursClaimed.value) > 0 && description.value.trim()
+    );
+
+    function submit() {
+      if (!isValid.value) return;
+      submitting.value = true;
+      setTimeout(() => {
+        EARNINGS.push({
+          id: ++nextId,
+          userId: 'demo.user',
+          categoryId: parseInt(categoryId.value),
+          hoursClaimed: parseFloat(hoursClaimed.value),
+          actualHoursEarned: calculatedHours.value,
+          description: description.value,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          approveCount: 0,
+          rejectCount: 0,
+        });
+        categoryId.value = '';
+        hoursClaimed.value = '';
+        description.value = '';
+        submitting.value = false;
+        success.value = true;
+        setTimeout(() => success.value = false, 4000);
+      }, 700);
+    }
+
+    function statusColor(s) {
+      if (s === 'approved') return 'var(--success)';
+      if (s === 'rejected') return 'var(--error)';
+      if (s === 'voting')   return 'var(--warning)';
+      return 'var(--primary)';
+    }
+
+    return { CATEGORIES, categoryId, hoursClaimed, description, submitting, success, error, myClaims, selectedCat, calculatedHours, isValid, submit, statusColor, fmtDate, getCategoryName };
+  },
+  template: `
+    <div>
+      <h1 style="margin-bottom:4px">Submit Earning Claim</h1>
+      <p class="subtitle">Submit hours you've worked for community verification and credit.</p>
+      <div class="earning-layout">
+        <div class="earning-form">
+          <div v-if="success" class="alert alert-success">Your claim has been submitted for review!</div>
+          <div v-if="error"   class="alert alert-error">{{ error }}</div>
+          <div class="form-group">
+            <label>Service Category *</label>
+            <select v-model="categoryId">
+              <option value="">Select category…</option>
+              <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.name }} ({{ c.earnRate }}x rate)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Hours Worked *</label>
+            <input v-model="hoursClaimed" type="number" min="0.5" step="0.5" placeholder="How many hours?" />
+            <div v-if="calculatedHours > 0" class="hours-calc">
+              With {{ selectedCat.earnRate }}x multiplier = <strong>{{ calculatedHours.toFixed(2) }} hours earned</strong>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description *</label>
+            <textarea v-model="description" rows="4" placeholder="Describe what work you did…"></textarea>
+          </div>
+          <button class="btn btn-primary" @click="submit" :disabled="!isValid || submitting">
+            {{ submitting ? 'Submitting…' : 'Submit Claim' }}
+          </button>
+        </div>
+
+        <div class="earning-history">
+          <h2 style="margin-bottom:14px">My Claims</h2>
+          <div v-if="myClaims.length === 0" class="no-items">No claims submitted yet.</div>
+          <div v-for="claim in myClaims" :key="claim.id" class="claim-card">
+            <div class="claim-header">
+              <span class="badge" :style="'background:' + statusColor(claim.status)" style="color:white">{{ claim.status }}</span>
+              <span style="color:var(--text-light);font-size:12px">{{ fmtDate(claim.createdAt) }}</span>
+            </div>
+            <div class="claim-hours">{{ claim.hoursClaimed }} hrs claimed → {{ claim.actualHoursEarned.toFixed(2) }} hrs earned</div>
+            <div class="claim-desc">{{ claim.description }}</div>
+            <div style="font-size:12px;color:var(--text-light)">{{ getCategoryName(claim.categoryId) }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+};
+
+/* ── AdminApprovals ── */
+const AdminApprovals = {
+  setup() {
+    const pending = computed(() => EARNINGS.filter(e => e.status === 'pending'));
+    const voting  = computed(() => EARNINGS.filter(e => e.status === 'voting'));
+    const processing = ref(null);
+    const rejectReason = ref('');
+    const showRejectFor = ref(null);
+
+    function approve(id) {
+      processing.value = id;
+      setTimeout(() => {
+        const e = EARNINGS.find(x => x.id === id);
+        if (e) e.status = 'approved';
+        processing.value = null;
+        BALANCE.balance = parseFloat((BALANCE.balance + (e?.actualHoursEarned || 0)).toFixed(2));
+      }, 500);
+    }
+
+    function reject(id) {
+      if (!rejectReason.value.trim()) return;
+      processing.value = id;
+      setTimeout(() => {
+        const e = EARNINGS.find(x => x.id === id);
+        if (e) e.status = 'rejected';
+        showRejectFor.value = null;
+        rejectReason.value = '';
+        processing.value = null;
+      }, 500);
+    }
+
+    function sendToVote(id) {
+      processing.value = id;
+      setTimeout(() => {
+        const e = EARNINGS.find(x => x.id === id);
+        if (e) e.status = 'voting';
+        processing.value = null;
+      }, 500);
+    }
+
+    function vote(id, decision) {
+      processing.value = id;
+      setTimeout(() => {
+        const e = EARNINGS.find(x => x.id === id);
+        if (e) {
+          if (decision === 'approve') e.approveCount++;
+          else e.rejectCount++;
+        }
+        processing.value = null;
+      }, 400);
+    }
+
+    return { pending, voting, processing, rejectReason, showRejectFor, approve, reject, sendToVote, vote, fmtDate, getCategoryName };
+  },
+  template: `
+    <div>
+      <h1 style="margin-bottom:20px">Approval Dashboard</h1>
+
+      <div class="section-space">
+        <h2 class="section-title">Pending Claims ({{ pending.length }})</h2>
+        <div v-if="pending.length === 0" class="no-items">No pending claims to review.</div>
+        <div v-for="claim in pending" :key="claim.id" class="claim-card">
+          <div class="claim-header">
+            <strong>{{ claim.userId }}</strong>
+            <span style="color:var(--text-light);font-size:12px">{{ fmtDate(claim.createdAt) }}</span>
+          </div>
+          <div class="claim-hours">{{ claim.hoursClaimed }} hrs claimed → <strong>{{ claim.actualHoursEarned.toFixed(2) }} hrs to be earned</strong></div>
+          <div class="claim-desc">{{ claim.description }}</div>
+          <div style="font-size:12px;color:var(--text-light);margin-bottom:10px">Category: {{ getCategoryName(claim.categoryId) }}</div>
+          <div class="claim-actions">
+            <button class="btn btn-success" @click="approve(claim.id)" :disabled="processing === claim.id">✓ Approve</button>
+            <button class="btn btn-danger"  @click="showRejectFor = claim.id" :disabled="processing === claim.id">✗ Reject</button>
+            <button class="btn btn-default" @click="sendToVote(claim.id)" :disabled="processing === claim.id">🗳 Send to Vote</button>
+          </div>
+          <div v-if="showRejectFor === claim.id" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <textarea v-model="rejectReason" rows="2" placeholder="Reason for rejection…"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-default" @click="showRejectFor=null">Cancel</button>
+              <button class="btn btn-danger" @click="reject(claim.id)" :disabled="!rejectReason.trim() || processing===claim.id">Confirm Reject</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="section-title">In Voting ({{ voting.length }})</h2>
+        <div v-if="voting.length === 0" class="no-items">No claims currently in voting.</div>
+        <div v-for="claim in voting" :key="claim.id" class="claim-card">
+          <div class="claim-header">
+            <strong>{{ claim.userId }}</strong>
+            <span style="color:var(--success)">{{ claim.approveCount }} approve</span>
+            /
+            <span style="color:var(--error)">{{ claim.rejectCount }} reject</span>
+          </div>
+          <div class="claim-hours">{{ claim.hoursClaimed }} hrs → {{ claim.actualHoursEarned.toFixed(2) }} hrs</div>
+          <div class="claim-desc">{{ claim.description }}</div>
+          <div class="claim-actions">
+            <button class="btn btn-success" @click="vote(claim.id,'approve')" :disabled="processing===claim.id">👍 Vote Approve</button>
+            <button class="btn btn-danger"  @click="vote(claim.id,'reject')"  :disabled="processing===claim.id">👎 Vote Reject</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+};
+
+/* ── MyBalance ── */
+const MyBalance = {
+  setup() {
+    const txList = MY_TRANSACTIONS.slice().reverse();
+    return { BALANCE, txList, fmtDate, fmtDateTime };
+  },
+  template: `
+    <div>
+      <div class="balance-hero">
+        <h1>My Balance</h1>
+        <div class="balance-amount">{{ BALANCE.balance }}<span>hours</span></div>
+        <div class="balance-updated">Last updated: {{ fmtDateTime(BALANCE.updatedAt) }}</div>
+      </div>
+
+      <h2 style="margin-bottom:14px">My Transaction History</h2>
+      <div v-if="txList.length === 0" class="no-items">No transactions yet.</div>
+      <div class="tx-list">
+        <div v-for="tx in txList" :key="tx.id" :class="'tx-item ' + tx.transactionType">
+          <div class="tx-main">
+            <span class="tx-type">
+              {{ tx.transactionType === 'earned' ? '+' : tx.transactionType === 'spent' ? '-' : '~' }}
+              {{ tx.hours }} hrs
+            </span>
+            <span class="tx-desc">{{ tx.description }}</span>
+          </div>
+          <div class="tx-meta">
+            <span v-if="tx.fromUserId && tx.toUserId">{{ tx.fromUserId }} → {{ tx.toUserId }}</span>
+            <span>{{ fmtDate(tx.createdAt) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+};
+
+/* ── PublicLedger ── */
+const PublicLedger = {
+  setup() {
+    const txList = TRANSACTIONS.slice().reverse();
+
+    function typeIcon(t) {
+      if (t === 'earned') return '➕';
+      if (t === 'spent')  return '➖';
+      if (t === 'adjusted') return '⚙️';
+      return '🔄';
+    }
+
+    function typeBadge(t) {
+      if (t === 'earned') return 'badge badge-approved';
+      if (t === 'spent')  return 'badge badge-pending';
+      return 'badge badge-voting';
+    }
+
+    return { txList, typeIcon, typeBadge, fmtDate };
+  },
+  template: `
+    <div>
+      <h1>Public Ledger</h1>
+      <p class="subtitle">Transparent record of all community hour transactions.</p>
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Hours</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="tx in txList" :key="tx.id">
+            <td>{{ fmtDate(tx.createdAt) }}</td>
+            <td><span :class="typeBadge(tx.transactionType)">{{ typeIcon(tx.transactionType) }} {{ tx.transactionType }}</span></td>
+            <td>{{ tx.fromUserId || 'System' }}</td>
+            <td>{{ tx.toUserId || 'System' }}</td>
+            <td class="hours-col">{{ tx.hours }}</td>
+            <td class="desc-col">{{ tx.description }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `
+};
+
+/* ══════════════════════════════════════════════
+   ROUTER
+══════════════════════════════════════════════ */
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes: [
+    { path: '/',             name: 'Board',         component: RequestBoard },
+    { path: '/request/:id',  name: 'RequestDetail', component: RequestDetail, props: true },
+    { path: '/my-requests',  name: 'MyRequests',    component: MyRequests },
+    { path: '/earn',         name: 'SubmitEarning', component: SubmitEarning },
+    { path: '/admin',        name: 'AdminApprovals',component: AdminApprovals },
+    { path: '/ledger',       name: 'PublicLedger',  component: PublicLedger },
+    { path: '/balance',      name: 'MyBalance',     component: MyBalance },
+  ],
+});
+
+/* ══════════════════════════════════════════════
+   ROOT APP
+══════════════════════════════════════════════ */
+const App = {
+  components: { RouterLink },
+  setup() {
+    const route = useRoute();
+    const navItems = [
+      { name: 'Board',          label: 'Request Board',  icon: '🏠' },
+      { name: 'MyRequests',     label: 'My Requests',    icon: '👤' },
+      { name: 'SubmitEarning',  label: 'Submit Earnings',icon: '➕' },
+      { name: 'MyBalance',      label: 'My Balance',     icon: '💰' },
+      { name: 'PublicLedger',   label: 'Public Ledger',  icon: '📖' },
+      { name: 'AdminApprovals', label: 'Admin Approvals',icon: '✅' },
+    ];
+    const balanceLabel = computed(() => `My Balance (${BALANCE.balance} hrs)`);
+    return { route, navItems, BALANCE, balanceLabel };
+  },
+  template: `
+    <div id="app">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>NextTime ⏱</h2>
+          <small>Community Time Bank</small>
+        </div>
+        <div class="sidebar-user">
+          <div class="avatar">D</div>
+          <div class="user-info">
+            <div class="user-name">demo.user</div>
+            <div class="user-balance">{{ BALANCE.balance }} hrs</div>
+          </div>
+        </div>
+        <nav>
+          <router-link
+            v-for="item in navItems"
+            :key="item.name"
+            :to="{ name: item.name }"
+            custom
+            v-slot="{ navigate, isActive }"
+          >
+            <a :class="['nav-item', { active: isActive }]" @click="navigate">
+              <span class="icon">{{ item.icon }}</span>
+              <span class="label">{{ item.name === 'MyBalance' ? balanceLabel : item.label }}</span>
+            </a>
+          </router-link>
+        </nav>
+        <div style="padding:12px 16px;font-size:11px;color:var(--text-light);border-top:1px solid var(--border)">
+          🔵 Standalone Demo — all data is local
+        </div>
+      </aside>
+      <main class="content">
+        <router-view />
+      </main>
+    </div>
+  `
+};
+
+createApp(App).use(router).mount('#app');
+</script>
+</body>
+</html>
