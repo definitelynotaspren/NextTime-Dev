@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Relaxed the Node.js engine constraint from `^24` to `>=20` so the frontend
   builds on current LTS releases.
 
+### Removed
+
+- `.github/workflows/openapi.yml` and `openapi.json`. `nextcloud/openapi-extractor`
+  only auto-documents routes on `OCSController`-derived controllers; now that
+  the API controllers correctly extend `Controller` (see above), every route
+  is treated as undocumented and the extractor hard-errors with no way to
+  produce a spec. Re-add spec generation later if the API controllers gain
+  explicit `#[OpenAPI(scope: ...)]` attributes.
+
 ### Added
 
 - `INSTALL.md` with drag-and-drop install instructions for Nextcloud AIO,
