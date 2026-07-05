@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\TransactionService;
+use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 
-class LedgerController extends OCSController {
+class LedgerController extends Controller {
 
 	private TransactionService $transactionService;
 	private ?string $userId;

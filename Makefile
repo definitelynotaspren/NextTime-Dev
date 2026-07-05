@@ -73,30 +73,48 @@ psalm:
 	@echo "Running Psalm static analysis..."
 	composer psalm
 
-# Build app package for App Store
-appstore:
+# Build app package for App Store / drag-and-drop install
+# Depends on `build` so the compiled js/ and css/ assets are always included.
+appstore: build
 	@echo "Building app package..."
+	@test -d js || (echo "ERROR: js/ directory missing - frontend build failed" && exit 1)
 	@mkdir -p build
 	@rm -rf build/timebank
-	@rsync -av \
+	@rsync -a \
 		--exclude='.git' \
+		--exclude='.github' \
+		--exclude='.idea' \
 		--exclude='build' \
 		--exclude='node_modules' \
+		--exclude='vendor' \
 		--exclude='vendor-bin' \
 		--exclude='tests' \
 		--exclude='src' \
-		--exclude='.github' \
+		--exclude='demo' \
 		--exclude='*.log' \
 		--exclude='package*.json' \
 		--exclude='tsconfig.json' \
 		--exclude='vite.config.ts' \
+		--exclude='stylelint.config.cjs' \
+		--exclude='.eslintrc.cjs' \
+		--exclude='.nvmrc' \
+		--exclude='.gitignore' \
+		--exclude='psalm.xml' \
+		--exclude='rector.php' \
+		--exclude='.php-cs-fixer*' \
+		--exclude='composer.lock' \
+		--exclude='openapi.json' \
 		--exclude='.env*' \
 		--exclude='docker-compose.yml' \
 		--exclude='Dockerfile' \
 		--exclude='Makefile' \
+		--exclude='DEPLOYMENT_GUIDE.md' \
 		./ build/timebank/
 	@cd build && tar czf timebank.tar.gz timebank
+	@echo ""
 	@echo "App package created: build/timebank.tar.gz"
+	@echo "Install by extracting into your Nextcloud apps/ or custom_apps/ directory,"
+	@echo "then run: occ app:enable timebank"
 
 # Docker commands
 docker-up:

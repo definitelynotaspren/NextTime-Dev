@@ -2,13 +2,14 @@
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>timebank</id>
-    <name>Time Bank</name>
-    <summary>Community time banking system</summary>
+    <name>NextTime</name>
+    <summary>Community time banking and mutual aid coordination</summary>
     <description><![CDATA[
-A time banking application that enables community members to exchange services
-using hours as currency. Features include:
+NextTime is a community time banking application that enables members to exchange
+services using hours as currency, with map-based coordination of requests and offers.
 
 - **Request Board**: Post and browse community service requests
+- **Map View**: See requests and offers geographically (MapLibre GL)
 - **Skill Matching**: Find volunteers based on experience and completed work
 - **Earning Claims**: Submit hours worked with optional evidence
 - **Admin Approval**: Workflow for verifying earning claims
@@ -16,22 +17,28 @@ using hours as currency. Features include:
 - **Public Ledger**: Transparent record of all transactions
 - **Category Multipliers**: Different earn rates for specialized skills
     ]]></description>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <licence>agpl</licence>
-    <author mail="community@timebank.org" homepage="https://github.com/timebank">Community Time Bank</author>
+    <author homepage="https://github.com/definitelynotaspren">definitelynotaspren</author>
     <namespace>TimeBank</namespace>
-    <category>SPREN</category>
+    <category>organization</category>
+    <category>social</category>
+    <website>https://github.com/definitelynotaspren/NextTime-Dev</website>
     <bugs>https://github.com/definitelynotaspren/NextTime-Dev/issues</bugs>
+    <repository type="git">https://github.com/definitelynotaspren/NextTime-Dev.git</repository>
 
     <dependencies>
-        <nextcloud min-version="27" max-version="32"/>
+        <database min-version="12">pgsql</database>
+        <database min-version="8.0">mysql</database>
+        <database>sqlite</database>
+        <nextcloud min-version="29" max-version="33"/>
         <php min-version="8.1"/>
     </dependencies>
 
     <navigations>
         <navigation>
             <id>timebank</id>
-            <name>Time Bank</name>
+            <name>NextTime</name>
             <route>timebank.page.index</route>
             <icon>app.svg</icon>
             <type>link</type>
@@ -48,15 +55,4 @@ using hours as currency. Features include:
             <step>OCA\TimeBank\Migration\SeedCategories</step>
         </post-migration>
     </repair-steps>
-      <external-app>
-        <routes>
-            <route>
-                <url>.*</url>
-                <verb>GET,POST,PUT,DELETE</verb>
-                <access_level>USER</access_level>
-                <headers_to_exclude>[]</headers_to_exclude>
-                <bruteforce_protection>[401, 500]</bruteforce_protection>
-            </route>
-        </routes>
-    </external-app>
 </info>

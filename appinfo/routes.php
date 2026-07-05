@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-// API routes are defined using #[ApiRoute] attributes in the controllers
-// that extend OCSController. Only page routes need to be defined here.
+// All routes (page + API) are defined via #[FrontpageRoute] and #[ApiRoute]
+// attributes on the controllers. Keeping this file empty avoids duplicate
+// route-name registration on Nextcloud 29+.
 return [
-	'routes' => [
-		// Page routes
-		['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
-	],
+	'routes' => [],
 ];

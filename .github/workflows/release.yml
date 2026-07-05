@@ -1,0 +1,86 @@
+# Builds an installable app tarball whenever a version tag is pushed.
+# The tarball attached to the GitHub release contains prebuilt js/ and css/
+# assets, so it can be extracted straight into a Nextcloud apps directory
+# with no Node.js or Composer required on the server.
+#
+# Usage:
+#   git tag v0.2.0
+#   git push origin v0.2.0
+
+name: Build release tarball
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Also allow manual runs so you can grab a tarball from any branch
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Package app
+        run: |
+          mkdir -p build/timebank
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='build' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='vendor-bin' \
+            --exclude='tests' \
+            --exclude='src' \
+            --exclude='demo' \
+            --exclude='package*.json' \
+            --exclude='tsconfig.json' \
+            --exclude='vite.config.ts' \
+            --exclude='stylelint.config.cjs' \
+            --exclude='.eslintrc.cjs' \
+            --exclude='.nvmrc' \
+            --exclude='.gitignore' \
+            --exclude='psalm.xml' \
+            --exclude='rector.php' \
+            --exclude='.php-cs-fixer*' \
+            --exclude='composer.lock' \
+            --exclude='openapi.json' \
+            --exclude='.env*' \
+            --exclude='docker-compose.yml' \
+            --exclude='Dockerfile' \
+            --exclude='Makefile' \
+            --exclude='DEPLOYMENT_GUIDE.md' \
+            ./ build/timebank/
+          cd build && tar czf timebank.tar.gz timebank
+
+      - name: Upload artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: timebank
+          path: build/timebank.tar.gz
+
+      - name: Attach to GitHub release (tag pushes)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/timebank.tar.gz
+          generate_release_notes: true
