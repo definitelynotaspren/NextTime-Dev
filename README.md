@@ -23,6 +23,14 @@ A community time banking application for Nextcloud that enables members to excha
 
 ## Installation
 
+**Easiest path:** download `timebank.tar.gz` from the latest GitHub release
+(it contains prebuilt frontend assets — no Node.js needed on the server),
+extract it into your Nextcloud `apps/` or `custom_apps/` directory, and run
+`occ app:enable timebank`. **See [INSTALL.md](INSTALL.md) for full
+step-by-step instructions, including Nextcloud All-in-One (AIO).**
+
+The options below are for development.
+
 ### Option 1: Docker Installation (Recommended for Development)
 
 1. Clone the repository:

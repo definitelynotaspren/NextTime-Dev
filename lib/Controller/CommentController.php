@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\CommentService;
+use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 
-class CommentController extends OCSController {
+class CommentController extends Controller {
 
 	private CommentService $commentService;
 	private ?string $userId;
