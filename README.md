@@ -15,11 +15,11 @@ A community time banking application for Nextcloud that enables members to excha
 
 ## Requirements
 
-- **Nextcloud**: 27.x - 32.x
+- **Nextcloud**: 29.x - 33.x
 - **PHP**: 8.1 or higher
-- **Database**: PostgreSQL 12+ or MySQL 8.0+ (PostgreSQL recommended)
-- **Node.js**: 20.x or higher (for building frontend)
-- **npm**: 11.3 or higher
+- **Database**: PostgreSQL 12+, MySQL 8.0+, or SQLite (small installs only)
+- **Node.js**: 20.x or higher (only needed if building from source — the release tarball ships prebuilt assets)
+- **npm**: 10.x or higher
 
 ## Installation
 
@@ -125,11 +125,25 @@ make docker-shell      # Open shell in container
 
 ### Admin Settings
 
-Navigate to **Settings → Administration → Time Bank** to configure:
+Navigate to **Settings → Administration → Time Bank** to view approval-workflow
+options (require admin approval, enable community voting, required vote count,
+negative balance allowance/limit).
 
-- **Category Management**: Create service categories with custom earn rate multipliers
-- **Voting Settings**: Configure voting thresholds and quorum requirements
-- **System Settings**: Set approval workflows and notification preferences
+> **Known limitation**: this settings page is currently **read-only/display
+> only** — it has no save mechanism (no form submission or JavaScript wiring)
+> and the values are not consulted anywhere in the backend. Regardless of what
+> is shown, claims always require admin approval or an explicit
+> "Send to Vote", voting always resolves at exactly 3 votes
+> (`EarningService::checkVotingComplete()`), and negative balances are always
+> rejected (`BalanceService::deductHours()`). Wiring this page up to actually
+> persist and enforce these settings is tracked as follow-up work — see
+> Known Limitations below.
+
+Category management (create/edit/delete service categories and their earn
+rate multipliers) has **no UI at all**, in this settings page or the app
+itself. It's admin-only on the backend (`POST`/`PUT`/`DELETE
+/api/categories...`) but must currently be done via direct API calls — see
+API Documentation below.
 
 ### Category Multipliers
 
@@ -162,35 +176,68 @@ Different service categories can have different earn rate multipliers:
 
 ## API Documentation
 
+All endpoints are plain JSON under `/index.php/apps/timebank/api/...` (no OCS
+envelope). "(admin)" means the endpoint checks group membership itself and
+returns 403 for non-admins; "(owner only)" means the service layer checks
+that the caller created the resource being modified.
+
 ### Endpoints
 
 #### Requests
 
-- `GET /api/requests` - List all service requests
-- `GET /api/requests/{id}` - Get request details
-- `POST /api/requests` - Create new request
-- `PUT /api/requests/{id}` - Update request
-- `DELETE /api/requests/{id}` - Delete request
+- `GET /api/requests` - List service requests (supports `status`, `categoryId`, `priority`, `limit`, `offset` filters)
+- `GET /api/requests/{id}` - Get request details, volunteers, and comments
+- `GET /api/requests/my` - List the current user's own requests
+- `POST /api/requests` - Create a new request
+- `PUT /api/requests/{id}` - Update a request *(owner only; no UI yet)*
+- `POST /api/requests/{id}/complete` - Mark complete and select the winning volunteer *(owner only; no UI yet)*
+- `POST /api/requests/{id}/cancel` - Cancel a request *(owner only; no UI yet)*
+
+There is no delete endpoint for requests — use cancel instead.
+
+#### Volunteers
+
+- `POST /api/requests/{requestId}/volunteer` - Offer to help with a request
+- `DELETE /api/volunteers/{id}` - Withdraw a volunteer offer *(owner only; no UI yet)*
+- `POST /api/volunteers/{id}/accept` - Accept a volunteer offer *(request owner only; no UI yet)*
+- `POST /api/volunteers/{id}/decline` - Decline a volunteer offer *(request owner only; no UI yet)*
+- `GET /api/volunteers/my` - List the current user's own volunteer offers *(no UI yet)*
+
+#### Comments
+
+- `POST /api/requests/{requestId}/comments` - Add a comment to a request
+- `DELETE /api/comments/{id}` - Delete a comment *(owner only; no UI yet)*
 
 #### Earnings
 
-- `POST /api/earnings/claim` - Submit earning claim
-- `GET /api/earnings/my` - Get user's claims
+- `POST /api/earnings/claim` - Submit an earning claim
+- `GET /api/earnings/my` - Get the current user's claims
 - `GET /api/earnings/pending` - Get pending claims (admin)
-- `POST /api/earnings/{id}/approve` - Approve claim (admin)
-- `POST /api/earnings/{id}/reject` - Reject claim (admin)
-- `POST /api/earnings/{id}/send-to-vote` - Send to voting (admin)
-- `POST /api/earnings/{id}/vote` - Submit vote
+- `GET /api/earnings/voting` - Get claims currently in community voting
+- `POST /api/earnings/{id}/approve` - Approve a claim (admin)
+- `POST /api/earnings/{id}/reject` - Reject a claim (admin)
+- `POST /api/earnings/{id}/send-to-vote` - Send a claim to community voting (admin)
+- `POST /api/earnings/{id}/vote` - Cast a vote (`approve`/`reject`/`abstain`) on a claim in voting
 
 #### Balance
 
-- `GET /api/balance` - Get current user balance
-- `GET /api/balance/transactions` - Get transaction history
+- `GET /api/balance/my` - Get the current user's balance
+- `GET /api/balance/all` - List all users' balances
+- `POST /api/balance/adjust` - Manually credit/debit a user's balance (admin) *(no UI yet)*
+
+#### Categories
+
+- `GET /api/categories` - List service categories
+- `GET /api/categories/{id}` - Get a single category
+- `POST /api/categories` - Create a category (admin) *(no UI yet)*
+- `PUT /api/categories/{id}` - Update a category (admin) *(no UI yet)*
+- `DELETE /api/categories/{id}` - Delete a category (admin) *(no UI yet)*
 
 #### Ledger
 
-- `GET /api/ledger` - Get public transaction ledger
-- `GET /api/ledger/stats` - Get system statistics
+- `GET /api/ledger` - Get the public transaction ledger
+- `GET /api/ledger/my` - Get the current user's transaction history
+- `GET /api/ledger/user/{userId}` - Get another user's transaction history *(no UI yet)*
 
 ### Example API Calls
 
@@ -346,6 +393,34 @@ This project is licensed under the AGPL-3.0-or-later License - see the LICENSE f
 - **Issues**: https://github.com/definitelynotaspren/NextTime-Dev/issues
 - **Nextcloud Community**: https://help.nextcloud.com
 - **Developer Docs**: https://docs.nextcloud.com/server/latest/developer_manual
+
+## Known Limitations
+
+The backend implements a full request lifecycle (open → volunteer → accept →
+complete) with proper ownership checks, but the frontend doesn't yet expose
+every step of it. As of v0.2.0, the following exist as working, authorized
+API endpoints with **no corresponding UI**:
+
+- **Accepting/declining a volunteer offer** and **marking a request
+  complete** — a requester can currently receive volunteer offers on the
+  Request Detail page but has no button to accept one, decline one, or close
+  out the request. This is the biggest gap: without it the request/volunteer
+  loop can't be finished end-to-end through the app today.
+- **Editing or cancelling a request**, and **withdrawing a volunteer offer**
+  (or viewing your own list of offers).
+- **Deleting a comment.**
+- **Category management** (create/edit/delete) and **manual balance
+  adjustment** — both admin-only on the backend, but there's no UI, in the
+  Vue app or in Admin Settings, to use them. Categories must currently be
+  managed via direct API calls.
+- **Viewing another user's transaction history** (`/api/ledger/user/{userId}`)
+  — only "my transactions" and the full public ledger have pages.
+
+Additionally, the **Admin Settings page is currently non-functional**: the
+approval/voting/negative-balance toggles it displays aren't wired to a save
+action and aren't read by any backend logic (see Configuration above for
+specifics). Treat the values shown there as placeholders, not live
+configuration, until this is implemented.
 
 ## Roadmap
 
