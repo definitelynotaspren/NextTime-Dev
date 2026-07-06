@@ -27,6 +27,7 @@ services using hours as currency, with map-based coordination of requests and of
     <bugs>https://github.com/definitelynotaspren/NextTime-Dev/issues</bugs>
     <repository type="git">https://github.com/definitelynotaspren/NextTime-Dev.git</repository>
 
+
     <dependencies>
         <database min-version="12">pgsql</database>
         <database min-version="8.0">mysql</database>
