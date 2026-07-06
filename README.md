@@ -13,6 +13,10 @@ A community time banking application for Nextcloud that enables members to excha
 - **Category Multipliers**: Different earn rates for specialized skills
 - **Balance Tracking**: Real-time user balance and transaction history
 
+> **Want to try the workflow without installing Nextcloud at all?** See
+> [`demo/`](demo/) for a self-contained, single-file demo you can just open
+> in a browser — no server, no PHP, no database required.
+
 ## Requirements
 
 - **Nextcloud**: 29.x - 33.x
