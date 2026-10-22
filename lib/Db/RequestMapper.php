@@ -54,6 +54,24 @@ class RequestMapper extends QBMapper {
 	}
 
 	/**
+	 * Open requests with coordinates, newest first. Used by the map feed.
+	 *
+	 * @return Request[]
+	 */
+	public function findOpenWithCoordinates(int $limit = 500): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('status', $qb->createNamedParameter('open')))
+			->andWhere($qb->expr()->isNotNull('latitude'))
+			->andWhere($qb->expr()->isNotNull('longitude'))
+			->orderBy('created_at', 'DESC')
+			->setMaxResults($limit);
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * @throws DoesNotExistException
 	 */
 	public function find(int $id): Request {

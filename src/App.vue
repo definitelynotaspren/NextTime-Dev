@@ -77,6 +77,24 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 			</template>
+						<NcAppNavigationItem
+					:name="'Organizer Desk'"
+					:to="{ name: 'OrganizerDesk' }"
+					:active="route.name === 'OrganizerDesk'"
+				>
+					<template #icon>
+						<span class="nav-icon">&#128203;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					:name="'Data Schema'"
+					:to="{ name: 'SchemaView' }"
+					:active="route.name === 'SchemaView'"
+				>
+					<template #icon>
+						<span class="nav-icon">&#128279;</span>
+					</template>
+				</NcAppNavigationItem>
 		</NcAppNavigation>
 
 		<NcAppContent>

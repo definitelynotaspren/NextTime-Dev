@@ -31,7 +31,7 @@ services using hours as currency, with map-based coordination of requests and of
         <database min-version="12">pgsql</database>
         <database min-version="8.0">mysql</database>
         <database>sqlite</database>
-        <nextcloud min-version="29" max-version="33"/>
+        <nextcloud min-version="29" max-version="35"/>
         <php min-version="8.1"/>
     </dependencies>
 
@@ -53,6 +53,7 @@ services using hours as currency, with map-based coordination of requests and of
     <repair-steps>
         <post-migration>
             <step>OCA\TimeBank\Migration\SeedCategories</step>
+            <step>OCA\TimeBank\Migration\BackfillRequestCoordinates</step>
         </post-migration>
     </repair-steps>
 </info>

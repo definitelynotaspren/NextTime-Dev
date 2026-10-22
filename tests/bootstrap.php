@@ -2,8 +2,5 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../../../tests/bootstrap.php';
+// Unit tests run without a Nextcloud server: they cover pure logic only.
 require_once __DIR__ . '/../vendor/autoload.php';
-
-\OC_App::loadApp(OCA\AppTemplate\AppInfo\Application::APP_ID);
-OC_Hook::clear();

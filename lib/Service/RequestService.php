@@ -6,6 +6,7 @@ namespace OCA\TimeBank\Service;
 
 use OCA\TimeBank\Db\CommentMapper;
 use OCA\TimeBank\Db\Request;
+use OCA\TimeBank\Geo\Coordinates;
 use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Db\UserStatsMapper;
 use OCA\TimeBank\Db\VolunteerMapper;
@@ -109,6 +110,7 @@ class RequestService {
 		if (isset($data['location'])) {
 			$request->setLocation($data['location']);
 		}
+		$this->applyCoordinates($request, $data);
 
 		$now = new \DateTime();
 		$request->setCreatedAt($now);
@@ -146,10 +148,40 @@ class RequestService {
 		if (isset($data['location'])) {
 			$request->setLocation($data['location']);
 		}
+		$this->applyCoordinates($request, $data);
 
 		$request->setUpdatedAt(new \DateTime());
 
 		return $this->requestMapper->update($request);
+	}
+
+	/**
+	 * Sets latitude/longitude from explicit values, or from "lat, lng" location text
+	 * when no explicit values are given. Free-text addresses leave coordinates unset.
+	 *
+	 * @param array<string, mixed> $data
+	 * @throws \InvalidArgumentException if explicit coordinates are not numeric or out of range
+	 */
+	private function applyCoordinates(Request $request, array $data): void {
+		$lat = $data['latitude'] ?? null;
+		$lng = $data['longitude'] ?? null;
+
+		if ($lat !== null && $lng !== null) {
+			if (!is_numeric($lat) || !is_numeric($lng)) {
+				throw new \InvalidArgumentException('Latitude and longitude must be numbers');
+			}
+			$point = Coordinates::validate((float)$lat, (float)$lng);
+			if ($point === null) {
+				throw new \InvalidArgumentException('Coordinates are out of range');
+			}
+		} else {
+			$point = Coordinates::parseText($request->getLocation());
+		}
+
+		if ($point !== null) {
+			$request->setLatitude($point[0]);
+			$request->setLongitude($point[1]);
+		}
 	}
 
 	/**

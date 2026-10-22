@@ -1,0 +1,345 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCA\TimeBank\Service;
+
+use OCA\TimeBank\Db\LayerRow;
+use OCA\TimeBank\Db\LayerRowMapper;
+use OCA\TimeBank\Geo\Coordinates;
+use OCA\TimeBank\Schema\ChapterResolver;
+use OCA\TimeBank\Schema\FieldPolicy;
+use OCA\TimeBank\Schema\LayerException;
+use OCA\TimeBank\Schema\RowValidator;
+use OCA\TimeBank\Schema\SchemaSpec;
+use OCA\TimeBank\Schema\Viewer;
+
+/**
+ * Reads and writes organizer-desk rows.
+ *
+ * Every row leaves this service through present() or publicFeed(), and both
+ * pass each field through FieldPolicy. Controllers never serialize rows.
+ */
+class LayerService {
+
+	private const ASSIGNMENT_STATUSES = ['assigned', 'in_progress', 'done'];
+
+	/** Statuses that take a row out of the public feed. */
+	private const CLOSED_STATUSES = ['closed', 'cancelled', 'done'];
+
+	private LayerRowMapper $rowMapper;
+
+	public function __construct(LayerRowMapper $rowMapper) {
+		$this->rowMapper = $rowMapper;
+	}
+
+	/**
+	 * Rows the viewer may see, with fields filtered. Staff only.
+	 *
+	 * @param array{assigned?: string, source?: string} $filters assigned: "me" or "unassigned"
+	 * @return list<array<string, mixed>>
+	 */
+	public function listRows(Viewer $viewer, string $layer, array $filters = []): array {
+		$spec = $this->requireReadableLayer($layer);
+		$this->requireStaff($viewer);
+
+		$dbFilters = [];
+		if (($filters['assigned'] ?? null) === 'me') {
+			$dbFilters['assigned'] = $viewer->userId;
+		} elseif (($filters['assigned'] ?? null) === 'unassigned') {
+			$dbFilters['unassigned'] = true;
+		}
+		if (!empty($filters['source'])) {
+			$dbFilters['source'] = $filters['source'];
+		}
+
+		$out = [];
+		foreach ($this->rowMapper->findForLayer($layer, $dbFilters) as $row) {
+			if (!$viewer->canSeeChapter($row->getChapter())) {
+				continue;
+			}
+			$out[] = $this->present($row, $viewer);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Manual entry by an organizer. The row starts unpublished unless the
+	 * organizer sets publish to yes.
+	 *
+	 * @param array<string, mixed> $input
+	 * @return array<string, mixed>
+	 * @throws LayerException
+	 */
+	public function create(Viewer $viewer, string $layer, array $input): array {
+		$spec = $this->requireReadableLayer($layer);
+		$this->requireOrganizer($viewer);
+
+		$result = RowValidator::validate($spec['fields'], $input);
+		if ($result['errors'] !== []) {
+			throw LayerException::invalid(implode('; ', $result['errors']));
+		}
+
+		$now = new \DateTime();
+		$row = new LayerRow();
+		$row->setLayer($layer);
+		$row->setUid($this->newUid($layer, $spec['uid_prefix']));
+		$row->setChapter(ChapterResolver::forZip($result['data']['zip'] ?? null));
+		$row->setPublish($result['publish']);
+		$row->setSource('manual');
+		$row->setData(json_encode($result['data'], JSON_THROW_ON_ERROR));
+		$row->setCreatedBy($viewer->userId);
+		$row->setCreatedAt($now);
+		$row->setUpdatedAt($now);
+
+		return $this->present($this->rowMapper->insert($row), $viewer);
+	}
+
+	/**
+	 * Claims a row for the organizer. Fails if another organizer holds it.
+	 *
+	 * @return array<string, mixed>
+	 * @throws LayerException
+	 */
+	public function assign(Viewer $viewer, string $layer, int $id, ?string $status = null): array {
+		$this->requireReadableLayer($layer);
+		$this->requireOrganizer($viewer);
+
+		$status ??= 'assigned';
+		$this->requireAssignmentStatus($status);
+
+		$row = $this->findRow($layer, $id);
+		if ($row->getAssignedTo() !== null && $row->getAssignedTo() !== $viewer->userId) {
+			throw LayerException::conflict('This row is already assigned to another organizer');
+		}
+
+		$now = new \DateTime();
+		$row->setAssignedTo($viewer->userId);
+		$row->setAssignmentStatus($status);
+		$row->setAssignedAt($now);
+		$row->setUpdatedAt($now);
+
+		return $this->present($this->rowMapper->update($row), $viewer);
+	}
+
+	/**
+	 * Updates progress on a row the viewer holds.
+	 *
+	 * @return array<string, mixed>
+	 * @throws LayerException
+	 */
+	public function setAssignmentStatus(Viewer $viewer, string $layer, int $id, string $status): array {
+		$this->requireReadableLayer($layer);
+		$this->requireAssignmentStatus($status);
+
+		$row = $this->findRow($layer, $id);
+		$this->requireHolder($row, $viewer);
+
+		$row->setAssignmentStatus($status);
+		$row->setUpdatedAt(new \DateTime());
+
+		return $this->present($this->rowMapper->update($row), $viewer);
+	}
+
+	/**
+	 * Releases a row the viewer holds.
+	 *
+	 * @return array<string, mixed>
+	 * @throws LayerException
+	 */
+	public function unassign(Viewer $viewer, string $layer, int $id): array {
+		$this->requireReadableLayer($layer);
+
+		$row = $this->findRow($layer, $id);
+		$this->requireHolder($row, $viewer);
+
+		$row->setAssignedTo(null);
+		$row->setAssignmentStatus(null);
+		$row->setAssignedAt(null);
+		$row->setUpdatedAt(new \DateTime());
+
+		return $this->present($this->rowMapper->update($row), $viewer);
+	}
+
+	/**
+	 * Rows assigned to the viewer, optionally by layer and source.
+	 *
+	 * @return list<array<string, mixed>>
+	 * @throws LayerException
+	 */
+	public function myAssignments(Viewer $viewer, ?string $layer = null, ?string $source = null): array {
+		$this->requireOrganizer($viewer);
+
+		$out = [];
+		foreach ($this->rowMapper->findAssignedTo($viewer->userId, $layer, $source) as $row) {
+			if (SchemaSpec::layer($row->getLayer()) === null) {
+				continue;
+			}
+			$out[] = $this->present($row, $viewer);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * GeoJSON for a public map. Only point_snapped layers qualify. Rows must be
+	 * published and open, and carry only public fields. Points are rounded to
+	 * an approximate area, so exact organizer coordinates never leave the server.
+	 *
+	 * @return array<string, mixed>
+	 * @throws LayerException
+	 */
+	public function publicFeed(Viewer $viewer, string $layer): array {
+		$spec = $this->requireReadableLayer($layer);
+		if (($spec['geometry'] ?? '') !== 'point_snapped') {
+			throw LayerException::notFound("Layer $layer has no public feed");
+		}
+
+		$today = (new \DateTime())->format('Y-m-d');
+		$fields = SchemaSpec::allFields($layer);
+		$features = [];
+
+		foreach ($this->rowMapper->findPublished($layer) as $row) {
+			$data = $this->decode($row->getData());
+
+			$point = $this->pointFrom($data);
+			if ($point === null) {
+				continue;
+			}
+			if (in_array($data['status'] ?? null, self::CLOSED_STATUSES, true)) {
+				continue;
+			}
+			if (isset($data['expires']) && $data['expires'] < $today) {
+				continue;
+			}
+
+			$payload = array_merge(['uid' => $row->getUid(), 'publish' => 'yes'], $data);
+			$properties = FieldPolicy::filter($fields, $payload, $viewer, $row->getChapter());
+
+			$features[] = [
+				'type' => 'Feature',
+				'geometry' => [
+					'type' => 'Point',
+					'coordinates' => Coordinates::toPublic($point[0], $point[1]),
+				],
+				'properties' => $properties + ['layer' => $layer],
+			];
+		}
+
+		return [
+			'type' => 'FeatureCollection',
+			'features' => $features,
+		];
+	}
+
+	/**
+	 * Builds the client view of a row. Callers must be staff.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function present(LayerRow $row, Viewer $viewer): array {
+		$payload = array_merge(
+			['uid' => $row->getUid(), 'publish' => $row->getPublish() ? 'yes' : 'no'],
+			$this->decode($row->getData()),
+		);
+
+		$spec = SchemaSpec::layer($row->getLayer());
+		$fields = $spec === null ? [] : SchemaSpec::allFields($row->getLayer());
+
+		return [
+			'id' => $row->getId(),
+			'layer' => $row->getLayer(),
+			'source' => $row->getSource(),
+			'chapter' => $row->getChapter(),
+			'assignedTo' => $row->getAssignedTo(),
+			'assignmentStatus' => $row->getAssignmentStatus(),
+			'assignedAt' => $row->getAssignedAt()?->format('Y-m-d H:i:s'),
+			'fields' => FieldPolicy::filter($fields, $payload, $viewer, $row->getChapter()),
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 * @throws LayerException if the layer is unknown or aggregate-only
+	 */
+	private function requireReadableLayer(string $layer): array {
+		$spec = SchemaSpec::layer($layer);
+		if ($spec === null) {
+			throw LayerException::notFound("Unknown layer: $layer");
+		}
+		if (!empty($spec['aggregate_only'])) {
+			throw LayerException::forbidden('This layer is aggregate-only; individual rows are never exposed');
+		}
+
+		return $spec;
+	}
+
+	private function requireStaff(Viewer $viewer): void {
+		if (!$viewer->isStaff()) {
+			throw LayerException::forbidden('Organizer or facilitator role required');
+		}
+	}
+
+	private function requireOrganizer(Viewer $viewer): void {
+		if (!$viewer->organizer) {
+			throw LayerException::forbidden('Organizer role required');
+		}
+	}
+
+	private function requireHolder(LayerRow $row, Viewer $viewer): void {
+		if ($row->getAssignedTo() !== $viewer->userId) {
+			throw LayerException::forbidden('Only the organizer holding this row can change it');
+		}
+	}
+
+	private function requireAssignmentStatus(string $status): void {
+		if (!in_array($status, self::ASSIGNMENT_STATUSES, true)) {
+			throw LayerException::invalid('Status must be one of: ' . implode(', ', self::ASSIGNMENT_STATUSES));
+		}
+	}
+
+	/**
+	 * @throws LayerException
+	 */
+	private function findRow(string $layer, int $id): LayerRow {
+		try {
+			return $this->rowMapper->find($layer, $id);
+		} catch (\OCP\AppFramework\Db\DoesNotExistException) {
+			throw LayerException::notFound("No row $id in $layer");
+		}
+	}
+
+	private function newUid(string $layer, string $prefix): string {
+		for ($attempt = 0; $attempt < 5; $attempt++) {
+			$uid = $prefix . '-M' . strtoupper(bin2hex(random_bytes(3)));
+			if ($this->rowMapper->findByUid($layer, $uid) === null) {
+				return $uid;
+			}
+		}
+
+		throw LayerException::conflict('Could not allocate a unique ID; try again');
+	}
+
+	/**
+	 * @param array<string, mixed> $data
+	 * @return array{0: float, 1: float}|null
+	 */
+	private function pointFrom(array $data): ?array {
+		if (!isset($data['lat'], $data['lon']) || !is_numeric($data['lat']) || !is_numeric($data['lon'])) {
+			return null;
+		}
+
+		return Coordinates::validate((float)$data['lat'], (float)$data['lon']);
+	}
+
+	/**
+	 * Corrupt JSON yields no fields, which fails closed.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function decode(string $json): array {
+		$decoded = json_decode($json, true);
+		return is_array($decoded) ? $decoded : [];
+	}
+}

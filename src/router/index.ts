@@ -6,6 +6,8 @@ import SubmitEarning from '../views/SubmitEarning.vue'
 import AdminApprovals from '../views/AdminApprovals.vue'
 import PublicLedger from '../views/PublicLedger.vue'
 import MyBalance from '../views/MyBalance.vue'
+import OrganizerDesk from '../views/OrganizerDesk.vue'
+import SchemaView from '../views/SchemaView.vue'
 
 const routes = [
 	{
@@ -43,6 +45,16 @@ const routes = [
 		path: '/balance',
 		name: 'MyBalance',
 		component: MyBalance,
+	},
+	{
+		path: '/desk',
+		name: 'OrganizerDesk',
+		component: OrganizerDesk,
+	},
+	{
+		path: '/schema',
+		name: 'SchemaView',
+		component: SchemaView,
 	},
 ]
 

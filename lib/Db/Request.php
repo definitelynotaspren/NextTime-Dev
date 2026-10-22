@@ -27,6 +27,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setDeadline(?\DateTime $deadline)
  * @method string|null getLocation()
  * @method void setLocation(?string $location)
+ * @method float|null getLatitude()
+ * @method void setLatitude(?float $latitude)
+ * @method float|null getLongitude()
+ * @method void setLongitude(?float $longitude)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method \DateTime getUpdatedAt()
@@ -42,12 +46,16 @@ class Request extends Entity implements JsonSerializable {
 	protected ?string $priority = null;
 	protected ?\DateTime $deadline = null;
 	protected ?string $location = null;
+	protected ?float $latitude = null;
+	protected ?float $longitude = null;
 	protected ?\DateTime $createdAt = null;
 	protected ?\DateTime $updatedAt = null;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('categoryId', 'integer');
+		$this->addType('latitude', 'float');
+		$this->addType('longitude', 'float');
 	}
 
 	public function jsonSerialize(): array {
@@ -62,6 +70,8 @@ class Request extends Entity implements JsonSerializable {
 			'priority' => $this->priority,
 			'deadline' => $this->deadline?->format('Y-m-d H:i:s'),
 			'location' => $this->location,
+			'latitude' => $this->latitude,
+			'longitude' => $this->longitude,
 			'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),
 			'updatedAt' => $this->updatedAt?->format('Y-m-d H:i:s'),
 		];

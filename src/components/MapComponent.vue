@@ -21,6 +21,8 @@ interface Request {
 	location: string | null
 	hoursBudget: number
 	categoryId?: number
+	latitude?: number | null
+	longitude?: number | null
 }
 
 interface Offer {
@@ -28,6 +30,8 @@ interface Offer {
 	title: string
 	description: string
 	location: string | null
+	latitude?: number | null
+	longitude?: number | null
 }
 
 const props = defineProps({
@@ -64,6 +68,14 @@ const { mapContainer, map, addMarker, clearMarkers, fitBounds } = useMap({
 
 // Parse location string to coordinates
 // Expected format: "lat,lng" or "address" (for now we'll handle lat,lng)
+// Prefer stored coordinates; fall back to "lat, lng" location text for older rows.
+function pointOf(item: { latitude?: number | null, longitude?: number | null, location: string | null }): LngLatLike | null {
+	if (typeof item.latitude === 'number' && typeof item.longitude === 'number') {
+		return [item.longitude, item.latitude]
+	}
+	return parseLocation(item.location)
+}
+
 function parseLocation(location: string | null): LngLatLike | null {
 	if (!location) return null
 
@@ -86,7 +98,7 @@ function addMarkers() {
 
 	// Add request markers
 	props.requests?.forEach(request => {
-		const coords = parseLocation(request.location)
+		const coords = pointOf(request)
 		if (coords) {
 			// Create custom marker element
 			const el = document.createElement('div')
@@ -117,7 +129,7 @@ function addMarkers() {
 
 	// Add offer markers
 	props.offers?.forEach(offer => {
-		const coords = parseLocation(offer.location)
+		const coords = pointOf(offer)
 		if (coords) {
 			// Create custom marker element
 			const el = document.createElement('div')

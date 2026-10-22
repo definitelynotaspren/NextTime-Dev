@@ -233,6 +233,30 @@ There is no delete endpoint for requests — use cancel instead.
 - `PUT /api/categories/{id}` - Update a category (admin) *(no UI yet)*
 - `DELETE /api/categories/{id}` - Delete a category (admin) *(no UI yet)*
 
+#### Map
+
+- `GET /api/map/requests` - GeoJSON of open requests (points rounded to about 1 km; no contact fields)
+- `GET /api/layers/{layer}/feed` - GeoJSON of published rows for `point_snapped` layers (`needs_offers`, `issue_reports`)
+
+#### Organizer desk (organizer or facilitator roles)
+
+Roles come from Nextcloud groups: `timebank-organizer`, `timebank-facilitator`, and
+`chapter-<slug>` (see `lib/Schema/SchemaSpec.php`). Nextcloud admins are not
+organizers unless they are also in the organizer group.
+
+- `GET /api/schema` - layers, fields, visibility levels, lookups, chapters (organizer or facilitator)
+- `GET /api/layers/{layer}/rows` - rows you may see; filters `assigned=me|unassigned`, `source=form|manual`
+- `POST /api/layers/{layer}/rows` - add a row by hand (organizer); starts unpublished unless `publish=yes`
+- `POST /api/layers/{layer}/rows/{id}/assign` - claim a row (organizer; optional `status`)
+- `DELETE /api/layers/{layer}/rows/{id}/assign` - release a row you hold
+- `POST /api/layers/{layer}/rows/{id}/status` - set `assigned`, `in_progress` or `done` on a row you hold
+- `GET /api/assignments` - rows assigned to you; filters `layer`, `source`
+
+Fields are filtered by visibility on every read. A field marked `organizer` is
+never returned to a facilitator or member, and a field marked `chapter` only
+to that chapter's facilitators. Undeclared fields are treated as organizer-only.
+The survey layer is aggregate-only and has no row endpoints.
+
 #### Ledger
 
 - `GET /api/ledger` - Get the public transaction ledger

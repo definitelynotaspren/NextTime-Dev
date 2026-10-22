@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Declares support for Nextcloud 35 (`max-version` 33 → 35) and points the dev
+  dependency `nextcloud/ocp` at `dev-stable35`. Nextcloud 35 requires PHP 8.3;
+  the declared minimum stays 8.1 for Nextcloud 29–34.
+- The unit-test bootstrap no longer points outside the repository. The stale
+  `tests/unit/Controller/ApiTest.php` referenced a template class and should be
+  deleted.
+
+### Added
+
+- Requests store `latitude` and `longitude`. Explicit values are validated;
+  otherwise they are read from `"lat, lng"` location text. A repair step backfills
+  existing rows.
+- `GET /api/map/requests`: GeoJSON of open requests, with points rounded to about
+  1 km and only non-contact fields.
+- Organizer desk: `GET /api/schema`, `GET|POST /api/layers/{layer}/rows`,
+  `POST|DELETE /api/layers/{layer}/rows/{id}/assign`,
+  `POST /api/layers/{layer}/rows/{id}/status`, `GET /api/assignments`, and
+  `GET /api/layers/{layer}/feed`.
+- Field visibility (public, facilitator, chapter, organizer) enforced server-side
+  on every read. Undeclared fields and unknown visibility levels fail closed.
+  Survey rows are aggregate-only and never returned by any endpoint.
+- Roles come from the Nextcloud groups `timebank-organizer`,
+  `timebank-facilitator`, and `chapter-<slug>`.
+
 ## [0.2.0] - 2026-07-05
 
 ### Fixed

@@ -107,6 +107,8 @@ class RequestController extends Controller {
 			'priority' => $priority,
 			'deadline' => $this->request->getParam('deadline'),
 			'location' => $this->request->getParam('location'),
+			'latitude' => $this->request->getParam('latitude'),
+			'longitude' => $this->request->getParam('longitude'),
 		];
 
 		try {
@@ -128,6 +130,8 @@ class RequestController extends Controller {
 			'priority' => $this->request->getParam('priority'),
 			'deadline' => $this->request->getParam('deadline'),
 			'location' => $this->request->getParam('location'),
+			'latitude' => $this->request->getParam('latitude'),
+			'longitude' => $this->request->getParam('longitude'),
 		];
 
 		$data = array_filter($data, fn ($v) => $v !== null);
