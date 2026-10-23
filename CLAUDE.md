@@ -104,6 +104,9 @@ then `make docker-install-app`. Run the smoke test with
 - **Request lifecycle:** open → in_progress (first accepted offer) → completed | cancelled, both
   final. Several volunteers may be accepted; each is credited their own proposed hours. Complete
   does not credit hours (the claim flow does). See `docs/proposals/ui-gaps.md`.
+- **Comments are moderated, not author-deleted.** 3 distinct flags hide a comment from members;
+  moderators (NC admins and `timebank-organizer`) remove or dismiss. Removal is soft (`removed_at`/`removed_by`).
+  `RequestController::show` swaps in `CommentService::getForViewer` so hidden text never leaves the server.
 - Schema changes go in a NEW migration class (`VersionXXXXXXDateYYYYMMDDHHMMSS`)
   and a version bump in info.xml - never edit the shipped migration.
 - The app folder must be named `timebank` (matches the app id).
@@ -130,9 +133,8 @@ then `make docker-install-app`. Run the smoke test with
 - **Dev server workers:** PHP's built-in server is single-threaded and stalls browser
   tests on newer Nextcloud; run it with `PHP_CLI_SERVER_WORKERS=4`.
 
-## Known gaps (as of v0.4.x - check README "Known Limitations")
+## Known gaps (as of v0.5.x - check README "Known Limitations")
 
-- No UI to edit/cancel requests, list your own offers or withdrawals, or delete comments (API exists).
 - No category management or manual balance adjustment UI (admin API only).
 - Admin Settings page is display-only: toggles aren't saved or read. Voting
   always resolves at exactly 3 votes; negative balances always rejected.

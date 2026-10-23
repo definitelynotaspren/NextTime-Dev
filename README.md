@@ -189,9 +189,9 @@ that the caller created the resource being modified.
 - `GET /api/requests/{id}` - Get request details, volunteers, and comments
 - `GET /api/requests/my` - List the current user's own requests
 - `POST /api/requests` - Create a new request
-- `PUT /api/requests/{id}` - Update a request *(owner only, while it is open; no UI yet)*
-- `POST /api/requests/{id}/complete` - Mark complete: every accepted volunteer is completed and credited for the hours they proposed. `volunteerId` is optional; if given it must be an accepted volunteer of this request *(owner only; no UI yet)*
-- `POST /api/requests/{id}/cancel` - Cancel a request that is still open or in progress *(owner only; no UI yet)*
+- `PUT /api/requests/{id}` - Update a request *(owner only, while it is open)*
+- `POST /api/requests/{id}/complete` - Mark complete: every accepted volunteer is completed and credited for the hours they proposed. `volunteerId` is optional; if given it must be an accepted volunteer of this request *(owner only)*
+- `POST /api/requests/{id}/cancel` - Cancel a request that is still open or in progress *(owner only)*
 
 There is no delete endpoint for requests — use cancel instead.
 
@@ -208,16 +208,21 @@ refuse return HTTP 400 with a plain message; acting on someone else's request or
 #### Volunteers
 
 - `POST /api/requests/{requestId}/volunteer` - Offer to help with a request
-- `DELETE /api/volunteers/{id}` - Withdraw an offer. Withdrawing after being accepted needs a `reason` (3+ characters), which is kept in the log of withdrawn help, and reopens the request if no accepted volunteers remain *(offer owner only; no UI yet)*
-- `POST /api/volunteers/{id}/accept` - Accept a volunteer offer *(request owner only; no UI yet)*
-- `POST /api/volunteers/{id}/decline` - Decline a volunteer offer *(request owner only; no UI yet)*
-- `GET /api/volunteers/my` - List the current user's own volunteer offers *(no UI yet)*
-- `GET /api/withdrawals/my` - The current user's own log of withdrawn help, with reasons *(no UI yet)*
+- `DELETE /api/volunteers/{id}` - Withdraw an offer. Withdrawing after being accepted needs a `reason` (3+ characters), which is kept in the log of withdrawn help, and reopens the request if no accepted volunteers remain *(offer owner only)*
+- `POST /api/volunteers/{id}/accept` - Accept a volunteer offer *(request owner only)*
+- `POST /api/volunteers/{id}/decline` - Decline a volunteer offer *(request owner only)*
+- `GET /api/volunteers/my` - The current user's own offers, each with its request's title and status
+- `GET /api/withdrawals/my` - The current user's own log of withdrawn help, with reasons
 
 #### Comments
 
 - `POST /api/requests/{requestId}/comments` - Add a comment to a request
-- `DELETE /api/comments/{id}` - Delete a comment *(owner only; no UI yet)*
+- `POST /api/comments/{id}/flag` - Flag a comment that is not yours, once, with an optional `reason`. At 3 distinct flags it is hidden from members (not deleted). Flag counts are public; who flagged and why is for moderators
+- `GET /api/comments/flagged` - Comments with counting flags, with reasons *(moderators only)*
+- `POST /api/comments/{id}/dismiss` - Clear the flags and show the comment again *(moderators only)*
+- `DELETE /api/comments/{id}` - Remove a comment. The text is kept for the audit trail, and members see "removed" with who removed it *(moderators only; authors cannot delete their own)*
+
+Moderators are Nextcloud administrators and members of the `timebank-organizer` group.
 
 #### Earnings
 
@@ -272,7 +277,7 @@ The survey layer is aggregate-only and has no row endpoints.
 
 - `GET /api/ledger` - Get the public transaction ledger
 - `GET /api/ledger/my` - Get the current user's transaction history
-- `GET /api/ledger/user/{userId}` - Get another user's transaction history *(no UI yet)*
+- `GET /api/ledger/user/{userId}` - Get another user's transaction history (names in the app link to it)
 
 ### Example API Calls
 
@@ -317,7 +322,8 @@ curl -X POST http://localhost:8080/apps/timebank/api/earnings/claim \
 - `timebank_balances` - User time bank balances
 - `timebank_transactions` - Complete transaction history (public ledger)
 - `timebank_user_stats` - User statistics by category
-- `timebank_comments` - Comments on requests
+- `timebank_comments` - Comments on requests (soft-removed ones keep their text and who removed them)
+- `timebank_comment_flags` - Members' flags on comments, with reasons
 
 ## Testing
 
@@ -436,18 +442,18 @@ This project is licensed under the AGPL-3.0-or-later License - see the LICENSE f
 
 The request lifecycle (open → volunteer → accept → complete) now works end to
 end in the UI, including accepting several volunteers, declining, withdrawing
-with a reason, and completing. As of v0.4.0, the following exist as working,
-authorized API endpoints with **no corresponding UI**:
+with a reason, and completing. As of v0.5.0, requesters can edit (while open) and cancel, "My Activity" lists your
+requests, offers and withdrawn help, and comments are moderated by community flags. The following
+exist as working, authorized API endpoints with **no corresponding UI**:
 
-- **Editing or cancelling a request**, and **viewing your own list of offers
-  and your log of withdrawn help** (withdrawing itself is on the request page).
-- **Deleting a comment.**
 - **Category management** (create/edit/delete) and **manual balance
   adjustment** — both admin-only on the backend, but there's no UI, in the
   Vue app or in Admin Settings, to use them. Categories must currently be
   managed via direct API calls.
-- **Viewing another user's transaction history** (`/api/ledger/user/{userId}`)
-  — only "my transactions" and the full public ledger have pages.
+- **Nobody is notified automatically** when a request is cancelled, a flag hides a comment, or an offer
+  is accepted. Tell the people involved.
+- A member can flag a comment once, ever: after a moderator dismisses flags, those members cannot flag
+  the same comment again.
 
 Organizer desk: rows can only be entered by hand (`source=manual`); form submissions do
 not create rows yet.

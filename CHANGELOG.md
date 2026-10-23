@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Moving from one request to another in the address bar kept showing the first request; the page now reloads
+  when the id changes.
 - **Primary and destructive buttons were unstyled everywhere.** `@nextcloud/vue` 9 uses
   `variant="primary"` / `variant="error"`; the app used the old `type=` prop, so Post Request, Volunteer,
   Submit Claim, Approve and Reject all looked like plain buttons.
@@ -79,6 +81,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Self-service and comment moderation** (Step B of `docs/proposals/ui-gaps.md`).
+  - Requesters can edit their request while it is open (title, description, category, hours, priority,
+    deadline, location) and cancel it from a confirmation that names any accepted helpers. Edits keep the
+    limits of posting.
+  - "My Activity" now has tabs for My requests, My offers (with a withdraw button) and Withdrawn help.
+  - Names link to that member's ledger (`#/ledger/user/<name>`).
+  - **Comments:** any member can flag a comment that is not theirs, once. Flag counts are public; reasons are
+    for moderators. At 3 distinct flags a comment is hidden from members, not deleted. Nextcloud admins and
+    the `timebank-organizer` group see a Flagged Comments queue, and can remove a comment or keep it (dismiss
+    the flags). Removal is soft and names the moderator. Authors can no longer delete their own comments.
+    New table `timebank_comment_flags` and two columns on `timebank_comments` (migration, version 0.5.0).
+  - `GET /api/roles` also reports `moderator`; the request response carries `canModerate`.
 - `CLAUDE.md` and `.claude/` (settings, PHP lint hook, `/check` and `/smoke` commands).
 - `scripts/dev-native.sh`: Docker-free dev server (Nextcloud stable31 on SQLite).
 - `scripts/smoke-test.sh`: end-to-end API test of the full request/earning/vote lifecycle.

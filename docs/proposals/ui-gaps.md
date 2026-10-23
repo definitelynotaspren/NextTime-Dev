@@ -111,7 +111,7 @@ volunteers, decline a third, one accepted volunteer withdraws with a reason, the
   `type=` prop, so no primary button was styled), and the offer form now shows only to someone who can
   actually offer (not the requester, not someone who already did).
 
-## Step B: self-service and comment moderation
+## Step B: self-service and comment moderation (built in v0.5.0)
 
 - **Edit** (while open): reuse `NewRequestForm.vue` in an edit mode. **Cancel** with a confirmation that
   mentions any accepted helpers.

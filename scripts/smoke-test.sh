@@ -220,6 +220,74 @@ expect "bob reads his log of withdrawn help" 200
 call bob POST "/requests/$WD_ID/volunteer" '{"proposedHours":2}'
 expect "bob can offer again after withdrawing" 201
 
+echo "- Self-service: editing, my offers, cancelling"
+call bob PUT "/requests/$WD_ID" '{"title":"Not bob to edit"}'
+expect "only the requester can edit" 403
+call alice PUT "/requests/$WD_ID" '{"hoursBudget":5000}'
+expect "an edit keeps the posting limits" 400
+call alice PUT "/requests/$WD_ID" "{\"title\":\"Smoke test: withdraw (edited)\",\"hoursBudget\":3,\"categoryId\":$CAT_ID,\"priority\":\"high\"}"
+expect "alice edits her open request" 200
+[ "$(json '.title')" = "Smoke test: withdraw (edited)" ] && [ "$(json '.priority')" = high ] && pass "the edit is saved" || fail "edit not saved: $BODY"
+call bob GET /volunteers/my
+expect "bob lists his offers" 200
+[ "$(jq -r --argjson r "$WD_ID" '[.[] | select(.request.id==$r and .request.title=="Smoke test: withdraw (edited)")] | length' <<<"$BODY")" = 1 ] && pass "each offer carries its request's title and status" || fail "offers lack request summary: $BODY"
+call bob POST "/requests/$WD_ID/cancel"
+expect "only the requester can cancel" 403
+call alice POST "/requests/$WD_ID/cancel"
+expect "alice cancels with a pending offer" 200
+call bob GET /volunteers/my
+[ "$(jq -r --argjson r "$WD_ID" '[.[] | select(.request.id==$r)][0].request.status' <<<"$BODY")" = cancelled ] && pass "bob sees the request is cancelled" || fail "offer still shows old status: $BODY"
+
+echo "- Comments: flagging and moderation"
+call alice POST /requests "{\"title\":\"Smoke test: comments\",\"description\":\"Used to try out comment flagging.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1}"
+expect "alice posts a request for comments" 201
+CM_ID="$(json '.id')"
+call alice POST "/requests/$CM_ID/comments" '{"comment":"   "}'
+expect "an empty comment is refused" 400
+call bob POST "/requests/$CM_ID/comments" '{"comment":"First comment, perfectly polite."}'
+expect "bob comments" 201
+C1="$(json '.id')"
+call bob POST "/requests/$CM_ID/comments" '{"comment":"A second comment to be removed."}'
+expect "bob comments again" 201
+C2="$(json '.id')"
+call bob POST "/comments/$C1/flag" '{"reason":"my own"}'
+expect "you cannot flag your own comment" 400
+call carol POST "/comments/$C1/flag" '{"reason":"Seems rude"}'
+expect "carol flags" 201
+call carol POST "/comments/$C1/flag"
+expect "a second flag from the same member is refused" 400
+call alice GET "/requests/$CM_ID"
+[ "$(jq -r --argjson c "$C1" '.comments[] | select(.id==$c) | "\(.state) \(.flagCount)"' <<<"$BODY")" = "visible 1" ] && pass "one flag is counted in public and does not hide it" || fail "unexpected comment view: $BODY"
+call alice POST "/comments/$C1/flag" '{"reason":"Not for this thread"}'
+expect "alice flags" 201
+call admin POST "/comments/$C1/flag" '{"reason":"Agreed"}'
+expect "a third distinct flag" 201
+call carol GET "/requests/$CM_ID"
+[ "$(jq -r --argjson c "$C1" '.comments[] | select(.id==$c) | "\(.state) \(.comment) \(has("flags"))"' <<<"$BODY")" = "hidden null false" ] && pass "3 flags hide the text from members and keep reasons private" || fail "member still sees the comment: $BODY"
+call admin GET "/requests/$CM_ID"
+[ "$(jq -r --argjson c "$C1" '.comments[] | select(.id==$c) | "\(.state) \(.comment) \(.flags | length)"' <<<"$BODY")" = "hidden First comment, perfectly polite. 3" ] && [ "$(json '.canModerate')" = true ] && pass "moderators still see the text and the three reasons" || fail "moderator view wrong: $BODY"
+call carol GET /comments/flagged
+expect "members cannot open the moderation list" 403
+call admin GET /comments/flagged
+expect "admin opens the moderation list" 200
+[ "$(jq -r --argjson c "$C1" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 1 ] && pass "the hidden comment is in the list" || fail "not listed: $BODY"
+call carol POST "/comments/$C1/dismiss"
+expect "members cannot dismiss flags" 403
+call admin POST "/comments/$C1/dismiss"
+expect "admin dismisses the flags" 200
+call carol GET "/requests/$CM_ID"
+[ "$(jq -r --argjson c "$C1" '.comments[] | select(.id==$c) | "\(.state) \(.flagCount)"' <<<"$BODY")" = "visible 0" ] && pass "dismissing restores the comment" || fail "comment not restored: $BODY"
+call bob DELETE "/comments/$C2"
+expect "authors cannot delete their own comments" 403
+call carol DELETE "/comments/$C2"
+expect "other members cannot delete comments" 403
+call admin DELETE "/comments/$C2"
+expect "admin removes a comment" 200
+call carol GET "/requests/$CM_ID"
+[ "$(jq -r --argjson c "$C2" '.comments[] | select(.id==$c) | "\(.state) \(.comment) \(.removedBy)"' <<<"$BODY")" = "removed null admin" ] && pass "members see it removed, with who removed it" || fail "removed view wrong: $BODY"
+call carol POST "/comments/$C2/flag"
+expect "a removed comment cannot be flagged" 400
+
 echo "- Frontend page"
 code="$(curl -s -o "$TMP/page" -w '%{http_code}' -u alice:alice-pass-123 "$BASE/index.php/apps/timebank/")"
 [ "$code" = 200 ] && grep -q 'timebank-main' "$TMP/page" && pass "app page loads and references built JS" || fail "app page: $code (is js/ built?)"
