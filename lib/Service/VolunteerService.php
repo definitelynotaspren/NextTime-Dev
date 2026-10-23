@@ -194,6 +194,33 @@ class VolunteerService {
 	}
 
 	/**
+	 * The caller's offers with a short summary of each request, for the My offers tab.
+	 * An offer whose request no longer exists is left out.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	public function getMyOffersWithRequests(string $userId): array {
+		$rows = [];
+		foreach ($this->volunteerMapper->findByVolunteer($userId) as $offer) {
+			try {
+				$request = $this->requestMapper->find($offer->getRequestId());
+			} catch (DoesNotExistException) {
+				continue;
+			}
+			$row = $offer->jsonSerialize();
+			$row['request'] = [
+				'id' => $request->getId(),
+				'title' => $request->getTitle(),
+				'status' => $request->getStatus(),
+				'requesterId' => $request->getRequesterId(),
+			];
+			$rows[] = $row;
+		}
+
+		return $rows;
+	}
+
+	/**
 	 * The caller's own log of withdrawn help.
 	 *
 	 * @return Withdrawal[]

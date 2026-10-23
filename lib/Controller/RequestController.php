@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Controller;
 
+use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\RequestService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -23,6 +24,7 @@ class RequestController extends Controller {
 		string $appName,
 		IRequest $request,
 		RequestService $requestService,
+		private CommentService $commentService,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -56,6 +58,9 @@ class RequestController extends Controller {
 	public function show(int $id): DataResponse {
 		try {
 			$data = $this->requestService->getRequestDetails($id, $this->userId);
+			// Comments go through moderation: hidden and removed ones lose their text.
+			$data['comments'] = $this->commentService->getForViewer($id, $this->userId);
+			$data['canModerate'] = $this->commentService->isModerator($this->userId);
 			return new DataResponse($data);
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
@@ -126,6 +131,7 @@ class RequestController extends Controller {
 		$data = [
 			'title' => $this->request->getParam('title'),
 			'description' => $this->request->getParam('description'),
+			'categoryId' => $this->request->getParam('categoryId'),
 			'hoursBudget' => $this->request->getParam('hoursBudget')
 				? (float)$this->request->getParam('hoursBudget') : null,
 			'priority' => $this->request->getParam('priority'),

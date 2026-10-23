@@ -19,6 +19,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setParentId(?int $parentId)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
+ * @method \DateTime|null getRemovedAt()
+ * @method void setRemovedAt(?\DateTime $removedAt)
+ * @method string|null getRemovedBy()
+ * @method void setRemovedBy(?string $removedBy)
  */
 class Comment extends Entity implements JsonSerializable {
 	protected ?int $requestId = null;
@@ -26,10 +30,13 @@ class Comment extends Entity implements JsonSerializable {
 	protected ?string $comment = null;
 	protected ?int $parentId = null;
 	protected ?\DateTime $createdAt = null;
+	protected ?\DateTime $removedAt = null;
+	protected ?string $removedBy = null;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('createdAt', 'datetime');
+		$this->addType('removedAt', 'datetime');
 		$this->addType('requestId', 'integer');
 		$this->addType('parentId', 'integer');
 	}

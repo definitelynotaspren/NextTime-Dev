@@ -86,8 +86,7 @@ class VolunteerController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/volunteers/my')]
 	public function myOffers(): DataResponse {
-		$offers = $this->volunteerService->getMyVolunteerOffers($this->userId);
-		return new DataResponse(array_map(fn ($v) => $v->jsonSerialize(), $offers));
+		return new DataResponse($this->volunteerService->getMyOffersWithRequests($this->userId));
 	}
 
 	#[NoAdminRequired]

@@ -226,4 +226,28 @@ final class RequestServiceTest extends TestCase {
 		$this->expectException(NotAuthorizedException::class);
 		$this->service->updateRequest(1, 'mallory', ['title' => 'Not mine']);
 	}
+
+	public function testEditsKeepTheLimitsOfPostingARequest(): void {
+		$this->requests->method('find')->willReturn($this->request('open'));
+
+		$bad = [
+			['title' => 'abc'],
+			['description' => 'too short'],
+			['hoursBudget' => 0],
+			['hoursBudget' => 1001],
+			['priority' => 'whenever'],
+		];
+		foreach ($bad as $change) {
+			try {
+				$this->service->updateRequest(1, 'alice', $change);
+				$this->fail('Should refuse ' . json_encode($change));
+			} catch (InvalidStateException) {
+				$this->addToAssertionCount(1);
+			}
+		}
+
+		$edited = $this->service->updateRequest(1, 'alice', ['categoryId' => 9, 'hoursBudget' => 2.5, 'priority' => 'high']);
+		$this->assertSame(9, $edited->getCategoryId());
+		$this->assertSame('high', $edited->getPriority());
+	}
 }

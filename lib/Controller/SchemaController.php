@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Schema\SchemaSpec;
+use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\ViewerResolver;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -26,6 +27,7 @@ class SchemaController extends Controller {
 		string $appName,
 		IRequest $request,
 		ViewerResolver $viewers,
+		private CommentService $comments,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -77,6 +79,7 @@ class SchemaController extends Controller {
 		return new DataResponse([
 			'organizer' => $viewer->organizer,
 			'facilitator' => $viewer->facilitator,
+			'moderator' => $this->comments->isModerator($this->userId),
 		]);
 	}
 }

@@ -9,23 +9,20 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
 class CommentController extends Controller {
-
-	private CommentService $commentService;
-	private ?string $userId;
+	use ServiceErrors;
 
 	public function __construct(
 		string $appName,
 		IRequest $request,
-		CommentService $commentService,
-		?string $userId,
+		private CommentService $commentService,
+		private ?string $userId,
 	) {
 		parent::__construct($appName, $request);
-		$this->commentService = $commentService;
-		$this->userId = $userId;
 	}
 
 	#[NoAdminRequired]
@@ -41,18 +38,55 @@ class CommentController extends Controller {
 			$comment = $this->commentService->create($requestId, $this->userId, $data);
 			return new DataResponse($comment->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
+	/** Any member can flag a comment that is not theirs. */
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/comments/{id}/flag', requirements: ['id' => '\\d+'])]
+	public function flag(int $id): DataResponse {
+		try {
+			$flag = $this->commentService->flag($id, $this->userId, $this->request->getParam('reason'));
+			return new DataResponse(['flagged' => true, 'id' => $flag->getId()], Http::STATUS_CREATED);
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	/** Moderators only: comments with counting flags, with reasons. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[FrontpageRoute(verb: 'GET', url: '/api/comments/flagged')]
+	public function flagged(): DataResponse {
+		try {
+			return new DataResponse($this->commentService->getFlagged($this->userId));
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	/** Moderators only: the flags stop counting and the comment is shown again. */
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/comments/{id}/dismiss', requirements: ['id' => '\\d+'])]
+	public function dismiss(int $id): DataResponse {
+		try {
+			$this->commentService->dismissFlags($id, $this->userId);
+			return new DataResponse(['success' => true]);
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	/** Moderators only. Authors cannot delete their own comments. The removal is kept on record. */
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'DELETE', url: '/api/comments/{id}', requirements: ['id' => '\\d+'])]
 	public function delete(int $id): DataResponse {
 		try {
-			$this->commentService->delete($id, $this->userId);
+			$this->commentService->remove($id, $this->userId);
 			return new DataResponse(['success' => true]);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return $this->errorResponse($e);
 		}
 	}
 }

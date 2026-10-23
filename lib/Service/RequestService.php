@@ -149,19 +149,38 @@ class RequestService {
 			throw new InvalidStateException('A request can only be edited while it is open');
 		}
 
+		// Same limits as posting a request.
 		if (isset($data['title'])) {
-			$request->setTitle($data['title']);
+			$title = trim((string)$data['title']);
+			if (strlen($title) < 5 || strlen($title) > 200) {
+				throw new InvalidStateException('Title must be 5 to 200 characters');
+			}
+			$request->setTitle($title);
 		}
 		if (isset($data['description'])) {
-			$request->setDescription($data['description']);
+			$description = trim((string)$data['description']);
+			if (strlen($description) < 20) {
+				throw new InvalidStateException('Description must be at least 20 characters');
+			}
+			$request->setDescription($description);
+		}
+		if (isset($data['categoryId'])) {
+			$request->setCategoryId((int)$data['categoryId']);
 		}
 		if (isset($data['hoursBudget'])) {
-			$request->setHoursBudget((string)$data['hoursBudget']);
+			$hours = (float)$data['hoursBudget'];
+			if ($hours <= 0 || $hours > 1000) {
+				throw new InvalidStateException('Hours budget must be above 0 and at most 1000');
+			}
+			$request->setHoursBudget((string)$hours);
 		}
 		if (isset($data['priority'])) {
+			if (!in_array($data['priority'], ['low', 'normal', 'high', 'urgent'], true)) {
+				throw new InvalidStateException('Priority must be low, normal, high, or urgent');
+			}
 			$request->setPriority($data['priority']);
 		}
-		if (isset($data['deadline'])) {
+		if (isset($data['deadline']) && $data['deadline'] !== '') {
 			$request->setDeadline(new \DateTime($data['deadline']));
 		}
 		if (isset($data['location'])) {
