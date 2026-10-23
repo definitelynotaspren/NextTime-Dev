@@ -7,7 +7,7 @@ namespace OCA\TimeBank\Controller;
 use OCA\TimeBank\Service\CategoryService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -35,7 +35,7 @@ class CategoryController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/categories')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/categories')]
 	public function index(): DataResponse {
 		$categories = $this->categoryService->getAll();
 		return new DataResponse(array_map(fn ($c) => $c->jsonSerialize(), $categories));
@@ -43,7 +43,7 @@ class CategoryController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/categories/{id}')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/categories/{id}', requirements: ['id' => '\\d+'])]
 	public function show(int $id): DataResponse {
 		try {
 			$category = $this->categoryService->get($id);
@@ -54,7 +54,7 @@ class CategoryController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/categories')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/categories')]
 	public function create(): DataResponse {
 		if (!$this->groupManager->isAdmin($this->userId)) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
@@ -76,7 +76,7 @@ class CategoryController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'PUT', url: '/api/categories/{id}')]
+	#[FrontpageRoute(verb: 'PUT', url: '/api/categories/{id}', requirements: ['id' => '\\d+'])]
 	public function update(int $id): DataResponse {
 		if (!$this->groupManager->isAdmin($this->userId)) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
@@ -100,7 +100,7 @@ class CategoryController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'DELETE', url: '/api/categories/{id}')]
+	#[FrontpageRoute(verb: 'DELETE', url: '/api/categories/{id}', requirements: ['id' => '\\d+'])]
 	public function destroy(int $id): DataResponse {
 		if (!$this->groupManager->isAdmin($this->userId)) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);

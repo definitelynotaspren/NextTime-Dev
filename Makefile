@@ -1,4 +1,4 @@
-.PHONY: help install build clean test appstore docker-up docker-down docker-logs
+.PHONY: help install build clean test appstore docker-up docker-down docker-logs native-setup native-start native-stop test-native smoke docker-seed-users
 
 # Default target
 help:
@@ -18,6 +18,10 @@ help:
 	@echo "  make docker-down   - Stop Docker development environment"
 	@echo "  make docker-logs   - View Docker logs"
 	@echo "  make docker-shell  - Open shell in Nextcloud container"
+	@echo "  make native-setup  - Docker-free dev server (clones NC, SQLite)"
+	@echo "  make native-start  - Start it on http://127.0.0.1:8081"
+	@echo "  make test-native   - PHPUnit against ../nc-server"
+	@echo "  make smoke         - End-to-end API smoke test (BASE_URL=...)"
 	@echo ""
 
 # Install dependencies
@@ -155,3 +159,26 @@ docker-install-app:
 dev: install build docker-up
 	@echo "Development environment ready!"
 	@echo "Access Nextcloud at http://localhost:8080"
+
+# Docker-free dev environment (see scripts/dev-native.sh)
+native-setup:
+	scripts/dev-native.sh setup
+
+native-start:
+	scripts/dev-native.sh start
+
+native-stop:
+	scripts/dev-native.sh stop
+
+test-native:
+	NEXTCLOUD_ROOT=../nc-server composer test:unit
+
+smoke:
+	scripts/smoke-test.sh $(BASE_URL)
+
+# Create the alice/bob/carol test users in the Docker stack
+docker-seed-users:
+	for u in alice bob carol; do \
+		docker compose exec -T -u www-data -e OC_PASS=$$u-pass-123 nextcloud \
+			php occ user:add --password-from-env $$u || true; \
+	done

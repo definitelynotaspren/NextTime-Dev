@@ -7,17 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **API routes were still unreachable**: controllers used `#[ApiRoute]`, which
+  registers OCS routes under `/ocs/v2.php/...`, while the frontend calls
+  `/index.php/apps/timebank/api/...`. Switched to `#[FrontpageRoute]`.
+- `GET /api/requests/my` was captured by `/api/requests/{id}`; numeric
+  `requirements` added to every `{id}`/`{requestId}` route.
+- Every entity read with a date column threw a TypeError (HTTP 500): `?\DateTime`
+  properties lacked `addType(..., 'datetime')`. Fixed in all entities.
+- Default categories weren't seeded on a fresh `occ app:enable`;
+  `SeedCategories` now also runs as an `<install>` repair step.
+- ESLint used the Vue 2 / JS preset and couldn't parse the TypeScript sources;
+  now uses `@nextcloud/eslint-config/vue3`.
+
 ### Changed
 
-- Declares support for Nextcloud 35 (`max-version` 33 → 35) and points the dev
-  dependency `nextcloud/ocp` at `dev-stable35`. Nextcloud 35 requires PHP 8.3;
-  the declared minimum stays 8.1 for Nextcloud 29–34.
-- The unit-test bootstrap no longer points outside the repository. The stale
-  `tests/unit/Controller/ApiTest.php` referenced a template class and should be
-  deleted.
+- Declares support for Nextcloud 35 (`max-version` 33 → 35). Nextcloud 35
+  requires PHP 8.3; the declared minimum stays 8.1 for Nextcloud 29–34. Only
+  tested so far against the stable31 dev server. `nextcloud/ocp` stays at
+  `dev-stable31`, matching `composer.lock`.
+- App version 0.2.0 → 0.3.0 so the new migration runs on upgrade.
 
 ### Added
 
+- `CLAUDE.md` and `.claude/` (settings, PHP lint hook, `/check` and `/smoke` commands).
+- `scripts/dev-native.sh`: Docker-free dev server (Nextcloud stable31 on SQLite).
+- `scripts/smoke-test.sh`: end-to-end API test of the full request/earning/vote lifecycle.
+- `tests/unit/Db/EntityTypesTest.php`; test bootstrap finds the server via `NEXTCLOUD_ROOT`.
 - Requests store `latitude` and `longitude`. Explicit values are validated;
   otherwise they are read from `"lat, lng"` location text. A repair step backfills
   existing rows.
@@ -32,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Survey rows are aggregate-only and never returned by any endpoint.
 - Roles come from the Nextcloud groups `timebank-organizer`,
   `timebank-facilitator`, and `chapter-<slug>`.
+
+### Removed
+
+- Stale app-template `ApiTest` that referenced non-existent classes.
 
 ## [0.2.0] - 2026-07-05
 

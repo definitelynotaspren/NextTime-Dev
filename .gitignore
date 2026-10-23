@@ -10,3 +10,7 @@
 /node_modules/
 /js/
 /css/
+
+/build/
+.env
+/.claude/settings.local.json

@@ -9,7 +9,7 @@ use OCA\TimeBank\Schema\SchemaSpec;
 use OCA\TimeBank\Service\ViewerResolver;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -36,7 +36,7 @@ class SchemaController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/schema')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/schema')]
 	public function show(): DataResponse {
 		if ($this->userId === null) {
 			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);

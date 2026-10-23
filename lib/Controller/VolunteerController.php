@@ -7,7 +7,7 @@ namespace OCA\TimeBank\Controller;
 use OCA\TimeBank\Service\VolunteerService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -30,7 +30,7 @@ class VolunteerController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/requests/{requestId}/volunteer')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/requests/{requestId}/volunteer', requirements: ['requestId' => '\\d+'])]
 	public function offer(int $requestId): DataResponse {
 		$data = [
 			'proposedHours' => (float)$this->request->getParam('proposedHours'),
@@ -46,7 +46,7 @@ class VolunteerController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'DELETE', url: '/api/volunteers/{id}')]
+	#[FrontpageRoute(verb: 'DELETE', url: '/api/volunteers/{id}', requirements: ['id' => '\\d+'])]
 	public function withdraw(int $id): DataResponse {
 		try {
 			$this->volunteerService->withdraw($id, $this->userId);
@@ -57,7 +57,7 @@ class VolunteerController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/volunteers/{id}/accept')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/volunteers/{id}/accept', requirements: ['id' => '\\d+'])]
 	public function accept(int $id): DataResponse {
 		try {
 			$volunteer = $this->volunteerService->accept($id, $this->userId);
@@ -68,7 +68,7 @@ class VolunteerController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/volunteers/{id}/decline')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/volunteers/{id}/decline', requirements: ['id' => '\\d+'])]
 	public function decline(int $id): DataResponse {
 		try {
 			$volunteer = $this->volunteerService->decline($id, $this->userId);
@@ -80,7 +80,7 @@ class VolunteerController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/volunteers/my')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/volunteers/my')]
 	public function myOffers(): DataResponse {
 		$offers = $this->volunteerService->getMyVolunteerOffers($this->userId);
 		return new DataResponse(array_map(fn ($v) => $v->jsonSerialize(), $offers));

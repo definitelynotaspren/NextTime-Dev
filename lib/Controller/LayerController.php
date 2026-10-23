@@ -10,7 +10,7 @@ use OCA\TimeBank\Service\LayerService;
 use OCA\TimeBank\Service\ViewerResolver;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -42,7 +42,7 @@ class LayerController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/layers/{layer}/rows')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/layers/{layer}/rows', requirements: ['layer' => '[a-z_]+'])]
 	public function rows(string $layer): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->listRows($viewer, $layer, [
 			'assigned' => $this->request->getParam('assigned'),
@@ -51,10 +51,12 @@ class LayerController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/layers/{layer}/rows')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows', requirements: ['layer' => '[a-z_]+'])]
 	public function create(string $layer): DataResponse {
 		$input = $this->request->getParams();
 		unset($input['layer'], $input['id']);
+		// Drop framework-internal parameters such as _route.
+		$input = array_filter($input, fn ($key) => !str_starts_with((string)$key, '_'), ARRAY_FILTER_USE_KEY);
 
 		return $this->run(
 			fn (Viewer $viewer) => $this->layerService->create($viewer, $layer, $input),
@@ -63,7 +65,7 @@ class LayerController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/assign')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/assign', requirements: ['layer' => '[a-z_]+', 'id' => '\\d+'])]
 	public function assign(string $layer, int $id): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->assign(
 			$viewer,
@@ -74,13 +76,13 @@ class LayerController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'DELETE', url: '/api/layers/{layer}/rows/{id}/assign')]
+	#[FrontpageRoute(verb: 'DELETE', url: '/api/layers/{layer}/rows/{id}/assign', requirements: ['layer' => '[a-z_]+', 'id' => '\\d+'])]
 	public function unassign(string $layer, int $id): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->unassign($viewer, $layer, $id));
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/status')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/status', requirements: ['layer' => '[a-z_]+', 'id' => '\\d+'])]
 	public function status(string $layer, int $id): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->setAssignmentStatus(
 			$viewer,
@@ -92,7 +94,7 @@ class LayerController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/assignments')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/assignments')]
 	public function assignments(): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->myAssignments(
 			$viewer,
@@ -103,7 +105,7 @@ class LayerController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/layers/{layer}/feed')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/layers/{layer}/feed', requirements: ['layer' => '[a-z_]+'])]
 	public function feed(string $layer): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->publicFeed($viewer, $layer));
 	}

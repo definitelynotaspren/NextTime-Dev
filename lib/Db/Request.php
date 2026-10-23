@@ -53,6 +53,9 @@ class Request extends Entity implements JsonSerializable {
 
 	public function __construct() {
 		$this->addType('id', 'integer');
+		$this->addType('deadline', 'datetime');
+		$this->addType('createdAt', 'datetime');
+		$this->addType('updatedAt', 'datetime');
 		$this->addType('categoryId', 'integer');
 		$this->addType('latitude', 'float');
 		$this->addType('longitude', 'float');

@@ -29,6 +29,7 @@ class UserStats extends Entity implements JsonSerializable {
 
 	public function __construct() {
 		$this->addType('id', 'integer');
+		$this->addType('lastActive', 'datetime');
 		$this->addType('categoryId', 'integer');
 		$this->addType('completedRequests', 'integer');
 	}

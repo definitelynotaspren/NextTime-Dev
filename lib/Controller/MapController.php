@@ -8,7 +8,7 @@ use OCA\TimeBank\Db\Request;
 use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Geo\Coordinates;
 use OCP\AppFramework\Controller;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -35,7 +35,7 @@ class MapController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/map/requests')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/map/requests')]
 	public function requests(): DataResponse {
 		$features = array_map(
 			fn (Request $request) => $this->toFeature($request),

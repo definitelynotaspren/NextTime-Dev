@@ -38,6 +38,7 @@ class Transaction extends Entity implements JsonSerializable {
 
 	public function __construct() {
 		$this->addType('id', 'integer');
+		$this->addType('createdAt', 'datetime');
 		$this->addType('referenceId', 'integer');
 	}
 

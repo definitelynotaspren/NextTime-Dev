@@ -8,7 +8,7 @@ use OCA\TimeBank\Service\BalanceService;
 use OCA\TimeBank\Service\TransactionService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -39,7 +39,7 @@ class BalanceController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/balance/my')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/balance/my')]
 	public function my(): DataResponse {
 		$balance = $this->balanceService->getBalance($this->userId);
 		return new DataResponse($balance->jsonSerialize());
@@ -47,7 +47,7 @@ class BalanceController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/balance/all')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/balance/all')]
 	public function all(): DataResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 100);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
@@ -58,7 +58,7 @@ class BalanceController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/balance/adjust')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/balance/adjust')]
 	public function adjust(): DataResponse {
 		if (!$this->groupManager->isAdmin($this->userId)) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);

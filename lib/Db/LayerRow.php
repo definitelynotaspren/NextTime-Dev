@@ -55,5 +55,8 @@ class LayerRow extends Entity {
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('publish', 'boolean');
+		$this->addType('assignedAt', 'datetime');
+		$this->addType('createdAt', 'datetime');
+		$this->addType('updatedAt', 'datetime');
 	}
 }
