@@ -34,7 +34,14 @@ call() {
 	local user="$1" method="$2" path="$3" body="${4:-}"
 	local pass
 	case "$user" in admin) pass="admin" ;; *) pass="${user}-pass-123" ;; esac
-	local args=(-s -o "$TMP/body" -w '%{http_code}' -u "$user:$pass"
+	# Nextcloud < 30 ignores the OCS-APIRequest header for CSRF, so keep a cookie session
+	# per user and send its request token. Newer versions accept it too.
+	local jar="$TMP/jar-$user"
+	if [ ! -s "$TMP/token-$user" ]; then
+		curl -s -c "$jar" -u "$user:$pass" -H 'OCS-APIRequest: true' "$BASE/index.php/csrftoken" | jq -r '.token // empty' >"$TMP/token-$user"
+	fi
+	local args=(-s -o "$TMP/body" -w '%{http_code}' -u "$user:$pass" -b "$jar" -c "$jar"
+		-H "requesttoken: $(cat "$TMP/token-$user")"
 		-H 'OCS-APIRequest: true' -H 'Accept: application/json' -X "$method")
 	[ -n "$body" ] && args+=(-H 'Content-Type: application/json' -d "$body")
 	STATUS="$(curl "${args[@]}" "$API$path")"
