@@ -57,7 +57,13 @@ async function login(browser, user, pass) {
 }
 
 const findResponse = (page, method, pattern) => [...page.responses].reverse().find((r) => r.method === method && pattern.test(r.url))
-const go = async (page, route) => { await page.goto(`${APP}/#${route}`, { waitUntil: 'domcontentloaded' }); await page.waitForTimeout(1500) }
+// Going to the route a page is already on does not remount it, so reload to see current data.
+const go = async (page, route) => {
+	const same = page.url().endsWith(`#${route}`)
+	await page.goto(`${APP}/#${route}`, { waitUntil: 'domcontentloaded' })
+	if (same) await page.reload({ waitUntil: 'domcontentloaded' })
+	await page.waitForTimeout(1500)
+}
 const pickFirstOption = async (page, placeholder) => {
 	await page.getByPlaceholder(placeholder).first().click()
 	await page.waitForTimeout(300)
@@ -136,6 +142,62 @@ const pickFirstOption = async (page, placeholder) => {
 	await bob.waitForTimeout(1500)
 	const claim = findResponse(bob, 'POST', /\/earnings\/claim$/)
 	check('earning claim is accepted (201)', claim?.status === 201, claim && `${claim.status} ${claim.body}`)
+
+	console.log('- Several volunteers: accept, decline, withdraw, complete')
+	const detail = async (page) => (await page.request.get(`${APP}/api/requests/${created?.id}`, { headers: { 'OCS-APIRequest': 'true' } })).json()
+	const card = (page, who) => page.locator('.volunteer-card', { hasText: who })
+
+	await go(carol, `/request/${created?.id}`)
+	check('someone who has not offered sees the offer form', await carol.getByText('Offer to Help').count() > 0)
+	await carol.getByPlaceholder('Hours you can contribute').fill('3')
+	await carol.locator('textarea').last().fill('Happy to carry too.')
+	await carol.getByRole('button', { name: 'Volunteer', exact: true }).click()
+	await carol.waitForTimeout(1200)
+	check('a second person can offer on the same request', (await detail(carol)).volunteers?.some((v) => v.volunteerId === 'carol'))
+	check('once offered, the offer form is gone', await carol.getByText('Offer to Help').count() === 0)
+
+	const admin = await login(browser, 'admin', 'admin')
+	await go(admin, `/request/${created?.id}`)
+	await admin.getByPlaceholder('Hours you can contribute').fill('1')
+	await admin.getByRole('button', { name: 'Volunteer', exact: true }).click()
+	await admin.waitForTimeout(1200)
+
+	await go(alice, `/request/${created?.id}`)
+	check('the requester does not see the offer form', await alice.getByText('Offer to Help').count() === 0)
+	check('the requester cannot complete before accepting anyone', await alice.getByRole('button', { name: 'Mark complete', exact: true }).isDisabled())
+	await card(alice, 'bob').getByRole('button', { name: 'Accept' }).click()
+	await alice.waitForTimeout(1000)
+	await card(alice, 'carol').getByRole('button', { name: 'Accept' }).click()
+	await alice.waitForTimeout(1000)
+	await card(alice, 'admin').getByRole('button', { name: 'Decline' }).click()
+	await alice.waitForTimeout(1000)
+	let state = await detail(alice)
+	const statusOf = (who) => state.volunteers?.find((v) => v.volunteerId === who)?.status
+	check('bob and carol are accepted, admin is declined', statusOf('bob') === 'accepted' && statusOf('carol') === 'accepted' && statusOf('admin') === 'declined', JSON.stringify(state.volunteers?.map((v) => [v.volunteerId, v.status])))
+	check('the request is in progress', state.request?.status === 'in_progress')
+	check('a banner names everyone helping', await alice.getByText(/In progress with/).count() > 0)
+
+	await go(carol, `/request/${created?.id}`)
+	await card(carol, 'carol').getByRole('button', { name: 'Withdraw' }).click()
+	const confirmWithdraw = carol.getByRole('dialog').getByRole('button', { name: 'Withdraw', exact: true })
+	check('withdrawing accepted help is blocked until a reason is given', await confirmWithdraw.isDisabled())
+	await carol.getByRole('dialog').locator('textarea').fill('Family emergency')
+	await confirmWithdraw.click()
+	await carol.waitForTimeout(1500)
+	state = await detail(alice)
+	check('carol is out, bob keeps the request in progress', statusOf('carol') === undefined && state.request?.status === 'in_progress')
+	await go(alice, `/request/${created?.id}`)
+	check('the requester sees why she withdrew', await alice.getByText('Family emergency').count() > 0)
+
+	await alice.getByRole('button', { name: 'Mark complete', exact: true }).first().click()
+	const dialog = alice.getByRole('dialog')
+	check('the confirmation lists who will be completed', await dialog.getByText('bob').count() > 0 && await dialog.getByText('Hours are not credited automatically').count() > 0)
+	await dialog.getByRole('button', { name: 'Mark complete' }).click()
+	await alice.waitForTimeout(1500)
+	state = await detail(alice)
+	check('completing finishes the request and bob', state.request?.status === 'completed' && statusOf('bob') === 'completed')
+	await go(bob, `/request/${created?.id}`)
+	check('bob is pointed to claim his hours', await bob.getByRole('link', { name: 'Claim your hours' }).count() > 0)
 
 	console.log('- Organizer desk')
 	await go(alice, '/desk')
