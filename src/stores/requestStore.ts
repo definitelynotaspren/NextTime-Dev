@@ -19,6 +19,40 @@ interface Request {
 	commentCount?: number
 }
 
+export interface Volunteer {
+	id: number
+	requestId: number
+	volunteerId: string
+	proposedHours: number
+	message: string | null
+	status: string
+	createdAt: string
+	completedInCategory?: number
+	totalHoursProvided?: number
+}
+
+export interface Withdrawal {
+	id: number
+	requestId: number
+	volunteerId: string
+	proposedHours: number
+	reason: string | null
+	createdAt: string
+}
+
+export interface RequestComment {
+	id: number
+	userId: string
+	comment: string
+	createdAt: string
+}
+
+/** The server's plain-language message for a failed action, or a fallback. */
+export function errorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+	const err = error as { response?: { data?: { error?: string } } }
+	return err.response?.data?.error || fallback
+}
+
 interface RequestFilters {
 	status: string | null
 	categoryId: number | null
@@ -35,8 +69,10 @@ interface RequestState {
 	requests: Request[]
 	currentRequest: {
 		request: Request
-		volunteers: unknown[]
-		comments: unknown[]
+		volunteers: Volunteer[]
+		comments: RequestComment[]
+		/** Only sent to the requester: why people withdrew their help. */
+		withdrawals?: Withdrawal[]
 	} | null
 	filters: RequestFilters
 	pagination: Pagination
@@ -95,8 +131,14 @@ export const useRequestStore = defineStore('requests', {
 			}
 		},
 
-		async fetchRequestDetails(id: number) {
-			this.loading = true
+		/**
+		 * @param id the request
+		 * @param quiet refresh in place without swapping the page for a spinner
+		 */
+		async fetchRequestDetails(id: number, quiet = false) {
+			if (!quiet) {
+				this.loading = true
+			}
 			this.error = null
 
 			try {
@@ -108,8 +150,48 @@ export const useRequestStore = defineStore('requests', {
 				this.error = err.response?.data?.error || 'Failed to fetch request details'
 				console.error('Error fetching request:', error)
 			} finally {
-				this.loading = false
+				if (!quiet) {
+					this.loading = false
+				}
 			}
+		},
+
+		// The actions below throw on failure so the caller can show the server's message,
+		// and refresh the request quietly on success.
+
+		async offerHelp(requestId: number, proposedHours: number, message: string | null) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/volunteer`), {
+				proposedHours,
+				message,
+			})
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async acceptOffer(offerId: number, requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/volunteers/${offerId}/accept`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async declineOffer(offerId: number, requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/volunteers/${offerId}/decline`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		/** Accepted help needs a reason; it goes into the log of withdrawn help. */
+		async withdrawOffer(offerId: number, requestId: number, reason: string | null) {
+			await axios.delete(generateUrl(`/apps/timebank/api/volunteers/${offerId}`), { data: { reason } })
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		/** Completes every accepted volunteer; hours are still claimed separately. */
+		async completeRequest(requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/complete`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async addComment(requestId: number, comment: string) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/comments`), { comment })
+			await this.fetchRequestDetails(requestId, true)
 		},
 
 		async createRequest(data: Partial<Request>) {
