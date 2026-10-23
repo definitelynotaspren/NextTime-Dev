@@ -90,13 +90,23 @@ class EarningService {
 	}
 
 	/**
+	 * Approves a pending claim. Nobody can approve their own claim: someone else always
+	 * looks at it.
+	 *
 	 * @throws DoesNotExistException
+	 * @throws InvalidStateException
+	 * @throws NotAuthorizedException
 	 */
 	public function approveClaim(int $earningId, string $adminUserId): Earning {
 		$earning = $this->earningMapper->find($earningId);
+		$this->requireDecidable($earning, $adminUserId, 'pending');
 
+		return $this->applyApproval($earning, $adminUserId);
+	}
+
+	private function applyApproval(Earning $earning, string $approverId): Earning {
 		$earning->setStatus('approved');
-		$earning->setApproverId($adminUserId);
+		$earning->setApproverId($approverId);
 		$earning->setApprovedAt(new \DateTime());
 
 		$this->earningMapper->update($earning);
@@ -113,12 +123,19 @@ class EarningService {
 
 	/**
 	 * @throws DoesNotExistException
+	 * @throws InvalidStateException
+	 * @throws NotAuthorizedException
 	 */
 	public function rejectClaim(int $earningId, string $adminUserId, string $reason): Earning {
 		$earning = $this->earningMapper->find($earningId);
+		$this->requireDecidable($earning, $adminUserId, 'pending');
 
+		return $this->applyRejection($earning, $adminUserId, $reason);
+	}
+
+	private function applyRejection(Earning $earning, string $approverId, string $reason): Earning {
 		$earning->setStatus('rejected');
-		$earning->setApproverId($adminUserId);
+		$earning->setApproverId($approverId);
 		$earning->setRejectionReason($reason);
 
 		return $this->earningMapper->update($earning);
@@ -126,9 +143,12 @@ class EarningService {
 
 	/**
 	 * @throws DoesNotExistException
+	 * @throws InvalidStateException
+	 * @throws NotAuthorizedException
 	 */
 	public function sendToVoting(int $earningId, string $adminUserId): Earning {
 		$earning = $this->earningMapper->find($earningId);
+		$this->requireDecidable($earning, $adminUserId, 'pending');
 
 		$earning->setStatus('voting');
 		$earning->setApproverId($adminUserId);
@@ -159,9 +179,12 @@ class EarningService {
 	/**
 	 * Validates that a voter hasn't already voted on a claim.
 	 *
-	 * @throws \Exception if the voter has already voted
+	 * @throws \Exception if the voter has already voted, or the claim is not open for voting
 	 */
 	private function validateVoterEligibility(int $earningId, string $voterId): void {
+		$earning = $this->earningMapper->find($earningId);
+		$this->requireDecidable($earning, $voterId, 'voting');
+
 		if ($this->voteMapper->hasVoted($earningId, $voterId)) {
 			throw new \Exception('You have already voted on this claim');
 		}
@@ -211,10 +234,27 @@ class EarningService {
 	 * @throws DoesNotExistException
 	 */
 	private function resolveClaimByVote(int $earningId, string $result): void {
+		$earning = $this->earningMapper->find($earningId);
 		if ($result === 'approved') {
-			$this->approveClaim($earningId, 'voting-system');
+			$this->applyApproval($earning, 'voting-system');
 		} else {
-			$this->rejectClaim($earningId, 'voting-system', 'Rejected by vote');
+			$this->applyRejection($earning, 'voting-system', 'Rejected by vote');
+		}
+	}
+
+	/**
+	 * The claim must be in the expected state, and the person deciding must not be the one
+	 * who made the claim. This holds for admins, facilitators and voters alike.
+	 *
+	 * @throws InvalidStateException
+	 * @throws NotAuthorizedException
+	 */
+	private function requireDecidable(Earning $earning, string $deciderId, string $expectedStatus): void {
+		if ($earning->getUserId() === $deciderId) {
+			throw new NotAuthorizedException('You cannot decide on your own claim. Someone else has to look at it.');
+		}
+		if ($earning->getStatus() !== $expectedStatus) {
+			throw new InvalidStateException('This claim is ' . $earning->getStatus() . ', so that is not possible now');
 		}
 	}
 }

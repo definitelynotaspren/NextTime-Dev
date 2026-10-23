@@ -15,6 +15,7 @@ use OCP\IGroupManager;
 use OCP\IRequest;
 
 class EarningController extends Controller {
+	use ServiceErrors;
 
 	private EarningService $earningService;
 	private IGroupManager $groupManager;
@@ -73,7 +74,7 @@ class EarningController extends Controller {
 			$earning = $this->earningService->submitClaim($this->userId, $data);
 			return new DataResponse($earning->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -116,7 +117,7 @@ class EarningController extends Controller {
 			$earning = $this->earningService->approveClaim($id, $this->userId);
 			return new DataResponse($earning->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -137,7 +138,7 @@ class EarningController extends Controller {
 			$earning = $this->earningService->rejectClaim($id, $this->userId, trim($reason));
 			return new DataResponse($earning->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -152,7 +153,7 @@ class EarningController extends Controller {
 			$earning = $this->earningService->sendToVoting($id, $this->userId);
 			return new DataResponse($earning->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -170,7 +171,7 @@ class EarningController extends Controller {
 			$result = $this->earningService->recordVote($id, $this->userId, $vote, $comment ? trim($comment) : null);
 			return new DataResponse($result);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 }
