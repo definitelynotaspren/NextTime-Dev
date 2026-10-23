@@ -44,6 +44,22 @@ class EarningMapper extends QBMapper {
 	}
 
 	/**
+	 * Pending claims submitted before the given time that have not reached the stage yet.
+	 *
+	 * @return Earning[]
+	 */
+	public function findPendingOlderThan(\DateTime $before, int $stageBelow): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('status', $qb->createNamedParameter('pending')))
+			->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($before, 'datetime')))
+			->andWhere($qb->expr()->lt('notified_stage', $qb->createNamedParameter($stageBelow, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * @return Earning[]
 	 */
 	public function findByUser(string $userId): array {

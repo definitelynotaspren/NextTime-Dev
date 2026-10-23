@@ -8,6 +8,7 @@ use OCA\TimeBank\Db\Adjustment;
 use OCA\TimeBank\Db\AdjustmentMapper;
 use OCA\TimeBank\Schema\Viewer;
 use OCA\TimeBank\Service\AdjustmentService;
+use OCA\TimeBank\Service\ApproverPolicy;
 use OCA\TimeBank\Service\BalanceService;
 use OCA\TimeBank\Service\GovernanceLog;
 use OCA\TimeBank\Service\InvalidStateException;
@@ -32,8 +33,10 @@ final class AdjustmentServiceTest extends TestCase {
 	private GovernanceLog&MockObject $log;
 	private IDBConnection&MockObject $db;
 	private AdjustmentService $service;
-	/** @var array<string, string[]> chapters by user */
+	/** @var array<string, string[]> chapters a user belongs to */
 	private array $chapters = [];
+	/** @var array<string, string[]> chapters a user facilitates (member and facilitator groups both) */
+	private array $facilitates = [];
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -46,13 +49,16 @@ final class AdjustmentServiceTest extends TestCase {
 		$groups = $this->createMock(IGroupManager::class);
 		$groups->method('isAdmin')->willReturnCallback(fn (string $u) => str_starts_with($u, 'admin'));
 		$viewers = $this->createMock(ViewerResolver::class);
-		$viewers->method('forUser')->willReturnCallback(fn (string $u) => new Viewer($u, false, ($this->chapters[$u] ?? []) !== [], $this->chapters[$u] ?? []));
+		$viewers->method('forUser')->willReturnCallback(fn (string $u) => new Viewer($u, false, ($this->facilitates[$u] ?? []) !== [], $this->facilitates[$u] ?? []));
+		$viewers->method('memberChapters')->willReturnCallback(fn (string $u) => $this->chapters[$u] ?? []);
+		$viewers->method('facilitatedChapters')->willReturnCallback(fn (string $u) => $this->facilitates[$u] ?? []);
 		$users = $this->createMock(IUserManager::class);
 		$users->method('userExists')->willReturnCallback(fn (string $u) => $u !== 'ghost');
 		$config = $this->createMock(IConfig::class);
 		$config->method('getAppValue')->willReturnArgument(2);
 
-		$this->service = new AdjustmentService($this->mapper, $this->balances, $this->transactions, $this->log, $viewers, $groups, $users, $config, $this->db);
+		$policy = new ApproverPolicy($viewers, $groups, $config);
+		$this->service = new AdjustmentService($this->mapper, $this->balances, $this->transactions, $this->log, $viewers, $policy, $groups, $users, $config, $this->db);
 
 		$this->mapper->method('insert')->willReturnCallback(function (Adjustment $a) {
 			$a->setId(7);
@@ -138,6 +144,7 @@ final class AdjustmentServiceTest extends TestCase {
 
 	public function testAFacilitatorOfTheMembersChapterCanApproveButNotAFacilitatorOfAnother(): void {
 		$this->chapters = ['bob' => ['mt-hood'], 'fay' => ['mt-hood'], 'gus' => ['gresham']];
+		$this->facilitates = ['fay' => ['mt-hood'], 'gus' => ['gresham']];
 		$this->pending('admin1', 'bob');
 
 		try {
@@ -150,6 +157,7 @@ final class AdjustmentServiceTest extends TestCase {
 
 	public function testTheMemberCannotApproveAdjustmentsToThemselves(): void {
 		$this->chapters = ['bob' => ['mt-hood']];
+		$this->facilitates = ['bob' => ['mt-hood']];
 		$this->pending('admin1', 'bob');
 
 		$this->expectException(NotAuthorizedException::class);
@@ -161,7 +169,7 @@ final class AdjustmentServiceTest extends TestCase {
 		$balances->method('hasSufficientBalance')->willReturn(false);
 		$service = new AdjustmentService(
 			$this->mapper, $balances, $this->transactions, $this->log,
-			$this->createMock(ViewerResolver::class), $this->createMock(IGroupManager::class),
+			$this->createMock(ViewerResolver::class), $this->createMock(ApproverPolicy::class), $this->createMock(IGroupManager::class),
 			$this->createMock(IUserManager::class), $this->createMock(IConfig::class), $this->db,
 		);
 		$a = $this->pending('admin1', 'bob', '-10.00');

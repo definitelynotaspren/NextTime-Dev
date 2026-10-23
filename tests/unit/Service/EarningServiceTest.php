@@ -8,6 +8,8 @@ use OCA\TimeBank\Db\CategoryMapper;
 use OCA\TimeBank\Db\Earning;
 use OCA\TimeBank\Db\EarningMapper;
 use OCA\TimeBank\Db\VoteMapper;
+use OCA\TimeBank\Notification\ClaimNotifier;
+use OCA\TimeBank\Service\ApproverPolicy;
 use OCA\TimeBank\Service\BalanceService;
 use OCA\TimeBank\Service\EarningService;
 use OCA\TimeBank\Service\InvalidStateException;
@@ -24,6 +26,8 @@ final class EarningServiceTest extends TestCase {
 	private EarningMapper&MockObject $earnings;
 	private VoteMapper&MockObject $votes;
 	private BalanceService&MockObject $balances;
+	private ApproverPolicy&MockObject $policy;
+	private ClaimNotifier&MockObject $notifier;
 	private EarningService $service;
 
 	protected function setUp(): void {
@@ -31,12 +35,17 @@ final class EarningServiceTest extends TestCase {
 		$this->earnings = $this->createMock(EarningMapper::class);
 		$this->votes = $this->createMock(VoteMapper::class);
 		$this->balances = $this->createMock(BalanceService::class);
+		$this->policy = $this->createMock(ApproverPolicy::class);
+		$this->policy->method('mayDecide')->willReturnCallback(fn (string $d) => $d !== 'nobody');
+		$this->notifier = $this->createMock(ClaimNotifier::class);
 		$this->service = new EarningService(
 			$this->earnings,
 			$this->createMock(CategoryMapper::class),
 			$this->votes,
 			$this->balances,
 			$this->createMock(TransactionService::class),
+			$this->policy,
+			$this->notifier,
 		);
 		$this->earnings->method('update')->willReturnArgument(0);
 	}
@@ -100,5 +109,27 @@ final class EarningServiceTest extends TestCase {
 
 		$this->expectException(InvalidStateException::class);
 		$this->service->recordVote(1, 'carol', 'approve');
+	}
+
+	public function testSomeoneWhoIsNotAnApproverForTheClaimantCannotDecide(): void {
+		$this->claim('pending', 'bob');
+		$this->balances->expects($this->never())->method('addHours');
+
+		$this->expectException(NotAuthorizedException::class);
+		$this->service->approveClaim(1, 'nobody');
+	}
+
+	public function testDecidingClearsTheNotification(): void {
+		$this->claim('pending', 'bob');
+		$this->notifier->expects($this->once())->method('decided');
+
+		$this->service->approveClaim(1, 'admin');
+	}
+
+	public function testVotingDoesNotNeedToBeAnApprover(): void {
+		$this->claim('voting', 'bob');
+		$this->votes->method('findByEarning')->willReturn([]);
+
+		$this->assertFalse($this->service->recordVote(1, 'nobody', 'approve')['complete']);
 	}
 }

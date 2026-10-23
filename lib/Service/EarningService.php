@@ -9,6 +9,7 @@ use OCA\TimeBank\Db\Earning;
 use OCA\TimeBank\Db\EarningMapper;
 use OCA\TimeBank\Db\Vote;
 use OCA\TimeBank\Db\VoteMapper;
+use OCA\TimeBank\Notification\ClaimNotifier;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 class EarningService {
@@ -18,6 +19,8 @@ class EarningService {
 	private VoteMapper $voteMapper;
 	private BalanceService $balanceService;
 	private TransactionService $transactionService;
+	private ApproverPolicy $policy;
+	private ClaimNotifier $notifier;
 
 	public function __construct(
 		EarningMapper $earningMapper,
@@ -25,12 +28,16 @@ class EarningService {
 		VoteMapper $voteMapper,
 		BalanceService $balanceService,
 		TransactionService $transactionService,
+		ApproverPolicy $policy,
+		ClaimNotifier $notifier,
 	) {
 		$this->earningMapper = $earningMapper;
 		$this->categoryMapper = $categoryMapper;
 		$this->voteMapper = $voteMapper;
 		$this->balanceService = $balanceService;
 		$this->transactionService = $transactionService;
+		$this->policy = $policy;
+		$this->notifier = $notifier;
 	}
 
 	/**
@@ -55,8 +62,10 @@ class EarningService {
 		}
 
 		$earning->setCreatedAt(new \DateTime());
+		$earning = $this->earningMapper->insert($earning);
+		$this->notifier->submitted($earning);
 
-		return $this->earningMapper->insert($earning);
+		return $earning;
 	}
 
 	/**
@@ -64,6 +73,28 @@ class EarningService {
 	 */
 	public function getPendingClaims(): array {
 		return $this->earningMapper->findByStatus('pending');
+	}
+
+	/**
+	 * Pending claims this person may decide on, each with the capacity they would act in:
+	 * admin, facilitator of a chapter, or fallback group. Never their own claims.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	public function getDecidableClaims(string $deciderId): array {
+		$rows = [];
+		foreach ($this->earningMapper->findByStatus('pending') as $claim) {
+			$capacity = $this->policy->capacity($deciderId, $claim->getUserId());
+			if ($capacity === null) {
+				continue;
+			}
+			$row = $claim->jsonSerialize();
+			$row['decidingAs'] = $capacity['as'];
+			$row['decidingChapter'] = $capacity['chapter'];
+			$rows[] = $row;
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -99,7 +130,7 @@ class EarningService {
 	 */
 	public function approveClaim(int $earningId, string $adminUserId): Earning {
 		$earning = $this->earningMapper->find($earningId);
-		$this->requireDecidable($earning, $adminUserId, 'pending');
+		$this->requireDecidable($earning, $adminUserId, 'pending', true);
 
 		return $this->applyApproval($earning, $adminUserId);
 	}
@@ -117,6 +148,7 @@ class EarningService {
 		);
 
 		$this->transactionService->recordEarning($earning);
+		$this->notifier->decided($earning);
 
 		return $earning;
 	}
@@ -128,7 +160,7 @@ class EarningService {
 	 */
 	public function rejectClaim(int $earningId, string $adminUserId, string $reason): Earning {
 		$earning = $this->earningMapper->find($earningId);
-		$this->requireDecidable($earning, $adminUserId, 'pending');
+		$this->requireDecidable($earning, $adminUserId, 'pending', true);
 
 		return $this->applyRejection($earning, $adminUserId, $reason);
 	}
@@ -137,8 +169,10 @@ class EarningService {
 		$earning->setStatus('rejected');
 		$earning->setApproverId($approverId);
 		$earning->setRejectionReason($reason);
+		$earning = $this->earningMapper->update($earning);
+		$this->notifier->decided($earning);
 
-		return $this->earningMapper->update($earning);
+		return $earning;
 	}
 
 	/**
@@ -148,12 +182,14 @@ class EarningService {
 	 */
 	public function sendToVoting(int $earningId, string $adminUserId): Earning {
 		$earning = $this->earningMapper->find($earningId);
-		$this->requireDecidable($earning, $adminUserId, 'pending');
+		$this->requireDecidable($earning, $adminUserId, 'pending', true);
 
 		$earning->setStatus('voting');
 		$earning->setApproverId($adminUserId);
+		$earning = $this->earningMapper->update($earning);
+		$this->notifier->decided($earning);
 
-		return $this->earningMapper->update($earning);
+		return $earning;
 	}
 
 	/**
@@ -183,7 +219,7 @@ class EarningService {
 	 */
 	private function validateVoterEligibility(int $earningId, string $voterId): void {
 		$earning = $this->earningMapper->find($earningId);
-		$this->requireDecidable($earning, $voterId, 'voting');
+		$this->requireDecidable($earning, $voterId, 'voting', false);
 
 		if ($this->voteMapper->hasVoted($earningId, $voterId)) {
 			throw new \Exception('You have already voted on this claim');
@@ -244,14 +280,18 @@ class EarningService {
 
 	/**
 	 * The claim must be in the expected state, and the person deciding must not be the one
-	 * who made the claim. This holds for admins, facilitators and voters alike.
+	 * who made the claim, whoever they are. Approving, rejecting and sending to a vote also
+	 * need to be an approver for the claimant (see ApproverPolicy); voting is open to members.
 	 *
 	 * @throws InvalidStateException
 	 * @throws NotAuthorizedException
 	 */
-	private function requireDecidable(Earning $earning, string $deciderId, string $expectedStatus): void {
+	private function requireDecidable(Earning $earning, string $deciderId, string $expectedStatus, bool $needsApprover): void {
 		if ($earning->getUserId() === $deciderId) {
 			throw new NotAuthorizedException('You cannot decide on your own claim. Someone else has to look at it.');
+		}
+		if ($needsApprover && !$this->policy->mayDecide($deciderId, $earning->getUserId())) {
+			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or the fallback group can decide on this claim');
 		}
 		if ($earning->getStatus() !== $expectedStatus) {
 			throw new InvalidStateException('This claim is ' . $earning->getStatus() . ', so that is not possible now');

@@ -17,6 +17,10 @@ final class SchemaSpec {
 
 	public const GROUP_ORGANIZER = 'timebank-organizer';
 	public const GROUP_FACILITATOR = 'timebank-facilitator';
+	/** Decides for people whose state has no facilitator. The group id is the setting fallback_approver_group. */
+	public const GROUP_FALLBACK_DEFAULT = 'GSUS';
+	/** A chapter's facilitators are in both its group and this suffixed group. */
+	public const FACILITATOR_SUFFIX = '-facilitator';
 
 	/**
 	 * Fields that identify a person or give a private location. Must never be
@@ -83,17 +87,22 @@ final class SchemaSpec {
 	 * Chapters and the Nextcloud group whose members facilitate each one.
 	 * A ZIP may be listed exactly or as a prefix ending in "*".
 	 *
-	 * @return array<string, array{zips: list<string>, group: string}>
+	 * Each chapter has a member group (`group`) and a facilitator group (`facilitator_group`).
+	 * Facilitating a chapter takes both.
+	 *
+	 * @return array<string, array{zips: list<string>, group: string, facilitator_group: string}>
 	 */
 	public static function chapters(): array {
 		return [
 			'mt-hood' => [
 				'zips' => ['97055', '97049', '97011', '97067', '97028'],
 				'group' => 'chapter-mt-hood',
+				'facilitator_group' => 'chapter-mt-hood-facilitator',
 			],
 			'gresham' => [
 				'zips' => ['97030', '97080', '97233', '97236'],
 				'group' => 'chapter-gresham',
+				'facilitator_group' => 'chapter-gresham-facilitator',
 			],
 		];
 	}

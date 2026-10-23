@@ -36,6 +36,7 @@ class AdjustmentService {
 		private TransactionService $transactions,
 		private GovernanceLog $log,
 		private ViewerResolver $viewers,
+		private ApproverPolicy $policy,
 		private IGroupManager $groups,
 		private IUserManager $users,
 		private IConfig $config,
@@ -165,8 +166,8 @@ class AdjustmentService {
 	 */
 	public function listFor(string $viewerId): array {
 		$viewer = $this->viewers->forUser($viewerId);
-		if (!$this->groups->isAdmin($viewerId) && !$viewer->facilitator) {
-			throw new NotAuthorizedException('Only admins and facilitators can see adjustments');
+		if (!$this->groups->isAdmin($viewerId) && !$viewer->facilitator && !$this->groups->isInGroup($viewerId, $this->policy->fallbackGroup())) {
+			throw new NotAuthorizedException('Only admins, facilitators and the fallback group can see adjustments');
 		}
 
 		$rows = [];
@@ -188,14 +189,8 @@ class AdjustmentService {
 		if ($userId === $adjustment->getProposerId() || $userId === $adjustment->getUserId()) {
 			return false;
 		}
-		if ($this->groups->isAdmin($userId)) {
-			return true;
-		}
 
-		$mine = $this->viewers->forUser($userId)->chapters;
-		$theirs = $this->viewers->forUser($adjustment->getUserId())->chapters;
-
-		return array_intersect($mine, $theirs) !== [];
+		return $this->policy->mayDecide($userId, $adjustment->getUserId());
 	}
 
 	/**
@@ -235,7 +230,7 @@ class AdjustmentService {
 			throw new NotAuthorizedException('You cannot decide on an adjustment to your own balance');
 		}
 		if (!$this->mayDecide($adjustment, $userId)) {
-			throw new NotAuthorizedException('Only an admin, or a facilitator of one of this member\'s chapters, can decide this');
+			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or the fallback group can decide this');
 		}
 	}
 

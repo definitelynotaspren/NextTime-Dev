@@ -17,7 +17,7 @@ services using hours as currency, with map-based coordination of requests and of
 - **Public Ledger**: Transparent record of all transactions
 - **Category Multipliers**: Different earn rates for specialized skills
     ]]></description>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
     <licence>agpl</licence>
     <author homepage="https://github.com/definitelynotaspren">definitelynotaspren</author>
     <namespace>TimeBank</namespace>
@@ -34,6 +34,10 @@ services using hours as currency, with map-based coordination of requests and of
         <database>sqlite</database>
         <nextcloud min-version="29" max-version="35"/>
     </dependencies>
+
+    <background-jobs>
+        <job>OCA\TimeBank\BackgroundJob\ClaimReminders</job>
+    </background-jobs>
 
     <repair-steps>
         <post-migration>

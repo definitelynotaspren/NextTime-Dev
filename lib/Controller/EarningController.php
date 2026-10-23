@@ -11,26 +11,22 @@ use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\IGroupManager;
 use OCP\IRequest;
 
 class EarningController extends Controller {
 	use ServiceErrors;
 
 	private EarningService $earningService;
-	private IGroupManager $groupManager;
 	private ?string $userId;
 
 	public function __construct(
 		string $appName,
 		IRequest $request,
 		EarningService $earningService,
-		IGroupManager $groupManager,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->earningService = $earningService;
-		$this->groupManager = $groupManager;
 		$this->userId = $userId;
 	}
 
@@ -90,12 +86,8 @@ class EarningController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/earnings/pending')]
 	public function pending(): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
-			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
-		}
-
-		$claims = $this->earningService->getPendingClaims();
-		return new DataResponse(array_map(fn ($c) => $c->jsonSerialize(), $claims));
+		// Each person sees only the claims they may decide on; admins may decide on all but their own.
+		return new DataResponse($this->earningService->getDecidableClaims($this->userId));
 	}
 
 	#[NoAdminRequired]
@@ -109,10 +101,6 @@ class EarningController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/earnings/{id}/approve', requirements: ['id' => '\\d+'])]
 	public function approve(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
-			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
-		}
-
 		try {
 			$earning = $this->earningService->approveClaim($id, $this->userId);
 			return new DataResponse($earning->jsonSerialize());
@@ -124,10 +112,6 @@ class EarningController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/earnings/{id}/reject', requirements: ['id' => '\\d+'])]
 	public function reject(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
-			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
-		}
-
 		$reason = $this->request->getParam('reason');
 
 		if (empty($reason) || strlen(trim($reason)) < 10) {
@@ -145,10 +129,6 @@ class EarningController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/earnings/{id}/send-to-vote', requirements: ['id' => '\\d+'])]
 	public function sendToVote(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
-			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
-		}
-
 		try {
 			$earning = $this->earningService->sendToVoting($id, $this->userId);
 			return new DataResponse($earning->jsonSerialize());

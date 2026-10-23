@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Schema\SchemaSpec;
+use OCA\TimeBank\Service\ApproverPolicy;
 use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\ViewerResolver;
 use OCP\AppFramework\Controller;
@@ -30,6 +31,7 @@ class SchemaController extends Controller {
 		ViewerResolver $viewers,
 		private CommentService $comments,
 		private IGroupManager $groups,
+		private ApproverPolicy $policy,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -83,6 +85,7 @@ class SchemaController extends Controller {
 			'facilitator' => $viewer->facilitator,
 			'moderator' => $this->comments->isModerator($this->userId),
 			'admin' => $this->groups->isAdmin($this->userId),
+			'fallbackApprover' => $this->groups->isInGroup($this->userId, $this->policy->fallbackGroup()),
 		]);
 	}
 }

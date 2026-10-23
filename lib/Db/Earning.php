@@ -31,6 +31,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method \DateTime|null getApprovedAt()
  * @method void setApprovedAt(?\DateTime $approvedAt)
+ * @method int getNotifiedStage()
+ * @method void setNotifiedStage(int $notifiedStage)
  */
 class Earning extends Entity implements JsonSerializable {
 	protected ?string $userId = null;
@@ -44,6 +46,7 @@ class Earning extends Entity implements JsonSerializable {
 	protected ?string $rejectionReason = null;
 	protected ?\DateTime $createdAt = null;
 	protected ?\DateTime $approvedAt = null;
+	protected int $notifiedStage = 0;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
@@ -51,6 +54,7 @@ class Earning extends Entity implements JsonSerializable {
 		$this->addType('approvedAt', 'datetime');
 		$this->addType('categoryId', 'integer');
 		$this->addType('evidenceFileId', 'integer');
+		$this->addType('notifiedStage', 'integer');
 	}
 
 	public function jsonSerialize(): array {
