@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Controller;
 
+use OCA\TimeBank\Service\CategoryService;
 use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\RequestService;
 use OCP\AppFramework\Controller;
@@ -25,6 +26,7 @@ class RequestController extends Controller {
 		IRequest $request,
 		RequestService $requestService,
 		private CommentService $commentService,
+		private CategoryService $categoryService,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -118,6 +120,8 @@ class RequestController extends Controller {
 		];
 
 		try {
+			// Archived categories keep their history but cannot take new requests.
+			$this->categoryService->requireUsable((int)$categoryId);
 			$request = $this->requestService->createRequest($this->userId, $data);
 			return new DataResponse($request->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
@@ -144,6 +148,12 @@ class RequestController extends Controller {
 		$data = array_filter($data, fn ($v) => $v !== null);
 
 		try {
+			if (isset($data['categoryId'])) {
+				$current = $this->requestService->getRequestDetails($id)['request']['categoryId'];
+				if ((int)$data['categoryId'] !== $current) {
+					$this->categoryService->requireUsable((int)$data['categoryId']);
+				}
+			}
 			$request = $this->requestService->updateRequest($id, $this->userId, $data);
 			return new DataResponse($request->jsonSerialize());
 		} catch (\Exception $e) {

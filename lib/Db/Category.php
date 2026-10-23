@@ -20,6 +20,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setIcon(?string $icon)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
+ * @method \DateTime|null getArchivedAt()
+ * @method void setArchivedAt(?\DateTime $archivedAt)
  */
 class Category extends Entity implements JsonSerializable {
 	protected ?string $name = null;
@@ -27,10 +29,12 @@ class Category extends Entity implements JsonSerializable {
 	protected ?string $earnRate = null;
 	protected ?string $icon = null;
 	protected ?\DateTime $createdAt = null;
+	protected ?\DateTime $archivedAt = null;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('createdAt', 'datetime');
+		$this->addType('archivedAt', 'datetime');
 		$this->addType('earnRate', 'string');
 	}
 
@@ -42,6 +46,8 @@ class Category extends Entity implements JsonSerializable {
 			'earnRate' => (float)$this->earnRate,
 			'icon' => $this->icon,
 			'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),
+			'archived' => $this->archivedAt !== null,
+			'archivedAt' => $this->archivedAt?->format('Y-m-d H:i:s'),
 		];
 	}
 }

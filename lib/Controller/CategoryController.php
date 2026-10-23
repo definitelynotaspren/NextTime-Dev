@@ -15,6 +15,7 @@ use OCP\IGroupManager;
 use OCP\IRequest;
 
 class CategoryController extends Controller {
+	use ServiceErrors;
 
 	private CategoryService $categoryService;
 	private IGroupManager $groupManager;
@@ -68,10 +69,10 @@ class CategoryController extends Controller {
 		];
 
 		try {
-			$category = $this->categoryService->create($data);
+			$category = $this->categoryService->create($data, $this->userId);
 			return new DataResponse($category->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -92,10 +93,10 @@ class CategoryController extends Controller {
 		$data = array_filter($data, fn ($v) => $v !== null);
 
 		try {
-			$category = $this->categoryService->update($id, $data);
+			$category = $this->categoryService->update($id, $data, $this->userId);
 			return new DataResponse($category->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -107,10 +108,54 @@ class CategoryController extends Controller {
 		}
 
 		try {
-			$this->categoryService->delete($id);
+			$this->categoryService->delete($id, $this->userId);
 			return new DataResponse(['success' => true]);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
+		}
+	}
+
+	/** What would block deleting this category, for the admin screen. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[FrontpageRoute(verb: 'GET', url: '/api/categories/{id}/usage', requirements: ['id' => '\\d+'])]
+	public function usage(int $id): DataResponse {
+		if (!$this->groupManager->isAdmin($this->userId)) {
+			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
+		}
+
+		try {
+			return new DataResponse($this->categoryService->usage($id));
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/categories/{id}/archive', requirements: ['id' => '\\d+'])]
+	public function archive(int $id): DataResponse {
+		if (!$this->groupManager->isAdmin($this->userId)) {
+			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
+		}
+
+		try {
+			return new DataResponse($this->categoryService->archive($id, $this->userId)->jsonSerialize());
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/categories/{id}/restore', requirements: ['id' => '\\d+'])]
+	public function restore(int $id): DataResponse {
+		if (!$this->groupManager->isAdmin($this->userId)) {
+			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
+		}
+
+		try {
+			return new DataResponse($this->categoryService->restore($id, $this->userId)->jsonSerialize());
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
 		}
 	}
 }

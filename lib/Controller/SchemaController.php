@@ -13,6 +13,7 @@ use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\IGroupManager;
 use OCP\IRequest;
 
 /**
@@ -28,6 +29,7 @@ class SchemaController extends Controller {
 		IRequest $request,
 		ViewerResolver $viewers,
 		private CommentService $comments,
+		private IGroupManager $groups,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -80,6 +82,7 @@ class SchemaController extends Controller {
 			'organizer' => $viewer->organizer,
 			'facilitator' => $viewer->facilitator,
 			'moderator' => $this->comments->isModerator($this->userId),
+			'admin' => $this->groups->isAdmin($this->userId),
 		]);
 	}
 }

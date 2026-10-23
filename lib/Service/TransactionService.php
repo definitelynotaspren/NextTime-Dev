@@ -45,7 +45,7 @@ class TransactionService {
 		return $this->transactionMapper->insert($transaction);
 	}
 
-	public function recordAdjustment(string $userId, float $hours, string $reason, string $adminUserId): Transaction {
+	public function recordAdjustment(string $userId, float $hours, string $reason, string $adminUserId, ?string $approverId = null): Transaction {
 		$transaction = new Transaction();
 
 		if ($hours > 0) {
@@ -57,7 +57,10 @@ class TransactionService {
 		}
 
 		$transaction->setHours((string)abs($hours));
-		$transaction->setDescription('Admin adjustment by ' . $adminUserId . ': ' . substr($reason, 0, 400));
+		$who = $approverId === null
+			? 'Admin adjustment by ' . $adminUserId
+			: 'Adjustment proposed by ' . $adminUserId . ', approved by ' . $approverId;
+		$transaction->setDescription($who . ': ' . substr($reason, 0, 380));
 		$transaction->setTransactionType('adjusted');
 		$transaction->setCreatedAt(new \DateTime());
 
