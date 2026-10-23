@@ -131,7 +131,7 @@ volunteers, decline a third, one accepted volunteer withdraws with a reason, the
   - Needs one migration (flags table plus two comment columns).
 - Size: M–L.
 
-## Step C: admin tools
+## Step C: admin tools (built in v0.6.0; "nobody decides on their own claim" decided 2026-10-25)
 
 - **Categories (D4):**
   - A category is **in active use**, and cannot be deleted, while any request using it is `in_progress`

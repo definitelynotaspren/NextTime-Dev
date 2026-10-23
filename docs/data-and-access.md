@@ -22,6 +22,8 @@ workbook yet.
 | `oc_timebank_requests` | title, description, free-text `location`, `latitude`/`longitude`, requester | Visible to every logged-in member. Free text can contain an address. |
 | `oc_timebank_volunteers` | who offered, hours, message, status | Visible to members on the request page |
 | `oc_timebank_comments` | comments on requests | Members, except flagged-hidden or removed ones: the server withholds their text, moderators still see it |
+| `oc_timebank_adjustments` | manual balance adjustments: member, hours, reason, proposer, approver | Admins and facilitators; the result is public in the ledger and governance log |
+| `oc_timebank_governance_log` | who changed what, with old and new values and reasons | **Public to every member by design.** Never put personal details in a reason |
 | `oc_timebank_comment_flags` | who flagged which comment, and why | Names and reasons: moderators only. Counts are public |
 | `oc_timebank_withdrawals` | log of withdrawn help, with reasons | The volunteer, and the requester of that request |
 | `oc_timebank_earnings`, `oc_timebank_votes` | hour claims, approvals, community votes | Your own claims; admins see pending ones; claims in a vote are visible so members can vote |
@@ -118,7 +120,7 @@ and all but the last need a Nextcloud account.
   this app:
   - PII (organizers and facilitators): `/index.php/apps/timebank/api/layers/`, `/api/assignments`,
     `/api/schema`, and the Organizer Desk screens that call them.
-  - Admin powers: `/api/balance/adjust`, `/api/balance/all`, `/api/earnings/pending`, `/api/earnings/{id}/approve`,
+  - Admin powers: `/api/adjustments`, `/api/settings/`, `/api/balance/all`, `/api/earnings/pending`, `/api/earnings/{id}/approve`,
     `/reject`, `/send-to-vote`, `POST|PUT|DELETE /api/categories`, and Nextcloud's own `/settings/admin`,
     `/settings/users`, `/settings/apps`, and `/ocs/v2.php/cloud/users` and `/ocs/v2.php/cloud/groups`. The
     last two matter most: whoever can add a user to `timebank-organizer` can give themselves PII access.

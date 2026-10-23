@@ -125,25 +125,14 @@ make docker-shell      # Open shell in container
 
 ### Admin Settings
 
-Navigate to **Settings → Administration → Time Bank** to view approval-workflow
-options (require admin approval, enable community voting, required vote count,
-negative balance allowance/limit).
+**Settings → Administration → Time Bank** now shows a read-only "how decisions are made" panel
+instead of switches. The rules it describes are fixed in code on purpose (claims need a second person,
+three votes decide a vote, balances never go below zero), and what admins *can* change inside NextTime is
+done under **Categories** and **Adjustments** in the app, each change written to the public
+**Governance Log** that every member can read.
 
-> **Known limitation**: this settings page is currently **read-only/display
-> only** — it has no save mechanism (no form submission or JavaScript wiring)
-> and the values are not consulted anywhere in the backend. Regardless of what
-> is shown, claims always require admin approval or an explicit
-> "Send to Vote", voting always resolves at exactly 3 votes
-> (`EarningService::checkVotingComplete()`), and negative balances are always
-> rejected (`BalanceService::deductHours()`). Wiring this page up to actually
-> persist and enforce these settings is tracked as follow-up work — see
-> Known Limitations below.
-
-Category management (create/edit/delete service categories and their earn
-rate multipliers) has **no UI at all**, in this settings page or the app
-itself. It's admin-only on the backend (`POST`/`PUT`/`DELETE
-/api/categories...`) but must currently be done via direct API calls — see
-API Documentation below.
+The one adjustable setting is the number of hours (default 5, between 1 and 20) up to which a single admin
+can adjust a balance without a second person.
 
 ### Category Multipliers
 
@@ -239,15 +228,28 @@ Moderators are Nextcloud administrators and members of the `timebank-organizer` 
 
 - `GET /api/balance/my` - Get the current user's balance
 - `GET /api/balance/all` - List all users' balances
-- `POST /api/balance/adjust` - Manually credit/debit a user's balance (admin) *(no UI yet)*
+
+#### Adjustments and the governance log
+
+- `GET /api/adjustments` - Recent balance adjustments, what you may do to each, and the threshold *(admins and facilitators)*
+- `POST /api/adjustments` - Adjust a member's balance: `userId`, `hours` (negative to deduct), `reason` (10+ characters, public). Up to the threshold it is applied at once; larger ones wait as `pending` for a second person *(admins; nobody adjusts their own balance)*
+- `POST /api/adjustments/{id}/approve` and `/reject` (`note`) - Decide a pending adjustment *(another admin, or a facilitator of one of the member's chapters; never the proposer or the member)*
+- `POST /api/adjustments/{id}/withdraw` - The proposer takes it back. Pending ones expire after 14 days
+- `PUT /api/settings/adjustment-threshold` - `hours` (1 to 20) and `reason` *(admins; logged)*
+- `GET /api/governance` - The public log of category changes, adjustments and setting changes *(every member)*
+
+The old `POST /api/balance/adjust` is removed: it changed a balance before writing the ledger, skipped checks and
+needed no second person.
 
 #### Categories
 
-- `GET /api/categories` - List service categories
+- `GET /api/categories` - List service categories, archived ones included (flagged `archived`)
 - `GET /api/categories/{id}` - Get a single category
-- `POST /api/categories` - Create a category (admin) *(no UI yet)*
-- `PUT /api/categories/{id}` - Update a category (admin) *(no UI yet)*
-- `DELETE /api/categories/{id}` - Delete a category (admin) *(no UI yet)*
+- `POST /api/categories` - Create a category (admin)
+- `PUT /api/categories/{id}` - Update a category (admin). The earn rate must be above 0 and at most 5
+- `DELETE /api/categories/{id}` - Delete a category (admin). Refused while it is in use (a request in progress, an open request with offers, a claim waiting) and while any past request, claim or statistic points at it
+- `POST /api/categories/{id}/archive`, `/restore` - Hide a category from new requests, or bring it back (admin). Old requests keep showing it
+- `GET /api/categories/{id}/usage` - What blocks deleting it (admin)
 
 #### Map
 
@@ -324,6 +326,8 @@ curl -X POST http://localhost:8080/apps/timebank/api/earnings/claim \
 - `timebank_user_stats` - User statistics by category
 - `timebank_comments` - Comments on requests (soft-removed ones keep their text and who removed them)
 - `timebank_comment_flags` - Members' flags on comments, with reasons
+- `timebank_adjustments` - Manual balance adjustments and who proposed and approved them
+- `timebank_governance_log` - The public, append-only log of admin decisions
 
 ## Testing
 
@@ -442,14 +446,227 @@ This project is licensed under the AGPL-3.0-or-later License - see the LICENSE f
 
 The request lifecycle (open → volunteer → accept → complete) now works end to
 end in the UI, including accepting several volunteers, declining, withdrawing
-with a reason, and completing. As of v0.5.0, requesters can edit (while open) and cancel, "My Activity" lists your
-requests, offers and withdrawn help, and comments are moderated by community flags. The following
-exist as working, authorized API endpoints with **no corresponding UI**:
+with a reason, and completing. As of v0.6.0, requesters can edit (while open) and cancel, "My Activity" lists your
+requests, offers and withdrawn help, comments are moderated by community flags, and admins manage
+categories and balance adjustments in the app. Remaining gaps:
 
-- **Category management** (create/edit/delete) and **manual balance
-  adjustment** — both admin-only on the backend, but there's no UI, in the
-  Vue app or in Admin Settings, to use them. Categories must currently be
-  managed via direct API calls.
+- **Only admins can approve claims.** Chapter facilitators approving their own chapter's claims, and
+  notifying people of pending claims, are designed (Step D) but not built. Nobody can decide on their
+  own claim, admins included.
+- **One admin cannot make a second approval.** On a server with a single admin, a large adjustment waits for a
+  facilitator of the member's chapter (Nextcloud group `chapter-<slug>`); a member with no chapter needs a second admin.
+- **Nobody is notified automatically** when a request is cancelled, a flag hides a comment, or an offer
+  is accepted. Tell the people involved.
+- A member can flag a comment once, ever: after a moderator dismisses flags, those members cannot flag
+  the same comment again.
+
+Organizer desk: rows can only be entered by hand (`source=manual`); form submissions do
+not create rows yet.
+
+## Map
+
+- `GET /api/map/requests` - GeoJSON of open requests (points rounded to about 1 km; no contact fields)
+- `GET /api/layers/{layer}/feed` - GeoJSON of published rows for `point_snapped` layers (`needs_offers`, `issue_reports`)
+
+#### Organizer desk (organizer or facilitator roles)
+
+Roles come from Nextcloud groups: `timebank-organizer`, `timebank-facilitator`, and
+`chapter-<slug>` (see `lib/Schema/SchemaSpec.php`). Nextcloud admins are not
+organizers unless they are also in the organizer group.
+
+- `GET /api/schema` - layers, fields, visibility levels, lookups, chapters (organizer or facilitator)
+- `GET /api/layers/{layer}/rows` - rows you may see; filters `assigned=me|unassigned`, `source=form|manual`
+- `POST /api/layers/{layer}/rows` - add a row by hand (organizer); starts unpublished unless `publish=yes`
+- `POST /api/layers/{layer}/rows/{id}/assign` - claim a row (organizer; optional `status`)
+- `DELETE /api/layers/{layer}/rows/{id}/assign` - release a row you hold
+- `POST /api/layers/{layer}/rows/{id}/status` - set `assigned`, `in_progress` or `done` on a row you hold
+- `GET /api/assignments` - rows assigned to you; filters `layer`, `source`
+
+Fields are filtered by visibility on every read. A field marked `organizer` is
+never returned to a facilitator or member, and a field marked `chapter` only
+to that chapter's facilitators. Undeclared fields are treated as organizer-only.
+The survey layer is aggregate-only and has no row endpoints.
+
+#### Ledger
+
+- `GET /api/ledger` - Get the public transaction ledger
+- `GET /api/ledger/my` - Get the current user's transaction history
+- `GET /api/ledger/user/{userId}` - Get another user's transaction history (names in the app link to it)
+
+### Example API Calls
+
+#### Create a Request
+
+```bash
+curl -X POST http://localhost:8080/apps/timebank/api/requests \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "title": "Need help with garden cleanup",
+    "description": "Looking for assistance clearing overgrown garden area, approximately 3-4 hours of work",
+    "categoryId": 1,
+    "hoursBudget": 4,
+    "priority": "normal",
+    "location": "123 Main Street"
+  }'
+```
+
+#### Submit Earning Claim
+
+```bash
+curl -X POST http://localhost:8080/apps/timebank/api/earnings/claim \
+  -H "Content-Type: application/json" \
+  -u volunteer:password \
+  -d '{
+    "categoryId": 1,
+    "hoursClaimed": 3.5,
+    "description": "Completed garden cleanup - cleared overgrown area, removed debris"
+  }'
+```
+
+## Database Schema
+
+### Tables
+
+- `timebank_categories` - Service categories with earn rate multipliers
+- `timebank_requests` - Service requests posted by community members
+- `timebank_volunteers` - Volunteer offers for service requests
+- `timebank_earnings` - Earning claims submitted by volunteers
+- `timebank_votes` - Community votes on earning claims
+- `timebank_balances` - User time bank balances
+- `timebank_transactions` - Complete transaction history (public ledger)
+- `timebank_user_stats` - User statistics by category
+- `timebank_comments` - Comments on requests (soft-removed ones keep their text and who removed them)
+- `timebank_comment_flags` - Members' flags on comments, with reasons
+- `timebank_adjustments` - Manual balance adjustments and who proposed and approved them
+- `timebank_governance_log` - The public, append-only log of admin decisions
+
+## Testing
+
+### Run Unit Tests
+
+```bash
+make test
+```
+
+### Run Code Style Checks
+
+```bash
+make cs-check
+```
+
+### Run Static Analysis
+
+```bash
+make psalm
+```
+
+## Security
+
+Where the data lives, who can read it, what is not protected, and how to get raw
+data out are written up in [docs/data-and-access.md](docs/data-and-access.md).
+
+### Input Validation
+
+All API endpoints validate input parameters:
+- Hours must be positive numbers (max 1000)
+- Descriptions require minimum character lengths
+- Category and priority values are whitelisted
+- User permissions are checked on all sensitive operations
+
+### SQL Injection Prevention
+
+All database queries use parameter binding through Nextcloud's Query Builder.
+
+### CSRF Protection
+
+CSRF tokens are required on all POST/PUT/DELETE endpoints (except API routes marked NoCSRFRequired for external access).
+
+### Admin Authorization
+
+Admin-only endpoints verify user group membership before allowing access.
+
+## Troubleshooting
+
+### Frontend Build Issues
+
+```bash
+# Clean and reinstall
+make clean
+make install
+make build
+```
+
+### Database Migration Issues
+
+```bash
+# Run migrations manually
+sudo -u www-data php occ migrations:execute timebank latest
+```
+
+### Docker Issues
+
+```bash
+# View logs
+make docker-logs
+
+# Rebuild containers
+make docker-rebuild
+
+# Access container shell
+make docker-shell
+```
+
+### Enable Debug Mode
+
+Add to `config/config.php`:
+```php
+'debug' => true,
+'loglevel' => 0,
+```
+
+View logs:
+```bash
+tail -f /path/to/nextcloud/data/nextcloud.log
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests and code style checks (`make test && make cs-check`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+### Code Style
+
+This project follows PSR-12 coding standards. Use `make cs-fix` to automatically fix style issues.
+
+## License
+
+This project is licensed under the AGPL-3.0-or-later License - see the LICENSE file for details.
+
+## Support
+
+- **Issues**: https://github.com/definitelynotaspren/NextTime-Dev/issues
+- **Nextcloud Community**: https://help.nextcloud.com
+- **Developer Docs**: https://docs.nextcloud.com/server/latest/developer_manual
+
+## Known Limitations
+
+The request lifecycle (open → volunteer → accept → complete) now works end to
+end in the UI, including accepting several volunteers, declining, withdrawing
+with a reason, and completing. As of v0.6.0, requesters can edit (while open) and cancel, "My Activity" lists your
+requests, offers and withdrawn help, comments are moderated by community flags, and admins manage
+categories and balance adjustments in the app. Remaining gaps:
+
+- **Only admins can approve claims.** Chapter facilitators approving their own chapter's claims, and
+  notifying people of pending claims, are designed (Step D) but not built. Nobody can decide on their
+  own claim, admins included.
+- **One admin cannot make a second approval.** On a server with a single admin, a large adjustment waits for a
+  facilitator of the member's chapter (Nextcloud group `chapter-<slug>`); a member with no chapter needs a second admin.
 - **Nobody is notified automatically** when a request is cancelled, a flag hides a comment, or an offer
   is accepted. Tell the people involved.
 - A member can flag a comment once, ever: after a moderator dismisses flags, those members cannot flag

@@ -288,6 +288,126 @@ call carol GET "/requests/$CM_ID"
 call carol POST "/comments/$C2/flag"
 expect "a removed comment cannot be flagged" 400
 
+echo "- Nobody decides on their own claim"
+call admin POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Admin's own claim, for the self-approval check\"}"
+expect "admin submits a claim of their own" 201
+OWN_ID="$(json '.id')"
+call admin POST "/earnings/$OWN_ID/approve"
+expect "an admin cannot approve their own claim" 403
+call admin POST "/earnings/$OWN_ID/reject" '{"reason":"Rejecting my own claim, which is not allowed"}'
+expect "an admin cannot reject their own claim" 403
+call admin POST "/earnings/$OWN_ID/send-to-vote"
+expect "an admin cannot send their own claim to a vote" 403
+call carol POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Carol's claim, for the own-vote check\"}"
+expect "carol submits a claim" 201
+CAROL_CLAIM="$(json '.id')"
+call bob POST "/earnings/$CAROL_CLAIM/vote" '{"vote":"approve"}'
+expect "a claim must be in a vote before anyone votes on it" 400
+call admin POST "/earnings/$CAROL_CLAIM/send-to-vote"
+expect "admin sends carol's claim to a vote" 200
+call carol POST "/earnings/$CAROL_CLAIM/vote" '{"vote":"approve"}'
+expect "carol cannot vote on her own claim" 403
+call admin POST "/earnings/$CAROL_CLAIM/approve"
+expect "a claim in a vote cannot also be approved by an admin" 400
+call bob POST "/earnings/$CAROL_CLAIM/vote" '{"vote":"reject"}'
+expect "someone else can vote" 200
+call bob POST "/earnings/$CAROL_CLAIM/vote" '{"vote":"reject"}'
+expect "and only once" 400
+
+echo "- Categories: archive, guarded delete, public log"
+call carol POST /categories '{"name":"Not allowed"}'
+expect "members cannot create categories" 403
+SUF="$(date +%s)"
+call admin POST /categories "{\"name\":\"Smoke cat $SUF\",\"earnRate\":1.1}"
+expect "admin creates a category" 201
+NEWCAT="$(json '.id')"
+call admin POST /categories "{\"name\":\"Smoke cat $SUF\"}"
+expect "a duplicate name is refused" 400
+call admin PUT "/categories/$NEWCAT" '{"earnRate":50}'
+expect "an absurd earn rate is refused" 400
+call admin PUT "/categories/$NEWCAT" '{"earnRate":1.25}'
+expect "admin changes the earn rate" 200
+call admin DELETE "/categories/$NEWCAT"
+expect "an unused category can be deleted" 200
+call admin POST /categories "{\"name\":\"Smoke busy $SUF\"}"
+BUSY="$(json '.id')"
+call alice POST /requests "{\"title\":\"Smoke test: busy category\",\"description\":\"Keeps the category busy for the delete check.\",\"categoryId\":$BUSY,\"hoursBudget\":1}"
+expect "a request uses the new category" 201
+BUSY_REQ="$(json '.id')"
+call admin GET "/categories/$BUSY/usage"
+[ "$(json '.openWithOffers')" = 0 ] && [ "$(json '.inProgress')" = 0 ] && pass "an unfilled open request does not count as active use" || fail "usage wrong: $BODY"
+call bob POST "/requests/$BUSY_REQ/volunteer" '{"proposedHours":1}'
+expect "bob offers on it" 201
+call admin DELETE "/categories/$BUSY"
+expect "a category with a pending offer cannot be deleted" 400
+[ "$(json '.error')" != "${BODY}" ] && grep -q "in use" <<<"$BODY" && pass "and the message says why" || fail "message unclear: $BODY"
+call alice POST "/requests/$BUSY_REQ/cancel"
+expect "the request is cancelled" 200
+call admin DELETE "/categories/$BUSY"
+expect "cancelled work still pins the category as history, so delete is refused" 400
+call admin POST "/categories/$BUSY/archive"
+expect "admin archives it instead" 200
+call alice POST /requests "{\"title\":\"Smoke test: archived category\",\"description\":\"Trying to use an archived category.\",\"categoryId\":$BUSY,\"hoursBudget\":1}"
+expect "an archived category cannot take new requests" 400
+call carol GET /categories
+[ "$(jq -r --argjson c "$BUSY" '.[] | select(.id==$c) | .archived' <<<"$BODY")" = true ] && pass "archived categories are flagged but still listed for old requests" || fail "no archived flag: $BODY"
+call admin POST "/categories/$BUSY/restore"
+expect "admin restores it" 200
+call carol GET "/governance?limit=100"
+expect "any member reads the governance log" 200
+[ "$(jq -r '[.entries[] | select(.action=="category.archived" and .subject=="Smoke busy '"$SUF"'")] | length' <<<"$BODY")" = 1 ] && pass "the archive is in the public log" || fail "log lacks the archive: $BODY"
+
+echo "- Balance adjustments: second approval"
+call carol GET /adjustments
+expect "members cannot open adjustments" 403
+call admin POST /adjustments '{"userId":"admin","hours":1,"reason":"Adjusting my own balance"}'
+expect "nobody adjusts their own balance" 403
+call admin POST /adjustments '{"userId":"bob","hours":1,"reason":"short"}'
+expect "a reason is required" 400
+call admin POST /adjustments '{"userId":"nobody-here","hours":1,"reason":"For a member who does not exist"}'
+expect "the member must exist" 400
+call alice POST /adjustments '{"userId":"bob","hours":1,"reason":"Not an admin so not allowed"}'
+expect "only admins propose" 403
+call bob GET /balance/my
+BEFORE="$(json '.balance')"
+call admin POST /adjustments '{"userId":"bob","hours":2,"reason":"Smoke test: small adjustment"}'
+expect "a small adjustment is applied at once" 201
+[ "$(json '.status')" = approved ] && pass "and recorded as approved" || fail "status: $BODY"
+call bob GET /balance/my
+[ "$(jq -n "$(json '.balance') - $BEFORE")" = 2 ] && pass "bob's balance went up by 2" || fail "balance $BEFORE -> $(json '.balance')"
+call bob GET /ledger/my
+grep -q "Admin adjustment by admin: Smoke test: small adjustment" <<<"$BODY" && pass "the ledger names the admin and the reason" || fail "ledger entry missing"
+call admin POST /adjustments '{"userId":"bob","hours":12,"reason":"Smoke test: large adjustment"}'
+expect "a large adjustment is proposed" 201
+[ "$(json '.status')" = pending ] && pass "and waits for a second person" || fail "status: $BODY"
+ADJ="$(json '.id')"
+call bob GET /balance/my
+[ "$(jq -n "$(json '.balance') - $BEFORE")" = 2 ] && pass "nothing moved yet" || fail "balance moved early: $BODY"
+call admin POST "/adjustments/$ADJ/approve"
+expect "the proposer cannot approve it" 403
+call admin POST "/adjustments/$ADJ/reject" '{"note":"Rejecting my own proposal"}'
+expect "the proposer cannot reject it either" 403
+call alice POST "/adjustments/$ADJ/approve"
+expect "someone outside admins and bob's chapter cannot approve" 403
+call carol POST "/adjustments/$ADJ/approve"
+expect "a plain member cannot approve" 403
+call admin POST "/adjustments/$ADJ/withdraw"
+expect "the proposer can withdraw it" 200
+call admin POST "/adjustments/$ADJ/approve"
+expect "a withdrawn proposal cannot be approved" 400
+call admin PUT /settings/adjustment-threshold '{"hours":50,"reason":"Raising it a lot, which is not allowed"}'
+expect "the threshold has an upper limit" 400
+call admin PUT /settings/adjustment-threshold '{"hours":6,"reason":"Smoke test: trying a new threshold"}'
+expect "admin changes the threshold" 200
+call admin PUT /settings/adjustment-threshold '{"hours":5,"reason":"Smoke test: putting it back to 5"}'
+expect "and puts it back" 200
+call carol PUT /settings/adjustment-threshold '{"hours":20,"reason":"Members cannot change this"}'
+expect "members cannot change it" 403
+call carol GET "/governance?limit=100"
+[ "$(jq -r '[.entries[] | select(.action=="setting.adjustment_threshold" and .details.to==6)] | length' <<<"$BODY")" -ge 1 ] && pass "setting changes are public, with old and new values" || fail "threshold change not logged: $BODY"
+call admin POST /balance/adjust '{"userId":"bob","hours":5,"reason":"The old route is gone"}'
+expect "the old unguarded adjust route is gone" 404
+
 echo "- Frontend page"
 code="$(curl -s -o "$TMP/page" -w '%{http_code}' -u alice:alice-pass-123 "$BASE/index.php/apps/timebank/")"
 [ "$code" = 200 ] && grep -q 'timebank-main' "$TMP/page" && pass "app page loads and references built JS" || fail "app page: $code (is js/ built?)"

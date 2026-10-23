@@ -81,6 +81,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Admin tools** (Step C of `docs/proposals/ui-gaps.md`).
+  - **Nobody decides on their own claim.** Approve, reject, send to a vote and vote all refuse the claimant,
+    admins included. A claim can be decided only once and votes are taken only while it is in a vote
+    (before, a claim could be approved twice and credited twice).
+  - **Categories** page for admins: create, edit (the earn rate is limited to 5), archive, restore and
+    delete. A category in use (a request in progress, an open request with offers, a claim waiting) cannot be
+    deleted, and neither can one that past work points at: archive it, which hides it from new requests and keeps
+    history readable.
+  - **Balance adjustments** page: one admin can adjust up to a threshold (default 5 hours, 1 to 20); larger
+    adjustments need a second person who is not the proposer or the member (another admin, or a facilitator of
+    one of the member's chapters), and expire after 14 days. Applying an adjustment and writing the ledger now
+    happen in one database transaction, and a debit can never take a balance below zero. The ledger names
+    both people. The old `POST /api/balance/adjust` is removed.
+  - **Governance log**, readable by every member: category changes, adjustments, and the threshold, with the
+    old and new values and the reason.
+  - The Admin Settings page now explains how decisions are made instead of showing switches that did nothing.
+  - "Approvals & Votes" no longer fails for members: the vote list shows for everyone, review of pending claims
+    only for admins, and your own claims show no buttons. Errors from these buttons are shown.
+  - Migration `Version000005` (version 0.6.0): `archived_at` on categories, `timebank_adjustments`,
+    `timebank_governance_log`.
 - **Self-service and comment moderation** (Step B of `docs/proposals/ui-gaps.md`).
   - Requesters can edit their request while it is open (title, description, category, hours, priority,
     deadline, location) and cancel it from a confirmation that names any accepted helpers. Edits keep the

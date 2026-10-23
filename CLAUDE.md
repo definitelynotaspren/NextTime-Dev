@@ -15,7 +15,7 @@ when making product choices; flag changes that concentrate control.
 appinfo/info.xml        app id, version, NC version range, settings, repair steps
 appinfo/routes.php      intentionally EMPTY - all routes are PHP attributes
 lib/Controller/*        HTTP API. #[FrontpageRoute] attributes define URLs
-lib/Service/*           business logic (balances, earnings/voting, requests)
+lib/Service/*           business logic (balances, earnings/voting, requests, comments, categories, adjustments, GovernanceLog)
 lib/Db/*                Entities + QBMappers (tables prefixed oc_timebank_)
 lib/Migration/          schema migration + SeedCategories repair step
 lib/Schema/             organizer-desk spec (SchemaSpec), visibility rules (FieldPolicy), row validation
@@ -107,6 +107,10 @@ then `make docker-install-app`. Run the smoke test with
 - **Comments are moderated, not author-deleted.** 3 distinct flags hide a comment from members;
   moderators (NC admins and `timebank-organizer`) remove or dismiss. Removal is soft (`removed_at`/`removed_by`).
   `RequestController::show` swaps in `CommentService::getForViewer` so hidden text never leaves the server.
+- **Nobody decides on their own claim or adjustment.** `EarningService::requireDecidable` covers approve, reject,
+  send-to-vote and vote; `AdjustmentService` refuses the proposer and the member. Keep that rule in any new path.
+- **Admin changes are logged publicly.** Call `GovernanceLog::record()` for any new admin power. Categories in
+  active use cannot be deleted; archive instead. `GET /api/categories` includes archived ones, so pickers filter them.
 - Schema changes go in a NEW migration class (`VersionXXXXXXDateYYYYMMDDHHMMSS`)
   and a version bump in info.xml - never edit the shipped migration.
 - The app folder must be named `timebank` (matches the app id).
@@ -135,9 +139,9 @@ then `make docker-install-app`. Run the smoke test with
 
 ## Known gaps (as of v0.5.x - check README "Known Limitations")
 
-- No category management or manual balance adjustment UI (admin API only).
-- Admin Settings page is display-only: toggles aren't saved or read. Voting
-  always resolves at exactly 3 votes; negative balances always rejected.
+- Only admins approve claims; chapter facilitators (Step D) and claim notifications are not built.
+- Voting always resolves at exactly 3 votes and negative balances are always rejected; these are fixed rules, shown
+  read-only in Admin Settings. Only the adjustment threshold is a setting (`adjustment_threshold`, logged).
 - Bundle is a single ~1.6 MB chunk (MapLibre) - candidate for lazy-loading the map.
 
 ## Working style
