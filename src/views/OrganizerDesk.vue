@@ -112,11 +112,11 @@ const setStatus = (row: Row, status: string) =>
 
 const fieldInputType = (field: Field) => {
 	switch (field.type) {
-		case 'number': return 'number'
-		case 'date': return 'date'
-		case 'datetime': return 'datetime-local'
-		case 'url': return 'url'
-		default: return 'text'
+	case 'number': return 'number'
+	case 'date': return 'date'
+	case 'datetime': return 'datetime-local'
+	case 'url': return 'url'
+	default: return 'text'
 	}
 }
 
@@ -161,9 +161,15 @@ onMounted(async () => {
 			</label>
 
 			<div class="tabs" role="tablist">
-				<button type="button" :class="{ active: tab === 'unassigned' }" @click="tab = 'unassigned'">Unassigned</button>
-				<button type="button" :class="{ active: tab === 'mine' }" @click="tab = 'mine'">Assigned to me</button>
-				<button type="button" :class="{ active: tab === 'all' }" @click="tab = 'all'">All</button>
+				<button type="button" :class="{ active: tab === 'unassigned' }" @click="tab = 'unassigned'">
+					Unassigned
+				</button>
+				<button type="button" :class="{ active: tab === 'mine' }" @click="tab = 'mine'">
+					Assigned to me
+				</button>
+				<button type="button" :class="{ active: tab === 'all' }" @click="tab = 'all'">
+					All
+				</button>
 			</div>
 
 			<label>
@@ -181,7 +187,9 @@ onMounted(async () => {
 		</div>
 
 		<form v-if="showCreate" class="create" @submit.prevent="createRow">
-			<p class="hint">Rows start unpublished. Set publish to yes to show them on the public map.</p>
+			<p class="hint">
+				Rows start unpublished. Set publish to yes to show them on the public map.
+			</p>
 			<label v-for="field in layerFields" :key="field.name" class="field">
 				<span>
 					{{ field.name }}<span v-if="field.required" class="req">*</span>
@@ -193,7 +201,10 @@ onMounted(async () => {
 						{{ option }}
 					</option>
 				</select>
-				<input v-else v-model="draft[field.name]" :type="fieldInputType(field)" :title="field.description">
+				<input v-else
+					v-model="draft[field.name]"
+					:type="fieldInputType(field)"
+					:title="field.description">
 			</label>
 			<label class="field">
 				<span>publish <span class="vis">(public)</span></span>
@@ -202,8 +213,12 @@ onMounted(async () => {
 					<option value="yes">yes</option>
 				</select>
 			</label>
-			<p v-if="createError" class="error">{{ createError }}</p>
-			<NcButton type="submit">Save row</NcButton>
+			<p v-if="createError" class="error">
+				{{ createError }}
+			</p>
+			<NcButton type="submit">
+				Save row
+			</NcButton>
 		</form>
 
 		<NcLoadingIcon v-if="loading" :size="44" />
@@ -232,18 +247,23 @@ onMounted(async () => {
 
 				<div class="row-actions">
 					<template v-if="!row.assignedTo">
-						<NcButton :disabled="busyId === row.id" @click="assign(row)">Assign to me</NcButton>
+						<NcButton :disabled="busyId === row.id" @click="assign(row)">
+							Assign to me
+						</NcButton>
 					</template>
 					<template v-else-if="tab === 'mine'">
 						<select
 							v-if="row.assignedTo"
 							:value="row.assignmentStatus ?? 'assigned'"
 							:disabled="busyId === row.id"
-							@change="setStatus(row, ($event.target as HTMLSelectElement).value)"
-						>
-							<option v-for="status in STATUSES" :key="status" :value="status">{{ status }}</option>
+							@change="setStatus(row, ($event.target as HTMLSelectElement).value)">
+							<option v-for="status in STATUSES" :key="status" :value="status">
+								{{ status }}
+							</option>
 						</select>
-						<NcButton :disabled="busyId === row.id" @click="release(row)">Release</NcButton>
+						<NcButton :disabled="busyId === row.id" @click="release(row)">
+							Release
+						</NcButton>
 					</template>
 				</div>
 			</li>

@@ -139,7 +139,7 @@ const toggle = (name: string) => {
 	padding: 12px;
 	background: none;
 	border: 0;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 	color: var(--color-main-text);
 }
@@ -159,7 +159,7 @@ const toggle = (name: string) => {
 .fields td {
 	padding: 6px 10px;
 	border-top: 1px solid var(--color-border);
-	text-align: left;
+	text-align: start;
 	vertical-align: top;
 }
 
@@ -171,9 +171,13 @@ const toggle = (name: string) => {
 }
 
 .vis-public { background: var(--color-success-text); color: #fff; }
+
 .vis-facilitator { background: var(--color-primary-element); color: #fff; }
+
 .vis-chapter { background: var(--color-warning); }
+
 .vis-organizer { background: var(--color-error); color: #fff; }
+
 .badge-warn { background: var(--color-warning); }
 
 .chapters {

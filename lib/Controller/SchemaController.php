@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Controller;
 
-use OCA\TimeBank\Schema\LayerException;
 use OCA\TimeBank\Schema\SchemaSpec;
 use OCA\TimeBank\Service\ViewerResolver;
 use OCP\AppFramework\Controller;

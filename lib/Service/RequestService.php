@@ -6,10 +6,10 @@ namespace OCA\TimeBank\Service;
 
 use OCA\TimeBank\Db\CommentMapper;
 use OCA\TimeBank\Db\Request;
-use OCA\TimeBank\Geo\Coordinates;
 use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Db\UserStatsMapper;
 use OCA\TimeBank\Db\VolunteerMapper;
+use OCA\TimeBank\Geo\Coordinates;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 class RequestService {
