@@ -7,7 +7,7 @@ namespace OCA\TimeBank\Controller;
 use OCA\TimeBank\Service\CommentService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
@@ -29,7 +29,7 @@ class CommentController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'POST', url: '/api/requests/{requestId}/comments')]
+	#[FrontpageRoute(verb: 'POST', url: '/api/requests/{requestId}/comments', requirements: ['requestId' => '\\d+'])]
 	public function create(int $requestId): DataResponse {
 		$data = [
 			'comment' => $this->request->getParam('comment'),
@@ -46,7 +46,7 @@ class CommentController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	#[ApiRoute(verb: 'DELETE', url: '/api/comments/{id}')]
+	#[FrontpageRoute(verb: 'DELETE', url: '/api/comments/{id}', requirements: ['id' => '\\d+'])]
 	public function delete(int $id): DataResponse {
 		try {
 			$this->commentService->delete($id, $this->userId);

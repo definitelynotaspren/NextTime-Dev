@@ -47,6 +47,8 @@ class Earning extends Entity implements JsonSerializable {
 
 	public function __construct() {
 		$this->addType('id', 'integer');
+		$this->addType('createdAt', 'datetime');
+		$this->addType('approvedAt', 'datetime');
 		$this->addType('categoryId', 'integer');
 		$this->addType('evidenceFileId', 'integer');
 	}

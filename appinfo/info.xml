@@ -51,6 +51,9 @@ services using hours as currency, with map-based coordination of requests and of
     </settings>
 
     <repair-steps>
+        <install>
+            <step>OCA\TimeBank\Migration\SeedCategories</step>
+        </install>
         <post-migration>
             <step>OCA\TimeBank\Migration\SeedCategories</step>
         </post-migration>

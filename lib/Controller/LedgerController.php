@@ -6,7 +6,7 @@ namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\TransactionService;
 use OCP\AppFramework\Controller;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -30,7 +30,7 @@ class LedgerController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/ledger')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/ledger')]
 	public function index(): DataResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
@@ -42,7 +42,7 @@ class LedgerController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/ledger/my')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/ledger/my')]
 	public function myTransactions(): DataResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
@@ -54,7 +54,7 @@ class LedgerController extends Controller {
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/ledger/user/{userId}')]
+	#[FrontpageRoute(verb: 'GET', url: '/api/ledger/user/{userId}')]
 	public function userTransactions(string $userId): DataResponse {
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);

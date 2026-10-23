@@ -20,6 +20,11 @@ class Balance extends Entity implements JsonSerializable {
 	protected ?string $balance = null;
 	protected ?\DateTime $updatedAt = null;
 
+	public function __construct() {
+		$this->addType('id', 'integer');
+		$this->addType('updatedAt', 'datetime');
+	}
+
 	public function jsonSerialize(): array {
 		return [
 			'userId' => $this->userId,
