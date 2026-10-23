@@ -137,6 +137,7 @@ onMounted(() => {
 					id="category"
 					v-model="categoryId"
 					:options="categoryOptions"
+					:reduce="(option) => option.id"
 					placeholder="Select category"
 					:disabled="submitting"
 				/>

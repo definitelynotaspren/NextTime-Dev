@@ -35,8 +35,9 @@ const categoryOptions = computed(() => {
 
 const priorityOptions = [
 	{ id: 'urgent', label: 'Urgent' },
+	{ id: 'high', label: 'High' },
 	{ id: 'normal', label: 'Normal' },
-	{ id: 'flexible', label: 'Flexible' },
+	{ id: 'low', label: 'Low' },
 ]
 
 const isValid = computed(() => {
@@ -111,6 +112,7 @@ const submit = async () => {
 					id="category"
 					v-model="categoryId"
 					:options="categoryOptions"
+					:reduce="(option) => option.id"
 					placeholder="Select category"
 					:disabled="submitting"
 				/>
@@ -137,6 +139,7 @@ const submit = async () => {
 					id="priority"
 					v-model="priority"
 					:options="priorityOptions"
+					:reduce="(option) => option.id"
 					:disabled="submitting"
 				/>
 			</div>

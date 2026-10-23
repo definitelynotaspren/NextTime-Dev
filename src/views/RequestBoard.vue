@@ -18,7 +18,7 @@ const categoryStore = useCategoryStore()
 
 const showNewRequestModal = ref(false)
 const selectedStatus = ref<string | null>(null)
-const selectedCategory = ref<number | null>(null)
+const selectedCategory = ref<string | null>(null)
 const selectedPriority = ref<string | null>(null)
 const viewMode = ref<'grid' | 'map'>('grid')
 
@@ -27,13 +27,15 @@ const statusOptions = [
 	{ id: 'open', label: 'Open' },
 	{ id: 'in_progress', label: 'In Progress' },
 	{ id: 'completed', label: 'Completed' },
+	{ id: 'cancelled', label: 'Cancelled' },
 ]
 
 const priorityOptions = [
 	{ id: '', label: 'All Priorities' },
 	{ id: 'urgent', label: 'Urgent' },
+	{ id: 'high', label: 'High' },
 	{ id: 'normal', label: 'Normal' },
-	{ id: 'flexible', label: 'Flexible' },
+	{ id: 'low', label: 'Low' },
 ]
 
 const categoryOptions = computed(() => {
@@ -92,6 +94,7 @@ onMounted(() => {
 			<NcSelect
 				v-model="selectedStatus"
 				:options="statusOptions"
+				:reduce="(option) => option.id"
 				label-outside
 				placeholder="Status"
 				@update:model-value="applyFilters"
@@ -99,6 +102,7 @@ onMounted(() => {
 			<NcSelect
 				v-model="selectedCategory"
 				:options="categoryOptions"
+				:reduce="(option) => option.id"
 				label-outside
 				placeholder="Category"
 				@update:model-value="applyFilters"
@@ -106,6 +110,7 @@ onMounted(() => {
 			<NcSelect
 				v-model="selectedPriority"
 				:options="priorityOptions"
+				:reduce="(option) => option.id"
 				label-outside
 				placeholder="Priority"
 				@update:model-value="applyFilters"

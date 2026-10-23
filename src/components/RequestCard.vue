@@ -114,7 +114,11 @@ const formatDate = (dateString: string | null) => {
 	border-inline-start: 4px solid var(--color-primary);
 }
 
-.request-card.priority-flexible {
+.request-card.priority-high {
+	border-inline-start: 4px solid var(--color-warning);
+}
+
+.request-card.priority-low {
 	border-inline-start: 4px solid var(--color-success);
 }
 
@@ -139,17 +143,22 @@ const formatDate = (dateString: string | null) => {
 }
 
 .status-badge.status-open {
-	background: var(--color-success);
+	background: var(--color-success-text);
 	color: white;
 }
 
 .status-badge.status-in_progress {
-	background: var(--color-warning);
+	background: var(--color-warning-text);
 	color: white;
 }
 
 .status-badge.status-completed {
-	background: var(--color-background-dark);
+	background: var(--color-text-maxcontrast);
+	color: white;
+}
+
+.status-badge.status-cancelled {
+	background: var(--color-error-text);
 	color: white;
 }
 
