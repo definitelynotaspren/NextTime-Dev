@@ -7,6 +7,10 @@ import { ref, onMounted, onUnmounted, type Ref } from 'vue'
 import maplibregl, { type Map, type Marker, type Popup, type LngLatLike } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
+// OpenFreeMap (OpenStreetMap data, no API key). Its host must also be listed in the
+// page's Content-Security-Policy: see MAP_HOST in lib/Controller/PageController.php.
+export const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
+
 export interface UseMapOptions {
 	style?: string
 	center?: LngLatLike
@@ -32,8 +36,7 @@ export function useMap(options: UseMapOptions = {}) {
 
 		map.value = new maplibregl.Map({
 			container: mapContainer.value,
-			// Free OSM tiles via Carto
-			style: options.style || 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+			style: options.style || MAP_STYLE_URL,
 			// Default to Mt. Hood area (NextTime's region)
 			center: options.center || [-122.7528, 45.4215] as LngLatLike,
 			zoom: options.zoom ?? 12,
