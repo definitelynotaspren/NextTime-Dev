@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **API routes were still unreachable**: controllers used `#[ApiRoute]`, which
+  registers OCS routes under `/ocs/v2.php/...`, while the frontend calls
+  `/index.php/apps/timebank/api/...`. Switched to `#[FrontpageRoute]`.
+- `GET /api/requests/my` was captured by `/api/requests/{id}`; numeric
+  `requirements` added to every `{id}`/`{requestId}` route.
+- Every entity read with a date column threw a TypeError (HTTP 500): `?\DateTime`
+  properties lacked `addType(..., 'datetime')`. Fixed in all entities.
+- Default categories weren't seeded on a fresh `occ app:enable`;
+  `SeedCategories` now also runs as an `<install>` repair step.
+- ESLint used the Vue 2 / JS preset and couldn't parse the TypeScript sources;
+  now uses `@nextcloud/eslint-config/vue3`.
+
+### Added
+
+- `CLAUDE.md` and `.claude/` (settings, PHP lint hook, `/check` and `/smoke` commands).
+- `scripts/dev-native.sh`: Docker-free dev server (Nextcloud stable31 on SQLite).
+- `scripts/smoke-test.sh`: end-to-end API test of the full request/earning/vote lifecycle.
+- `tests/unit/Db/EntityTypesTest.php`; test bootstrap finds the server via `NEXTCLOUD_ROOT`.
+
+### Removed
+
+- Stale app-template `ApiTest` that referenced non-existent classes.
+
 ## [0.2.0] - 2026-07-05
 
 ### Fixed
