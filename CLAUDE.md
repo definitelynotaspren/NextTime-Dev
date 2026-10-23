@@ -33,7 +33,7 @@ demo/index.html         standalone browser demo, not wired to the backend
 
 ## Commands
 
-Toolchain: PHP 8.1+ (CI targets 8.1), Composer 2, Node >= 20 (`.nvmrc`), npm >= 10.
+Toolchain: PHP 8.3 (declared in info.xml; the only version run. `composer.json` and `psalm.xml` still pin 8.1 for tooling), Composer 2, Node >= 20 (`.nvmrc`), npm >= 10.
 
 ```bash
 composer install && npm ci      # deps (as root: export COMPOSER_ALLOW_SUPERUSER=1)

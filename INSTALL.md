@@ -88,8 +88,8 @@ make docker-install-app
 
 | Component  | Version                          |
 |------------|----------------------------------|
-| Nextcloud  | 29 – 33                          |
-| PHP        | 8.1+                             |
+| Nextcloud  | 29 – 35                          |
+| PHP        | 8.3                              |
 | Database   | PostgreSQL 12+, MySQL 8+, or SQLite (small installs only) |
 
 ## Building the tarball yourself

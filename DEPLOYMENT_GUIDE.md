@@ -9,8 +9,8 @@ This guide covers everything needed to deploy the Time Bank app from development
 - [x] **App ID**: `timebank` (consistent across all files)
 - [x] **Namespace**: `OCA\TimeBank` (PSR-4 compliant)
 - [x] **Version**: 0.1.0
-- [x] **Nextcloud Compatibility**: 27.x - 32.x
-- [x] **PHP Version**: 8.1+
+- [x] **Nextcloud Compatibility**: 29 - 35
+- [x] **PHP Version**: 8.3
 - [x] **Database**: All tables use `timebank_` prefix
 - [x] **Proper indexes**: Created for all foreign keys and query fields
 
@@ -459,8 +459,8 @@ chmod -R 755 /var/www/nextcloud/apps/timebank
 
 ### Debug Checklist
 
-- [ ] Check Nextcloud version compatibility (27-32)
-- [ ] Verify PHP version (8.1+)
+- [ ] Check Nextcloud version compatibility (29-35)
+- [ ] Verify PHP version (8.3)
 - [ ] Check all PHP extensions installed
 - [ ] Verify database migrations ran
 - [ ] Check file permissions (www-data:www-data)

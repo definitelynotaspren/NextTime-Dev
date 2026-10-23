@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Page titles were clipped by the sidebar toggle on every screen; content is now offset.
 - Status badges were pale on pale; they now use the darker theme colours, and
   completed/cancelled requests have badges too.
+- `appinfo/info.xml` now validates against the app store schema (element order only, no behaviour
+  change), which the `lint-info-xml` CI job checks.
 - `scripts/smoke-test.sh` failed on Nextcloud 29 (`CSRF check failed`): versions before
   30 ignore the `OCS-APIRequest` header, so it now keeps a session and sends a token.
 
@@ -47,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/dev-native.sh start`/`serve` now run PHP with 4 workers (`PHP_WORKERS`), and
   `stop` ends the whole process group; worker processes otherwise outlive the parent.
 - App version 0.2.0 → 0.3.0 so the new migration runs on upgrade.
+- Declared PHP is now 8.3 only (`info.xml`, README, INSTALL, DEPLOYMENT_GUIDE), because 8.1 and
+  8.2 were never run. The `composer.json` and `psalm.xml` 8.1 pins are tooling settings and
+  were left alone. Stale Nextcloud ranges in INSTALL and DEPLOYMENT_GUIDE (29–33, 27–32) now
+  say 29–35.
 
 ### Added
 

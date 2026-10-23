@@ -16,7 +16,7 @@ A community time banking application for Nextcloud that enables members to excha
 ## Requirements
 
 - **Nextcloud**: 29 - 35. Every version in this range was run (29.0.16, 30.0.17, 31.0.14, 32.0.15, 33.0.10, 34.0.5 and 35.0.2); see CHANGELOG.
-- **PHP**: 8.1 or higher
+- **PHP**: 8.3 (the only version run; Nextcloud 35 itself requires it)
 - **Database**: PostgreSQL 12+, MySQL 8.0+, or SQLite (small installs only)
 - **Node.js**: 20.x or higher (only needed if building from source — the release tarball ships prebuilt assets)
 - **npm**: 10.x or higher
