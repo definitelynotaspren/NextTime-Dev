@@ -12,6 +12,7 @@
 #   scripts/dev-native.sh start    # start in background, log to $NC_DIR/php-server.log
 #   scripts/dev-native.sh stop     # stop the background server
 #   scripts/dev-native.sh reset    # wipe the Nextcloud install and set up again
+#   scripts/dev-native.sh upgrade  # run occ upgrade after an app version bump or new migration
 #   scripts/dev-native.sh occ ...  # run occ against the dev server
 #
 # Env overrides: NC_DIR (default ../nc-server), NC_BRANCH (stable31), PORT (8081),
@@ -44,6 +45,20 @@ clone_server() {
 		git clone --depth 1 --branch "$NC_BRANCH" https://github.com/nextcloud/server.git "$NC_DIR"
 		git -C "$NC_DIR" submodule update --init --depth 1 3rdparty
 	fi
+}
+
+ensure_shipped_apps() {
+	# Apps that ship in a release but live in their own repos are missing from a git
+	# checkout, and `occ upgrade` refuses to run without them (viewer on stable31).
+	local branch app
+	branch="$(git -C "$NC_DIR" rev-parse --abbrev-ref HEAD)"
+	for app in viewer; do
+		if grep -q "\"$app\"" "$NC_DIR/core/shipped.json" && [ ! -d "$NC_DIR/apps/$app" ]; then
+			echo ">> Cloning the $app app (shipped with Nextcloud, separate repo)"
+			git clone --depth 1 --branch "$branch" "https://github.com/nextcloud/$app.git" "$NC_DIR/apps/$app" ||
+				echo ">> Could not clone $app; occ upgrade may fail"
+		fi
+	done
 }
 
 link_app() {
@@ -88,6 +103,7 @@ case "${1:-help}" in
 setup)
 	need_build
 	clone_server
+	ensure_shipped_apps
 	link_app
 	install_nc
 	enable_app
@@ -122,6 +138,11 @@ reset)
 	"$0" stop || true
 	rm -rf "$NC_DIR/data" "$NC_DIR/config/config.php"
 	"$0" setup
+	;;
+upgrade)
+	ensure_shipped_apps
+	occ upgrade
+	occ maintenance:mode --off
 	;;
 occ)
 	shift

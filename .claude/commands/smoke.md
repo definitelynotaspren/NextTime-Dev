@@ -5,7 +5,7 @@ description: Make sure the dev server is up with the latest code, then run the e
 1. If `../nc-server` doesn't exist, run `scripts/dev-native.sh setup`.
 2. If `js/timebank-main.mjs` is older than any file in `src/`, run `npm run build`.
 3. If `appinfo/info.xml` version or `lib/Migration/` changed since the last run,
-   run `scripts/dev-native.sh occ upgrade`.
+   run `scripts/dev-native.sh upgrade`.
 4. `scripts/dev-native.sh start` (no-op if already running).
 5. `scripts/smoke-test.sh $ARGUMENTS`
 
