@@ -29,6 +29,7 @@ js/ css/                BUILD OUTPUT (gitignored) - must exist or the page is bl
 tests/unit/             PHPUnit 10 (needs a Nextcloud server checkout)
 scripts/                dev-native.sh (Docker-free env), smoke-test.sh (E2E API)
 demo/index.html         standalone browser demo, not wired to the backend
+docs/                   data-and-access.md (where data lives, who can read it); proposals/ui-gaps.md (plan)
 ```
 
 ## Commands
@@ -116,6 +117,8 @@ then `make docker-install-app`. Run the smoke test with
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
 
+- **`NcButton` styles with `variant="primary"` / `variant="error"`** (`@nextcloud/vue` 9). The old
+  `type="primary"` does nothing now.
 - **`NcSelect` returns the option object, not its id.** Always pass
   `:reduce="(option) => option.id"`, or forms send `categoryId: null` / `[object Object]`.
   `scripts/ui-smoke.cjs` guards this; the API smoke test cannot.
@@ -127,10 +130,9 @@ then `make docker-install-app`. Run the smoke test with
 - **Dev server workers:** PHP's built-in server is single-threaded and stalls browser
   tests on newer Nextcloud; run it with `PHP_CLI_SERVER_WORKERS=4`.
 
-## Known gaps (as of v0.2.x - check README "Known Limitations")
+## Known gaps (as of v0.4.x - check README "Known Limitations")
 
-- No UI to accept/decline a volunteer offer or mark a request complete (API exists).
-- No UI to edit/cancel requests, withdraw offers, delete comments.
+- No UI to edit/cancel requests, list your own offers or withdrawals, or delete comments (API exists).
 - No category management or manual balance adjustment UI (admin API only).
 - Admin Settings page is display-only: toggles aren't saved or read. Voting
   always resolves at exactly 3 votes; negative balances always rejected.

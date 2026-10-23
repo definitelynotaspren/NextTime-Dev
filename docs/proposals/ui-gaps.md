@@ -1,18 +1,18 @@
 # Proposal: closing the UI gaps
 
-Status: **Step 0 is built and verified (app v0.4.0). Steps A, B and C are proposed; your decisions
-D1–D6 are recorded below and shaped them.** Per `CLAUDE.md`, nothing in A–C is built until you
-give the go-ahead.
+Status: **Steps 0 and A are built and verified (app v0.4.0). Steps B, C and D are proposed; your
+decisions D1–D6 are recorded below and shaped them.** Per `CLAUDE.md`, nothing in B–D is built until
+you give the go-ahead.
 
 ## Summary
 
 | Step | What | State |
 |------|------|-------|
 | **0** | Fix backend rules (no UI). | **Done** (D1, D2) |
-| **A** | Close the loop: accept/decline volunteers, mark a request complete. | Ready to build |
+| **A** | Close the loop: accept/decline volunteers, mark a request complete. | **Done** |
 | **B** | Self-service: edit/cancel, withdraw, my offers, comment flagging, per-user ledger. | Ready to build (D3 designed below) |
 | **C** | Admin tools: categories, second-approval balance adjustments, settings log. | Designed below (D4, D5); needs the questions at the end |
-| **Later** | Notify facilitators of pending claims. | Flow mapped below (D6) |
+| **D** | Let chapter facilitators approve claims for their own chapter, then notify them. | Designed below (D6) |
 
 ## Decisions (recorded 2026-10-23)
 
@@ -32,6 +32,8 @@ give the go-ahead.
    or an admin), and **settings changes are logged publicly.** Designed in Step C.
 6. **Keep the claim and approval flow**, and notify chapter facilitators (or timebank facilitators)
    of pending claims. Flow mapped at the end; not built.
+   **6a. Chapter facilitators can approve claims for their own chapter** (decided 2026-10-23). Designed
+   in Step D.
 
 ## What I found underneath (all verified on the dev server, now fixed in Step 0)
 
@@ -89,9 +91,10 @@ Code: `lib/Service/VolunteerService.php`, `RequestService.php`, the two controll
 (each of the three bugs above has a regression test that fails on the old code) and three new
 lifecycle sections in `scripts/smoke-test.sh` that run against a real server.
 
-## Step A: close the loop
+## Step A: close the loop (built)
 
-On the request detail page:
+Built on the request detail page, and exercised end to end by `scripts/ui-smoke.cjs` (accept two
+volunteers, decline a third, one accepted volunteer withdraws with a reason, the requester completes):
 
 - **Requester:** each offer card gets *Accept* and *Decline* while the request is active. Accepted cards
   show "Accepted" and a banner lists everyone helping. A *Mark complete* button opens a confirmation
@@ -104,7 +107,9 @@ On the request detail page:
 - Files: `src/views/RequestDetail.vue`, new `src/components/VolunteerCard.vue`,
   `src/stores/requestStore.ts` (move the inline API calls into store actions); current user from
   `@nextcloud/auth`. Tests: `scripts/ui-smoke.cjs` gains accept two volunteers → complete → both see it.
-- Size: M. No migration.
+- Size: M. No migration. Also fixed on the way: `NcButton` primary and error styling (the app used the old
+  `type=` prop, so no primary button was styled), and the offer form now shows only to someone who can
+  actually offer (not the requester, not someone who already did).
 
 ## Step B: self-service and comment moderation
 
@@ -152,9 +157,28 @@ On the request detail page:
     replace the non-functional toggles with a read-only "How decisions are made" panel.
 - Size: L. Migrations for archive, adjustment proposals and the settings log.
 
-## Notifying facilitators of pending claims (D6): flow, not built
+## Step D: facilitators approve claims for their own chapter, and are notified (D6, D6a)
 
-The claim and approval flow stays as it is. This adds notice to the people who can act on it.
+The claim and approval flow stays as it is, with two changes: more people may act on a claim, and the
+people who may act are told when one is waiting.
+
+### Who may act (D6a)
+
+- For a claim by user U, the **approvers** are Nextcloud admins and the facilitators of every chapter U
+  belongs to (members of the `chapter-<slug>` groups for U's chapters). If U belongs to no chapter, the
+  approvers are admins and the `timebank-facilitator` group.
+- Approvers can **approve, reject, or send to a community vote**, exactly what only admins can do today.
+  Reject keeps requiring a reason.
+- **Nobody acts on their own claim,** including admins. This is a new rule; today an admin could approve
+  their own claim.
+- The pending queue shows each person only the claims they can act on; admins see all.
+- The ledger entry and the claim already record the approver (`approver_id`); the page will also show
+  whether they acted as admin or as facilitator of a chapter.
+- This spreads control away from admin-only, in line with the anti-hierarchy principle. It needs a small
+  policy class with tests, changes to `EarningController` and `EarningService`, and no migration.
+  Size: S–M.
+
+### Who is notified
 
 ```
 Volunteer submits an earning claim          (EarningService::claim, status pending)
@@ -188,10 +212,8 @@ opt-out setting, and tests that check who gets notified.
 3. **Archive vs delete (D4).** Is archiving (with a true delete only when nothing references the
    category) acceptable? It needs a migration.
 4. **Adjustment threshold (D5).** Is 5 hours a sensible default for "large", and 14 days a sensible expiry?
-5. **Who can act on claims (D6).** Today only admins can approve, reject or send a claim to a vote.
-   Notifying facilitators who can't act would frustrate them. Should chapter facilitators be allowed to
-   approve or send to a vote for their own chapter? That would spread control and fits your
-   anti-hierarchy principle, but it is a permissions change.
+5. **Claims about yourself (D6a).** I propose that nobody, admins included, can approve or reject their
+   own claim, so another approver has to. Is that right, or should admins keep that power?
 
 ## Out of scope
 

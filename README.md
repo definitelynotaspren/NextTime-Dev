@@ -341,6 +341,9 @@ make psalm
 
 ## Security
 
+Where the data lives, who can read it, what is not protected, and how to get raw
+data out are written up in [docs/data-and-access.md](docs/data-and-access.md).
+
 ### Input Validation
 
 All API endpoints validate input parameters:
@@ -431,18 +434,13 @@ This project is licensed under the AGPL-3.0-or-later License - see the LICENSE f
 
 ## Known Limitations
 
-The backend implements a full request lifecycle (open → volunteer → accept →
-complete) with proper ownership checks, but the frontend doesn't yet expose
-every step of it. As of v0.2.0, the following exist as working, authorized
-API endpoints with **no corresponding UI**:
+The request lifecycle (open → volunteer → accept → complete) now works end to
+end in the UI, including accepting several volunteers, declining, withdrawing
+with a reason, and completing. As of v0.4.0, the following exist as working,
+authorized API endpoints with **no corresponding UI**:
 
-- **Accepting/declining a volunteer offer** and **marking a request
-  complete** — a requester can currently receive volunteer offers on the
-  Request Detail page but has no button to accept one, decline one, or close
-  out the request. This is the biggest gap: without it the request/volunteer
-  loop can't be finished end-to-end through the app today.
-- **Editing or cancelling a request**, and **withdrawing a volunteer offer**
-  (or viewing your own list of offers).
+- **Editing or cancelling a request**, and **viewing your own list of offers
+  and your log of withdrawn help** (withdrawing itself is on the request page).
 - **Deleting a comment.**
 - **Category management** (create/edit/delete) and **manual balance
   adjustment** — both admin-only on the backend, but there's no UI, in the

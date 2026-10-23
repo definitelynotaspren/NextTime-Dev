@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Primary and destructive buttons were unstyled everywhere.** `@nextcloud/vue` 9 uses
+  `variant="primary"` / `variant="error"`; the app used the old `type=` prop, so Post Request, Volunteer,
+  Submit Claim, Approve and Reject all looked like plain buttons.
 - **Completing a request trusted any volunteer id.** A requester could complete their own request
   with an offer from someone else's request, marking that offer completed and counting its stats.
   Volunteers are now looked up through the request being completed.
@@ -80,6 +83,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/dev-native.sh`: Docker-free dev server (Nextcloud stable31 on SQLite).
 - `scripts/smoke-test.sh`: end-to-end API test of the full request/earning/vote lifecycle.
 - `tests/unit/Db/EntityTypesTest.php`; test bootstrap finds the server via `NEXTCLOUD_ROOT`.
+- **Request page** (Step A of `docs/proposals/ui-gaps.md`): requesters accept or decline each offer, see
+  who is helping in a status banner, and complete the request from a confirmation that lists every accepted
+  volunteer and their hours and says that hours are claimed separately. Volunteers see their own offer's
+  status, can withdraw (a reason is required once accepted), and get a link to claim hours when completed.
+  Requesters also see the reasons people gave for withdrawing. The offer form shows only to someone who can
+  actually offer, and errors from these actions are shown in plain words.
+- `docs/data-and-access.md`: where the data lives, how it is protected and where it is not, and how to read
+  the raw data outside NextTime.
 - Unit tests for the lifecycle rules (`tests/unit/Service/`, mocked mappers) and lifecycle sections in
   `scripts/smoke-test.sh` covering several volunteers, the integrity cases and the withdrawal log.
 - Requests store `latitude` and `longitude`. Explicit values are validated;
