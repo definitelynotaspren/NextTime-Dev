@@ -59,4 +59,24 @@ class SchemaController extends Controller {
 			'visibilityLevels' => ['public', 'facilitator', 'chapter', 'organizer'],
 		]);
 	}
+
+	/**
+	 * The caller's own roles, so the UI can hide links they cannot use.
+	 * This is a convenience only; every endpoint still enforces its own rules.
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[FrontpageRoute(verb: 'GET', url: '/api/roles')]
+	public function roles(): DataResponse {
+		if ($this->userId === null) {
+			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$viewer = $this->viewers->forUser($this->userId);
+
+		return new DataResponse([
+			'organizer' => $viewer->organizer,
+			'facilitator' => $viewer->facilitator,
+		]);
+	}
 }

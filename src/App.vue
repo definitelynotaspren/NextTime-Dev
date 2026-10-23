@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcAppNavigation from '@nextcloud/vue/components/NcAppNavigation'
@@ -12,9 +14,22 @@ const route = useRoute()
 const categoryStore = useCategoryStore()
 const balanceStore = useBalanceStore()
 
+// Organizer links are a convenience: every endpoint still enforces its own rules.
+const isStaff = ref(false)
+
+const fetchRoles = async () => {
+	try {
+		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean }>(generateUrl('/apps/timebank/api/roles'))
+		isStaff.value = data.organizer || data.facilitator
+	} catch {
+		isStaff.value = false
+	}
+}
+
 onMounted(() => {
 	categoryStore.fetchCategories()
 	balanceStore.fetchMyBalance()
+	fetchRoles()
 })
 </script>
 
@@ -76,32 +91,41 @@ onMounted(() => {
 						<span class="nav-icon">&#9989;</span>
 					</template>
 				</NcAppNavigationItem>
+				<template v-if="isStaff">
+					<NcAppNavigationItem
+						:name="'Organizer Desk'"
+						:to="{ name: 'OrganizerDesk' }"
+						:active="route.name === 'OrganizerDesk'">
+						<template #icon>
+							<span class="nav-icon">&#128203;</span>
+						</template>
+					</NcAppNavigationItem>
+					<NcAppNavigationItem
+						:name="'Data Schema'"
+						:to="{ name: 'SchemaView' }"
+						:active="route.name === 'SchemaView'">
+						<template #icon>
+							<span class="nav-icon">&#128279;</span>
+						</template>
+					</NcAppNavigationItem>
+				</template>
 			</template>
-			<NcAppNavigationItem
-				:name="'Organizer Desk'"
-				:to="{ name: 'OrganizerDesk' }"
-				:active="route.name === 'OrganizerDesk'">
-				<template #icon>
-					<span class="nav-icon">&#128203;</span>
-				</template>
-			</NcAppNavigationItem>
-			<NcAppNavigationItem
-				:name="'Data Schema'"
-				:to="{ name: 'SchemaView' }"
-				:active="route.name === 'SchemaView'">
-				<template #icon>
-					<span class="nav-icon">&#128279;</span>
-				</template>
-			</NcAppNavigationItem>
 		</NcAppNavigation>
 
 		<NcAppContent>
-			<RouterView />
+			<div class="timebank-view">
+				<RouterView />
+			</div>
 		</NcAppContent>
 	</NcContent>
 </template>
 
 <style scoped>
+/* Nextcloud draws the navigation toggle over the top-left of the content area. */
+.timebank-view {
+	padding-inline-start: var(--default-clickable-area, 44px);
+}
+
 .nav-icon {
 	font-size: 16px;
 	width: 24px;

@@ -150,7 +150,7 @@ onMounted(async () => {
 	<div class="organizer-desk">
 		<h1>Organizer desk</h1>
 
-		<div class="controls">
+		<div v-if="schema" class="controls">
 			<label>
 				Layer
 				<select v-model="layerName">
