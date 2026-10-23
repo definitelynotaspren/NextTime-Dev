@@ -56,7 +56,7 @@ const canClaim = computed(() => props.isMine && props.volunteer.status === 'comp
 <template>
 	<div class="volunteer-card" :data-status="volunteer.status">
 		<div class="volunteer-header">
-			<strong>{{ volunteer.volunteerId }}<span v-if="isMine" class="you"> (you)</span></strong>
+			<strong><RouterLink :to="{ name: 'UserLedger', params: { userId: volunteer.volunteerId } }">{{ volunteer.volunteerId }}</RouterLink><span v-if="isMine" class="you"> (you)</span></strong>
 			<span class="volunteer-status" :class="`status-${volunteer.status}`">
 				{{ statusLabel }}
 			</span>

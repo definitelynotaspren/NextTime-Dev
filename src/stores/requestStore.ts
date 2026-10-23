@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 
-interface Request {
+export interface Request {
 	id: number
 	requesterId: string
 	title: string
@@ -40,11 +40,26 @@ export interface Withdrawal {
 	createdAt: string
 }
 
-export interface RequestComment {
+export interface CommentFlag {
 	id: number
 	userId: string
-	comment: string
+	reason: string | null
 	createdAt: string
+}
+
+export interface RequestComment {
+	id: number
+	requestId: number
+	userId: string
+	/** null when the comment is hidden by flags or removed, unless you are a moderator */
+	comment: string | null
+	createdAt: string
+	state: 'visible' | 'hidden' | 'removed'
+	flagCount: number
+	flaggedByMe: boolean
+	removedBy?: string
+	/** Only sent to moderators. */
+	flags?: CommentFlag[]
 }
 
 /** The server's plain-language message for a failed action, or a fallback. */
@@ -73,6 +88,7 @@ interface RequestState {
 		comments: RequestComment[]
 		/** Only sent to the requester: why people withdrew their help. */
 		withdrawals?: Withdrawal[]
+		canModerate?: boolean
 	} | null
 	filters: RequestFilters
 	pagination: Pagination
@@ -186,6 +202,34 @@ export const useRequestStore = defineStore('requests', {
 		/** Completes every accepted volunteer; hours are still claimed separately. */
 		async completeRequest(requestId: number) {
 			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/complete`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// Only while the request is open; the server refuses anything else.
+		async updateRequest(requestId: number, fields: Partial<Request>) {
+			await axios.put(generateUrl(`/apps/timebank/api/requests/${requestId}`), fields)
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async cancelRequest(requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/cancel`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async flagComment(commentId: number, requestId: number, reason: string | null) {
+			await axios.post(generateUrl(`/apps/timebank/api/comments/${commentId}/flag`), { reason })
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// Moderators only.
+		async removeComment(commentId: number, requestId: number) {
+			await axios.delete(generateUrl(`/apps/timebank/api/comments/${commentId}`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// Moderators only: the flags stop counting.
+		async dismissFlags(commentId: number, requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/comments/${commentId}/dismiss`))
 			await this.fetchRequestDetails(requestId, true)
 		},
 

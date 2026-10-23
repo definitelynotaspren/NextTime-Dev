@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRequestStore } from '../stores/requestStore'
+import { ref, computed, type PropType } from 'vue'
+import { useRequestStore, errorMessage, type Request } from '../stores/requestStore'
 import { useCategoryStore } from '../stores/categoryStore'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
@@ -8,21 +8,32 @@ import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
 import LocationPicker from './LocationPicker.vue'
 
+const props = defineProps({
+	/** When given, the form edits this request instead of posting a new one. */
+	request: {
+		type: Object as PropType<Request | null>,
+		default: null,
+	},
+})
+
 const emit = defineEmits<{
 	(e: 'created'): void
+	(e: 'saved'): void
 	(e: 'cancel'): void
 }>()
+
+const editing = computed(() => props.request !== null)
 
 const requestStore = useRequestStore()
 const categoryStore = useCategoryStore()
 
-const title = ref('')
-const description = ref('')
-const categoryId = ref<string | null>(null)
-const hoursBudget = ref('')
-const priority = ref('normal')
-const deadline = ref('')
-const location = ref('')
+const title = ref(props.request?.title ?? '')
+const description = ref(props.request?.description ?? '')
+const categoryId = ref<string | null>(props.request ? String(props.request.categoryId) : null)
+const hoursBudget = ref(props.request ? String(props.request.hoursBudget) : '')
+const priority = ref(props.request?.priority ?? 'normal')
+const deadline = ref(props.request?.deadline ? props.request.deadline.slice(0, 10) : '')
+const location = ref(props.request?.location ?? '')
 const submitting = ref(false)
 const error = ref<string | null>(null)
 
@@ -56,20 +67,26 @@ const submit = async () => {
 	submitting.value = true
 	error.value = null
 
+	const fields = {
+		title: title.value,
+		description: description.value,
+		categoryId: parseInt(categoryId.value!),
+		hoursBudget: parseFloat(hoursBudget.value),
+		priority: priority.value,
+		deadline: deadline.value || undefined,
+		location: location.value || undefined,
+	}
+
 	try {
-		await requestStore.createRequest({
-			title: title.value,
-			description: description.value,
-			categoryId: parseInt(categoryId.value!),
-			hoursBudget: parseFloat(hoursBudget.value),
-			priority: priority.value,
-			deadline: deadline.value || undefined,
-			location: location.value || undefined,
-		})
-		emit('created')
+		if (props.request) {
+			await requestStore.updateRequest(props.request.id, fields)
+			emit('saved')
+		} else {
+			await requestStore.createRequest(fields)
+			emit('created')
+		}
 	} catch (e: unknown) {
-		const err = e as { response?: { data?: { error?: string } } }
-		error.value = err.response?.data?.error || 'Failed to create request'
+		error.value = errorMessage(e, editing.value ? 'Failed to save changes' : 'Failed to create request')
 	} finally {
 		submitting.value = false
 	}
@@ -78,7 +95,7 @@ const submit = async () => {
 
 <template>
 	<div class="new-request-form">
-		<h2>Post a New Request</h2>
+		<h2>{{ editing ? 'Edit request' : 'Post a New Request' }}</h2>
 
 		<div v-if="error" class="error-message">
 			{{ error }}
@@ -171,7 +188,7 @@ const submit = async () => {
 				@click="submit"
 				:disabled="!isValid || submitting"
 			>
-				{{ submitting ? 'Posting...' : 'Post Request' }}
+				{{ submitting ? (editing ? 'Saving...' : 'Posting...') : (editing ? 'Save changes' : 'Post Request') }}
 			</NcButton>
 		</div>
 	</div>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getCurrentUser } from '@nextcloud/auth'
-import { useRequestStore, errorMessage, type Volunteer } from '../stores/requestStore'
+import { useRequestStore, errorMessage, type RequestComment, type Volunteer } from '../stores/requestStore'
 import { useCategoryStore } from '../stores/categoryStore'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -11,6 +11,8 @@ import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import MapComponent from '../components/MapComponent.vue'
 import VolunteerCard from '../components/VolunteerCard.vue'
+import NewRequestForm from '../components/NewRequestForm.vue'
+import CommentItem from '../components/CommentItem.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,6 +32,13 @@ const commentError = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 const busyOfferId = ref<number | null>(null)
 const showComplete = ref(false)
+const showEdit = ref(false)
+const flagTarget = ref<RequestComment | null>(null)
+const flagReason = ref('')
+const flagging = ref(false)
+const moderatingId = ref<number | null>(null)
+const showCancel = ref(false)
+const cancelling = ref(false)
 const completing = ref(false)
 const withdrawTarget = ref<Volunteer | null>(null)
 const withdrawReason = ref('')
@@ -48,6 +57,7 @@ const request = computed(() => requestStore.currentRequest?.request ?? null)
 const volunteers = computed(() => requestStore.currentRequest?.volunteers ?? [])
 const withdrawals = computed(() => requestStore.currentRequest?.withdrawals ?? [])
 const isRequester = computed(() => !!request.value && request.value.requesterId === currentUserId)
+const canEdit = computed(() => isRequester.value && request.value?.status === 'open')
 const isActive = computed(() => request.value?.status === 'open' || request.value?.status === 'in_progress')
 const myOffer = computed(() => volunteers.value.find((v) => v.volunteerId === currentUserId) ?? null)
 const canOffer = computed(() => isActive.value && !isRequester.value && !myOffer.value)
@@ -100,6 +110,50 @@ const confirmComplete = async () => {
 	showComplete.value = false
 }
 
+const confirmCancel = async () => {
+	cancelling.value = true
+	await act(() => requestStore.cancelRequest(requestId.value))
+	cancelling.value = false
+	showCancel.value = false
+}
+
+const saved = () => {
+	showEdit.value = false
+}
+
+const confirmFlag = async () => {
+	const target = flagTarget.value
+	if (!target) return
+
+	flagging.value = true
+	commentError.value = null
+	try {
+		await requestStore.flagComment(target.id, requestId.value, flagReason.value.trim() || null)
+		flagTarget.value = null
+		flagReason.value = ''
+	} catch (e) {
+		commentError.value = errorMessage(e)
+		flagTarget.value = null
+	} finally {
+		flagging.value = false
+	}
+}
+
+const moderate = async (comment: RequestComment, task: () => Promise<void>) => {
+	moderatingId.value = comment.id
+	commentError.value = null
+	try {
+		await task()
+	} catch (e) {
+		commentError.value = errorMessage(e)
+	} finally {
+		moderatingId.value = null
+	}
+}
+
+const removeComment = (comment: RequestComment) => moderate(comment, () => requestStore.removeComment(comment.id, requestId.value))
+const dismissFlags = (comment: RequestComment) => moderate(comment, () => requestStore.dismissFlags(comment.id, requestId.value))
+
 const startWithdraw = (offer: Volunteer) => {
 	withdrawReason.value = ''
 	withdrawTarget.value = offer
@@ -132,6 +186,11 @@ const addComment = async () => {
 
 onMounted(() => {
 	requestStore.fetchRequestDetails(requestId.value)
+})
+
+// The same page is reused when the id in the address changes.
+watch(requestId, (id) => {
+	requestStore.fetchRequestDetails(id)
 })
 </script>
 
@@ -189,7 +248,16 @@ onMounted(() => {
 						Mark complete
 					</NcButton>
 					<span v-if="!acceptedVolunteers.length" class="hint">Accept at least one volunteer to complete this request.</span>
+					<NcButton v-if="canEdit" @click="showEdit = true">
+						Edit
+					</NcButton>
+					<NcButton variant="error" :disabled="cancelling" @click="showCancel = true">
+						Cancel request
+					</NcButton>
 				</div>
+				<p v-if="isRequester && request?.status === 'in_progress'" class="hint">
+					A request can only be edited while it is open.
+				</p>
 
 				<div v-if="isRequester && withdrawals.length" class="withdrawn-section">
 					<h3>Withdrawn help ({{ withdrawals.length }})</h3>
@@ -221,13 +289,16 @@ onMounted(() => {
 						</p>
 					</div>
 
-					<div v-for="comment in requestStore.currentRequest.comments" :key="comment.id" class="comment">
-						<div class="comment-header">
-							<strong>{{ comment.userId }}</strong>
-							<span class="comment-date">{{ new Date(comment.createdAt).toLocaleString() }}</span>
-						</div>
-						<p>{{ comment.comment }}</p>
-					</div>
+					<CommentItem
+						v-for="comment in requestStore.currentRequest.comments"
+						:key="comment.id"
+						:comment="comment"
+						:current-user-id="currentUserId"
+						:can-moderate="!!requestStore.currentRequest.canModerate"
+						:busy="moderatingId === comment.id"
+						@flag="(c) => { flagReason = ''; flagTarget = c }"
+						@remove="removeComment"
+						@dismiss="dismissFlags" />
 				</div>
 			</div>
 
@@ -308,6 +379,49 @@ onMounted(() => {
 					</NcButton>
 					<NcButton variant="primary" :disabled="completing" @click="confirmComplete">
 						{{ completing ? 'Completing...' : 'Mark complete' }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
+
+		<NcModal v-if="showEdit && request" size="normal" @close="showEdit = false">
+			<NewRequestForm :request="request" @saved="saved" @cancel="showEdit = false" />
+		</NcModal>
+
+		<NcModal v-if="flagTarget" size="small" @close="flagTarget = null">
+			<div class="dialog">
+				<h2>Flag this comment?</h2>
+				<p>
+					Flags are counted in public. At 3 flags from different members the comment is hidden until a
+					moderator reviews it. Moderators see who flagged and why. You can flag a comment once.
+				</p>
+				<NcTextArea v-model="flagReason" label="Reason (optional)" :rows="3" />
+				<div class="dialog-actions">
+					<NcButton @click="flagTarget = null">
+						Never mind
+					</NcButton>
+					<NcButton variant="primary" :disabled="flagging" @click="confirmFlag">
+						{{ flagging ? 'Flagging...' : 'Flag comment' }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
+
+		<NcModal v-if="showCancel" size="small" @close="showCancel = false">
+			<div class="dialog">
+				<h2>Cancel this request?</h2>
+				<p v-if="acceptedVolunteers.length">
+					{{ acceptedVolunteers.map((v) => v.volunteerId).join(', ') }}
+					{{ acceptedVolunteers.length === 1 ? 'has' : 'have' }} already been accepted to help. They are not
+					notified automatically, so tell them yourself.
+				</p>
+				<p>A cancelled request is final and cannot be reopened. No hours are credited.</p>
+				<div class="dialog-actions">
+					<NcButton @click="showCancel = false">
+						Keep it
+					</NcButton>
+					<NcButton variant="error" :disabled="cancelling" @click="confirmCancel">
+						{{ cancelling ? 'Cancelling...' : 'Cancel request' }}
 					</NcButton>
 				</div>
 			</div>
@@ -425,19 +539,6 @@ onMounted(() => {
 	flex-direction: column;
 	gap: 10px;
 	margin-bottom: 20px;
-}
-
-.comment {
-	background: var(--color-background-hover);
-	padding: 12px;
-	border-radius: 8px;
-	margin-bottom: 10px;
-}
-
-.comment-header {
-	display: flex;
-	justify-content: space-between;
-	margin-bottom: 8px;
 }
 
 .comment-date {

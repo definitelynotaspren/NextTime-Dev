@@ -16,13 +16,16 @@ const balanceStore = useBalanceStore()
 
 // Organizer links are a convenience: every endpoint still enforces its own rules.
 const isStaff = ref(false)
+const isModerator = ref(false)
 
 const fetchRoles = async () => {
 	try {
-		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean }>(generateUrl('/apps/timebank/api/roles'))
+		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean, moderator: boolean }>(generateUrl('/apps/timebank/api/roles'))
 		isStaff.value = data.organizer || data.facilitator
+		isModerator.value = data.moderator
 	} catch {
 		isStaff.value = false
+		isModerator.value = false
 	}
 }
 
@@ -47,7 +50,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:name="'My Requests'"
+					:name="'My Activity'"
 					:to="{ name: 'MyRequests' }"
 					:active="route.name === 'MyRequests'"
 				>
@@ -89,6 +92,15 @@ onMounted(() => {
 				>
 					<template #icon>
 						<span class="nav-icon">&#9989;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					v-if="isModerator"
+					:name="'Flagged Comments'"
+					:to="{ name: 'ModerationQueue' }"
+					:active="route.name === 'ModerationQueue'">
+					<template #icon>
+						<span class="nav-icon">&#128681;</span>
 					</template>
 				</NcAppNavigationItem>
 				<template v-if="isStaff">

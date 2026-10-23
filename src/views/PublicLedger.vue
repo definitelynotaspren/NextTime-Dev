@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -22,6 +23,14 @@ interface Pagination {
 	offset: number
 }
 
+// With a userId this shows only that member's movements; the whole ledger is public anyway.
+const props = defineProps({
+	userId: {
+		type: String,
+		default: null,
+	},
+})
+
 const transactions = ref<Transaction[]>([])
 const pagination = ref<Pagination>({ total: 0, limit: 50, offset: 0 })
 const loading = ref(true)
@@ -29,7 +38,8 @@ const loading = ref(true)
 const fetchLedger = async () => {
 	loading.value = true
 	try {
-		const url = generateUrl(`/apps/timebank/api/ledger?limit=${pagination.value.limit}&offset=${pagination.value.offset}`)
+		const base = props.userId ? `/apps/timebank/api/ledger/user/${encodeURIComponent(props.userId)}` : '/apps/timebank/api/ledger'
+		const url = generateUrl(`${base}?limit=${pagination.value.limit}&offset=${pagination.value.offset}`)
 		const response = await axios.get(url)
 		transactions.value = response.data.transactions
 		pagination.value.total = response.data.total
@@ -74,13 +84,27 @@ const getTypeClass = (type: string) => {
 onMounted(() => {
 	fetchLedger()
 })
+
+// Following a name from one member's ledger to another's keeps this component alive.
+watch(() => props.userId, () => {
+	pagination.value.offset = 0
+	fetchLedger()
+})
 </script>
 
 <template>
 	<div class="public-ledger">
-		<h1>Public Ledger</h1>
+		<h1>{{ userId ? `Ledger for ${userId}` : 'Public Ledger' }}</h1>
 		<p class="subtitle">
-			Transparent record of all community hour transactions.
+			<template v-if="userId">
+				Every movement of hours to or from this member.
+				<RouterLink :to="{ name: 'PublicLedger' }">
+					See the whole ledger
+				</RouterLink>
+			</template>
+			<template v-else>
+				Transparent record of all community hour transactions.
+			</template>
 		</p>
 
 		<NcLoadingIcon v-if="loading" :size="44" />
@@ -106,8 +130,22 @@ onMounted(() => {
 								{{ tx.transactionType }}
 							</span>
 						</td>
-						<td>{{ tx.fromUserId || 'System' }}</td>
-						<td>{{ tx.toUserId || 'System' }}</td>
+						<td>
+							<RouterLink v-if="tx.fromUserId" :to="{ name: 'UserLedger', params: { userId: tx.fromUserId } }">
+								{{ tx.fromUserId }}
+							</RouterLink>
+							<template v-else>
+								System
+							</template>
+						</td>
+						<td>
+							<RouterLink v-if="tx.toUserId" :to="{ name: 'UserLedger', params: { userId: tx.toUserId } }">
+								{{ tx.toUserId }}
+							</RouterLink>
+							<template v-else>
+								System
+							</template>
+						</td>
 						<td class="hours-cell">{{ tx.hours }}</td>
 						<td class="description-cell">{{ tx.description }}</td>
 					</tr>

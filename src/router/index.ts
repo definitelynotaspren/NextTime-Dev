@@ -8,6 +8,7 @@ import PublicLedger from '../views/PublicLedger.vue'
 import MyBalance from '../views/MyBalance.vue'
 import OrganizerDesk from '../views/OrganizerDesk.vue'
 import SchemaView from '../views/SchemaView.vue'
+import ModerationQueue from '../views/ModerationQueue.vue'
 
 const routes = [
 	{
@@ -42,6 +43,12 @@ const routes = [
 		component: PublicLedger,
 	},
 	{
+		path: '/ledger/user/:userId',
+		name: 'UserLedger',
+		component: PublicLedger,
+		props: true,
+	},
+	{
 		path: '/balance',
 		name: 'MyBalance',
 		component: MyBalance,
@@ -50,6 +57,11 @@ const routes = [
 		path: '/desk',
 		name: 'OrganizerDesk',
 		component: OrganizerDesk,
+	},
+	{
+		path: '/moderation',
+		name: 'ModerationQueue',
+		component: ModerationQueue,
 	},
 	{
 		path: '/schema',
