@@ -17,15 +17,21 @@ const balanceStore = useBalanceStore()
 // Organizer links are a convenience: every endpoint still enforces its own rules.
 const isStaff = ref(false)
 const isModerator = ref(false)
+const isAdmin = ref(false)
+const isFacilitator = ref(false)
 
 const fetchRoles = async () => {
 	try {
-		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean, moderator: boolean }>(generateUrl('/apps/timebank/api/roles'))
+		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean, moderator: boolean, admin: boolean }>(generateUrl('/apps/timebank/api/roles'))
 		isStaff.value = data.organizer || data.facilitator
 		isModerator.value = data.moderator
+		isAdmin.value = data.admin
+		isFacilitator.value = data.facilitator
 	} catch {
 		isStaff.value = false
 		isModerator.value = false
+		isAdmin.value = false
+		isFacilitator.value = false
 	}
 }
 
@@ -86,12 +92,38 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:name="'Admin Approvals'"
+					:name="isAdmin ? 'Approvals & Votes' : 'Votes on Claims'"
 					:to="{ name: 'AdminApprovals' }"
 					:active="route.name === 'AdminApprovals'"
 				>
 					<template #icon>
 						<span class="nav-icon">&#9989;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					:name="'Governance Log'"
+					:to="{ name: 'GovernanceLog' }"
+					:active="route.name === 'GovernanceLog'">
+					<template #icon>
+						<span class="nav-icon">&#128220;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					v-if="isAdmin"
+					:name="'Categories'"
+					:to="{ name: 'AdminCategories' }"
+					:active="route.name === 'AdminCategories'">
+					<template #icon>
+						<span class="nav-icon">&#127991;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					v-if="isAdmin || isFacilitator"
+					:name="'Adjustments'"
+					:to="{ name: 'AdminAdjustments' }"
+					:active="route.name === 'AdminAdjustments'">
+					<template #icon>
+						<span class="nav-icon">&#9878;</span>
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem

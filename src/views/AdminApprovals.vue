@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { getCurrentUser } from '@nextcloud/auth'
+import { errorMessage } from '../stores/requestStore'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -16,7 +18,12 @@ interface Earning {
 	description: string
 	status: string
 	createdAt: string
+	votes?: { voterId: string }[]
 }
+
+const currentUserId = getCurrentUser()?.uid ?? null
+const canReview = ref(false)
+const actionError = ref<string | null>(null)
 
 const pendingClaims = ref<Earning[]>([])
 const votingClaims = ref<Earning[]>([])
@@ -31,27 +38,32 @@ const fetchClaims = async () => {
 	error.value = null
 
 	try {
-		const [pendingRes, votingRes] = await Promise.all([
-			axios.get(generateUrl('/apps/timebank/api/earnings/pending')),
-			axios.get(generateUrl('/apps/timebank/api/earnings/voting')),
-		])
-		pendingClaims.value = pendingRes.data
+		// Anyone can take part in votes; only admins review pending claims.
+		const votingRes = await axios.get(generateUrl('/apps/timebank/api/earnings/voting'))
 		votingClaims.value = votingRes.data
+		try {
+			const pendingRes = await axios.get(generateUrl('/apps/timebank/api/earnings/pending'))
+			pendingClaims.value = pendingRes.data
+			canReview.value = true
+		} catch {
+			pendingClaims.value = []
+			canReview.value = false
+		}
 	} catch (e: unknown) {
-		const err = e as { response?: { data?: { error?: string } } }
-		error.value = err.response?.data?.error || 'Failed to fetch claims'
+		error.value = errorMessage(e, 'Failed to fetch claims')
 	} finally {
 		loading.value = false
 	}
 }
 
 const approve = async (id: number) => {
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/approve`))
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error approving:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
@@ -60,6 +72,7 @@ const approve = async (id: number) => {
 const reject = async (id: number) => {
 	if (!rejectReason.value.trim()) return
 
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/reject`), {
@@ -69,25 +82,27 @@ const reject = async (id: number) => {
 		rejectReason.value = ''
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error rejecting:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
 }
 
 const sendToVote = async (id: number) => {
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/send-to-vote`))
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error sending to vote:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
 }
 
 const vote = async (id: number, decision: string) => {
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/vote`), {
@@ -95,7 +110,7 @@ const vote = async (id: number, decision: string) => {
 		})
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error voting:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
@@ -119,7 +134,10 @@ onMounted(() => {
 		</NcEmptyContent>
 
 		<template v-else>
-			<section class="pending-section">
+			<p v-if="actionError" class="action-error" role="alert">
+				{{ actionError }}
+			</p>
+			<section v-if="canReview" class="pending-section">
 				<h2>Pending Claims ({{ pendingClaims.length }})</h2>
 
 				<div v-if="pendingClaims.length === 0" class="empty-state">
@@ -139,7 +157,10 @@ onMounted(() => {
 						<div class="claim-description">
 							{{ claim.description }}
 						</div>
-						<div class="claim-actions">
+						<p v-if="claim.userId === currentUserId" class="own-claim">
+							This is your claim. Someone else has to approve it, reject it or send it to a vote.
+						</p>
+						<div v-else class="claim-actions">
 							<NcButton
 								variant="primary"
 								@click="approve(claim.id)"
@@ -204,7 +225,13 @@ onMounted(() => {
 						<div class="claim-description">
 							{{ claim.description }}
 						</div>
-						<div class="claim-actions">
+						<p v-if="claim.userId === currentUserId" class="own-claim">
+							This is your claim, so you cannot vote on it.
+						</p>
+						<p v-else-if="claim.votes?.some((v) => v.voterId === currentUserId)" class="own-claim">
+							You have voted on this claim.
+						</p>
+						<div v-else class="claim-actions">
 							<NcButton
 								variant="primary"
 								@click="vote(claim.id, 'approve')"
@@ -234,6 +261,15 @@ onMounted(() => {
 
 .admin-approvals h1 {
 	margin-bottom: 20px;
+}
+
+.own-claim {
+	color: var(--color-text-maxcontrast);
+	font-style: italic;
+}
+
+.action-error {
+	color: var(--color-error-text);
 }
 
 section {

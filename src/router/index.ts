@@ -9,6 +9,9 @@ import MyBalance from '../views/MyBalance.vue'
 import OrganizerDesk from '../views/OrganizerDesk.vue'
 import SchemaView from '../views/SchemaView.vue'
 import ModerationQueue from '../views/ModerationQueue.vue'
+import AdminCategories from '../views/AdminCategories.vue'
+import AdminAdjustments from '../views/AdminAdjustments.vue'
+import GovernanceLog from '../views/GovernanceLog.vue'
 
 const routes = [
 	{
@@ -57,6 +60,21 @@ const routes = [
 		path: '/desk',
 		name: 'OrganizerDesk',
 		component: OrganizerDesk,
+	},
+	{
+		path: '/admin/categories',
+		name: 'AdminCategories',
+		component: AdminCategories,
+	},
+	{
+		path: '/admin/adjustments',
+		name: 'AdminAdjustments',
+		component: AdminAdjustments,
+	},
+	{
+		path: '/governance',
+		name: 'GovernanceLog',
+		component: GovernanceLog,
 	},
 	{
 		path: '/moderation',

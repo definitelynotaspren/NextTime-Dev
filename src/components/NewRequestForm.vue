@@ -38,7 +38,9 @@ const submitting = ref(false)
 const error = ref<string | null>(null)
 
 const categoryOptions = computed(() => {
-	return categoryStore.categories.map((c) => ({
+	// An archived category stays selectable on a request that already has it.
+	const keep = props.request?.categoryId
+	return categoryStore.categories.filter((c) => !c.archived || c.id === keep).map((c) => ({
 		id: c.id.toString(),
 		label: c.name,
 	}))
