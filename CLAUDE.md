@@ -52,6 +52,7 @@ NEXTCLOUD_ROOT=../nc-server composer test:unit
 # Running app + end-to-end API test
 scripts/dev-native.sh setup     # once: clone NC stable31, SQLite install, enable app, users
 scripts/dev-native.sh start     # http://127.0.0.1:8081  (stop / serve / reset / occ ...)
+scripts/dev-native.sh upgrade   # after an info.xml version bump or new migration
 scripts/smoke-test.sh           # 30 checks across the full lifecycle; exit code = failures
 scripts/desk-smoke.sh           # organizer desk + PII rules over HTTP; re-runnable
 node scripts/ui-smoke.cjs       # browser test of the real forms and map (needs Playwright)
@@ -96,7 +97,12 @@ then `make docker-install-app`. Run the smoke test with
   `<post-migration>` in info.xml - `occ app:enable` on a fresh install only runs
   `<install>`. It is idempotent (skips if any category exists).
 - **Create endpoints return 201**, everything else 200; errors are
-  `{"error": "..."}` with 400/403/404.
+  `{"error": "..."}` with 400/403/404. Services throw `InvalidStateException` (400, a move the
+  lifecycle refuses) or `NotAuthorizedException` (403); controllers use the `ServiceErrors` trait
+  to map them, and `DoesNotExistException` becomes 404.
+- **Request lifecycle:** open → in_progress (first accepted offer) → completed | cancelled, both
+  final. Several volunteers may be accepted; each is credited their own proposed hours. Complete
+  does not credit hours (the claim flow does). See `docs/proposals/ui-gaps.md`.
 - Schema changes go in a NEW migration class (`VersionXXXXXXDateYYYYMMDDHHMMSS`)
   and a version bump in info.xml - never edit the shipped migration.
 - The app folder must be named `timebank` (matches the app id).

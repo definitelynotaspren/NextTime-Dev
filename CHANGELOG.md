@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Completing a request trusted any volunteer id.** A requester could complete their own request
+  with an offer from someone else's request, marking that offer completed and counting its stats.
+  Volunteers are now looked up through the request being completed.
+- **Request states could run backwards.** A completed request could be cancelled and a cancelled
+  one completed again, counting a volunteer's stats each time. Completed and cancelled are now final.
+- **One offer locked a request.** The first offer moved it to in progress, and offers were only
+  accepted while open, so a second volunteer was always refused.
+- `scripts/dev-native.sh upgrade` (new): `occ upgrade` failed on the stable31 checkout because the
+  always-enabled `viewer` app lives in its own repo and is missing from a git checkout. Setup and
+  `upgrade` now clone it, and `upgrade` switches maintenance mode off afterwards.
 - **API routes were still unreachable**: controllers used `#[ApiRoute]`, which
   registers OCS routes under `/ocs/v2.php/...`, while the frontend calls
   `/index.php/apps/timebank/api/...`. Switched to `#[FrontpageRoute]`.
@@ -48,7 +58,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dev-stable31`, matching `composer.lock`.
 - `scripts/dev-native.sh start`/`serve` now run PHP with 4 workers (`PHP_WORKERS`), and
   `stop` ends the whole process group; worker processes otherwise outlive the parent.
-- App version 0.2.0 → 0.3.0 so the new migration runs on upgrade.
+- App version 0.2.0 → 0.4.0 so the new migrations run on upgrade.
+- **Request lifecycle rules** (Step 0 of `docs/proposals/ui-gaps.md`). A request can have several
+  volunteers: offers are accepted while it is open or in progress, the requester can accept as many
+  as needed, nobody is auto-declined, and completing credits every accepted volunteer for the hours
+  they proposed (hour for hour, not split). The first acceptance, not the first offer, moves a request
+  to in progress. Accepting, declining, withdrawing, completing, cancelling and editing now check the
+  request's and offer's state, and offered hours must be above 0 and at most 1000.
+- Errors from these actions are now typed: 404 for a missing record, 403 when you may not do it,
+  400 with a plain message for a move the rules refuse (it used to be 403 for everything).
+- Withdrawing an accepted offer asks for a reason, writes it to a new log of withdrawn help
+  (`timebank_withdrawals`), and reopens the request if no accepted volunteers remain.
 - Declared PHP is now 8.3 only (`info.xml`, README, INSTALL, DEPLOYMENT_GUIDE), because 8.1 and
   8.2 were never run. The `composer.json` and `psalm.xml` 8.1 pins are tooling settings and
   were left alone. Stale Nextcloud ranges in INSTALL and DEPLOYMENT_GUIDE (29–33, 27–32) now
@@ -60,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/dev-native.sh`: Docker-free dev server (Nextcloud stable31 on SQLite).
 - `scripts/smoke-test.sh`: end-to-end API test of the full request/earning/vote lifecycle.
 - `tests/unit/Db/EntityTypesTest.php`; test bootstrap finds the server via `NEXTCLOUD_ROOT`.
+- Unit tests for the lifecycle rules (`tests/unit/Service/`, mocked mappers) and lifecycle sections in
+  `scripts/smoke-test.sh` covering several volunteers, the integrity cases and the withdrawal log.
 - Requests store `latitude` and `longitude`. Explicit values are validated;
   otherwise they are read from `"lat, lng"` location text. A repair step backfills
   existing rows.
@@ -74,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Survey rows are aggregate-only and never returned by any endpoint.
 - Roles come from the Nextcloud groups `timebank-organizer`,
   `timebank-facilitator`, and `chapter-<slug>`.
+- `GET /api/withdrawals/my`: the caller's own log of withdrawn help.
 - `GET /api/roles`: the caller's own organizer/facilitator flags. The Organizer Desk and
   Data Schema links now show only to organizers and facilitators.
 - `scripts/desk-smoke.sh`: organizer-desk and PII checks over HTTP (re-runnable).

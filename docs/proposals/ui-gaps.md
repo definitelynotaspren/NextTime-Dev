@@ -1,164 +1,203 @@
 # Proposal: closing the UI gaps
 
-Status: **proposed, not started.** Per `CLAUDE.md`, nothing here is built until you give the go-ahead.
-Evidence: code read, plus live checks against the Nextcloud 31 dev server (marked **verified**).
+Status: **Step 0 is built and verified (app v0.4.0). Steps A, B and C are proposed; your decisions
+D1–D6 are recorded below and shaped them.** Per `CLAUDE.md`, nothing in A–C is built until you
+give the go-ahead.
 
 ## Summary
 
-Eleven things can't be done through the UI today (README, "Known Limitations"). The API for most
-of them exists. Before wiring buttons to it I checked what the backend actually allows, and it
-cannot support the intended flow and has integrity bugs. So the proposal is four steps:
+| Step | What | State |
+|------|------|-------|
+| **0** | Fix backend rules (no UI). | **Done** (D1, D2) |
+| **A** | Close the loop: accept/decline volunteers, mark a request complete. | Ready to build |
+| **B** | Self-service: edit/cancel, withdraw, my offers, comment flagging, per-user ledger. | Ready to build (D3 designed below) |
+| **C** | Admin tools: categories, second-approval balance adjustments, settings log. | Designed below (D4, D5); needs the questions at the end |
+| **Later** | Notify facilitators of pending claims. | Flow mapped below (D6) |
 
-| Step | What | Size | Needs your decision |
-|------|------|------|---------------------|
-| **0** | Fix backend rules (no UI). Recommended immediately, even if the UI waits. | S–M | D1, D2 |
-| **A** | Close the loop: accept/decline a volunteer, mark a request complete. | M | D1, D6 |
-| **B** | Self-service: edit/cancel a request, withdraw an offer, see my offers, delete my comment, per-user ledger. | M | D3 |
-| **C** | Admin tools: categories, manual balance adjustment; Admin Settings page decision. | M–L | D4, D5 |
+## Decisions (recorded 2026-10-23)
 
-## The gaps
+1. **Several volunteers, hour for hour.** A request can accept several volunteers. Each accepted
+   volunteer earns the hours they proposed; hours are not split between them. Nobody is declined
+   automatically. *Built.* I read "tasks capable of supporting multiple volunteers" as every request.
+   If you want a "volunteers needed" cap per request, that is a small optional field; say so.
+2. **Withdraw and reopen, with a reason, logged.** *Built.* Withdrawing accepted help asks for a
+   reason (3+ characters), writes it to a log of withdrawn help, and reopens the request if no
+   accepted volunteers remain. A volunteer who has only offered (not been accepted) can step back
+   without a reason, and that is not logged. The volunteer can read their own log
+   (`GET /api/withdrawals/my`); the requester will see reasons for their own request in Step A.
+3. **Comments: community flagging, moderators remove, no author-delete by default.** Designed in Step B.
+4. **Categories: block deletion while in active use**, where unfilled and cancelled requests do not
+   count as use. Designed in Step C.
+5. **Large manual balance adjustments need a second approval** (a peer facilitator from the same area,
+   or an admin), and **settings changes are logged publicly.** Designed in Step C.
+6. **Keep the claim and approval flow**, and notify chapter facilitators (or timebank facilitators)
+   of pending claims. Flow mapped at the end; not built.
 
-| Gap | API exists | UI today |
-|-----|-----------|----------|
-| Accept / decline a volunteer | `POST /volunteers/{id}/accept`, `/decline` | none |
-| Mark a request complete | `POST /requests/{id}/complete` | none |
-| Edit a request | `PUT /requests/{id}` | none |
-| Cancel a request | `POST /requests/{id}/cancel` | none |
-| Withdraw an offer | `DELETE /volunteers/{id}` | none |
-| See my offers | `GET /volunteers/my` | none |
-| Delete my comment | `DELETE /comments/{id}` | none |
-| Another user's ledger | `GET /ledger/user/{userId}` | none |
-| Category management | `POST/PUT/DELETE /categories` | none |
-| Manual balance adjustment | `POST /balance/adjust` | none |
-| Admin Settings | page only; toggles are not saved or read | non-functional |
+## What I found underneath (all verified on the dev server, now fixed in Step 0)
 
-## What I found underneath
+1. **One offer locked a request.** The first offer moved it to `in_progress`, but offers were only
+   accepted while `open`, so a second volunteer was refused (`400 "not accepting volunteers"`).
+2. **`complete` trusted any volunteer id.** Alice completed her own request using carol's offer on
+   *bob's* request: bob's request's offer flipped to `completed` and carol's stats were incremented.
+3. **State could run backwards.** A completed request could be cancelled and a cancelled one
+   completed again, counting the volunteer's stats each time.
 
-### Verified live
+Still open, read in the code and to be confirmed by tests when each is built: category deletion is
+not guarded; `balance/adjust` doesn't require a reason, doesn't check the user exists, and changes the
+balance before writing the ledger entry (not atomic); comment deletion is author-only with no
+moderation path. **`complete` does not credit hours.** Hours move through an earning claim,
+approved by an admin or by 3 community votes, so the UI must say so.
 
-1. **One offer locks a request.** `VolunteerService::offer()` sets the request to `in_progress` on
-   the *first* offer, but only accepts offers while it is `open`. A second volunteer gets
-   `400 "This request is not accepting volunteers"`. Request 8: bob's offer is still `offered`
-   (never accepted), the request is already `in_progress`, and carol cannot offer. So choosing
-   between volunteers (and the experience sort in `getRequestDetails`) cannot happen today.
-2. **`complete` trusts any volunteer id.** Alice completed her own request using carol's offer on
-   *bob's* request. Bob's request's offer flipped to `completed`, and carol's stats are incremented.
-   There is no check that the offer belongs to the request, is accepted, or that the request is in
-   a state that can be completed.
-3. **State can run backwards.** A completed request can be cancelled, and a cancelled request can
-   be completed again. Each `complete` increments the volunteer's stats again.
-
-### Read in code (I will confirm each with a test before changing it)
-
-4. `accept` / `decline` don't check the request's state, don't limit to one accepted offer, and
-   `accept` doesn't move the request forward.
-5. `withdraw` deletes an accepted offer, and if the last offer is withdrawn the request stays
-   `in_progress` forever.
-6. Deleting a category isn't guarded when requests, claims or stats reference it.
-7. `balance/adjust` doesn't require a `reason`, doesn't check the target user exists, and changes
-   the balance *before* recording the ledger entry (not atomic). The entry itself is public, which
-   is good.
-8. Only a comment's author can delete it; there is no moderation path.
-9. **`complete` does not credit hours.** Hours move through an earning claim, approved by an admin or
-   by 3 community votes. That is a separate flow, so the UI has to say so.
-
-## Proposed rules
+## Rules as built (Step 0)
 
 ```
-Request:  open ──accept an offer──▶ in_progress ──complete──▶ completed
-            │                            │
-            └────────── cancel ──────────┴──▶ cancelled        (completed and cancelled are final)
+Request:  open ──first offer accepted──▶ in_progress ──complete──▶ completed
+            │                                │
+            └────────── cancel ──────────────┴──▶ cancelled        (completed and cancelled are final)
+            ◀── last accepted volunteer withdraws ──┘
 
 Offer:    offered ──▶ accepted | declined
-          offered | accepted ──(volunteer withdraws)──▶ withdrawn
+          offered | accepted ──(volunteer withdraws; row removed, accepted ones logged)
           accepted ──(request completed)──▶ completed
 ```
 
 | Action | Who | Allowed when |
 |--------|-----|--------------|
-| Offer | anyone but the requester | request is `open`, no earlier offer from them (several offers allowed) |
-| Accept | requester | request `open`, offer `offered` |
-| Decline | requester | offer `offered` |
-| Complete | requester | request `in_progress`; the offer must belong to it and be `accepted` |
+| Offer | anyone but the requester | request `open` or `in_progress`; one offer per person; hours above 0 and at most 1000 |
+| Accept | requester | request `open` or `in_progress`; offer `offered`. Several may be accepted |
+| Decline | requester | request `open` or `in_progress`; offer `offered` |
+| Complete | requester | request `open` or `in_progress` with at least one accepted offer. Completes **every** accepted offer, crediting each its proposed hours. `volunteerId` is optional and, if given, must be an accepted offer of this request |
 | Cancel | requester | request `open` or `in_progress` |
-| Withdraw | the volunteer | offer `offered` or `accepted` (see D2) |
+| Withdraw | the volunteer | offer `offered` or `accepted`, request not finished. Accepted: reason required and logged |
 | Edit | requester | request `open` |
 
-## Step 0: backend rules (no UI)
+Refused moves return HTTP 400 with a plain message, acting on someone else's request or offer returns
+403, and a missing record returns 404.
 
-- `offer()` stops changing the request's status. `accept()` does that.
-- `accept()` / `decline()` / `complete()` / `cancel()` / `withdraw()` enforce the table above and
-  answer `400` with a plain message when the move isn't allowed (matching the existing error style).
-- `complete()` uses the accepted offer of *that* request; `volunteerId` becomes optional.
-- On `withdraw`, an accepted offer is marked `withdrawn` and the request returns to `open`.
-- Files: `lib/Service/VolunteerService.php`, `lib/Service/RequestService.php`, the two controllers.
-- No migration (status is a string column), no new routes.
-- Tests: PHPUnit service tests with mocked mappers, a regression test for each of items 1–3 above,
-  and transition checks added to `scripts/smoke-test.sh`.
+### Where Step 0 differs from the first proposal
+
+- Offers are accepted while a request is `in_progress` too (needed for several volunteers).
+- Withdrawing removes the offer row, as before, and logs accepted withdrawals, rather than keeping a
+  `withdrawn` status. That lets the same person offer again later, which the smoke test checks.
+- Hours are validated when offering (above 0, at most 1000), matching the README.
+
+### Built and verified
+
+Code: `lib/Service/VolunteerService.php`, `RequestService.php`, the two controllers, the
+`ServiceErrors` trait, two exception classes, `Withdrawal` and `WithdrawalMapper`, migration
+`Version000003Date20261023000001`, app version 0.4.0. Tests: 30 new unit tests with mocked mappers
+(each of the three bugs above has a regression test that fails on the old code) and three new
+lifecycle sections in `scripts/smoke-test.sh` that run against a real server.
 
 ## Step A: close the loop
 
 On the request detail page:
 
-- **Requester:** each offer card gets *Accept* and *Decline* while the request is open. After
-  accepting, the card shows "Accepted", the others show "Not selected", and a banner says
-  "In progress with &lt;name&gt;". A *Mark complete* button opens a confirmation showing the helper and
-  proposed hours, and says: "Hours are not credited automatically. &lt;name&gt; can claim them under
-  Submit Earnings; an admin or 3 community votes approve."
-- **Volunteer:** sees the status of their own offer, and a link to Submit Earnings once it is completed.
+- **Requester:** each offer card gets *Accept* and *Decline* while the request is active. Accepted cards
+  show "Accepted" and a banner lists everyone helping. A *Mark complete* button opens a confirmation
+  listing **every accepted volunteer and their hours**, and says: "Hours are not credited automatically.
+  Each volunteer can claim theirs under Submit Earnings; an admin or 3 community votes approve."
+- **Requester also sees** the reasons given by anyone who withdrew from their request (a small
+  backend addition: include them in the request details for the requester only).
+- **Volunteer:** sees the status of their own offer, a *Withdraw* button that asks for a reason when
+  accepted, and a link to Submit Earnings once completed.
 - Files: `src/views/RequestDetail.vue`, new `src/components/VolunteerCard.vue`,
-  `src/stores/requestStore.ts` (move the inline API calls into store actions).
-  Current user comes from `@nextcloud/auth`, already a dependency.
-- Tests: `scripts/ui-smoke.cjs` gains "alice accepts bob, completes; bob sees it completed".
-- Docs: README Known Limitations and CHANGELOG.
+  `src/stores/requestStore.ts` (move the inline API calls into store actions); current user from
+  `@nextcloud/auth`. Tests: `scripts/ui-smoke.cjs` gains accept two volunteers → complete → both see it.
+- Size: M. No migration.
 
-## Step B: self-service
+## Step B: self-service and comment moderation
 
-- **Edit** (while open): reuse `NewRequestForm.vue` in an edit mode, so the selects and the map
-  picker behave the same. **Cancel** gets a confirmation that mentions any accepted helper.
-- **My offers:** `MyRequests.vue` gets two tabs, "My requests" and "My offers" (from
-  `GET /volunteers/my`), with *Withdraw*.
-- **Delete my comment:** a trash icon on your own comments.
-- **Per-user ledger:** names link to a new `UserLedger` view reusing the public ledger table.
-  This fits the transparency principle: anyone can see where hours came from.
-- Files: `NewRequestForm.vue`, `MyRequests.vue`, `RequestDetail.vue`, new `views/UserLedger.vue`, `router/index.ts`.
+- **Edit** (while open): reuse `NewRequestForm.vue` in an edit mode. **Cancel** with a confirmation that
+  mentions any accepted helpers.
+- **My offers:** `MyRequests.vue` gets tabs "My requests" and "My offers" (from `GET /volunteers/my`),
+  with *Withdraw* and the log of withdrawn help.
+- **Per-user ledger:** names link to a `UserLedger` view reusing the public ledger table.
+- **Comments (D3):**
+  - Any member can flag a comment (not their own), once, with an optional reason. New table
+    `timebank_comment_flags` (comment, user, reason, time; unique per comment and user).
+  - At **3 distinct flags** (the same number as community votes) the comment is hidden from members
+    behind "hidden by community flags", but not deleted.
+  - **Administrators and project leads** (Nextcloud admins and the `timebank-organizer` group) see a
+    moderation list of flagged comments with the reasons. They can **remove** a comment or **dismiss** the
+    flags to restore it. Removal is soft (`removed_at`, `removed_by` on the comment), so there is an
+    audit trail; members see "removed by a moderator".
+  - `DELETE /api/comments/{id}` becomes moderator-only; authors no longer delete by default.
+  - Needs one migration (flags table plus two comment columns).
+- Size: M–L.
 
 ## Step C: admin tools
 
-- **Categories:** an admin-only view (create, edit name, description, icon, earn rate). The
-  navigation link is gated by extending `GET /api/roles` with an `admin` flag. Deleting a category
-  that is in use is blocked (D4).
-- **Manual balance adjustment:** a form with a required reason (10+ characters) and a confirmation;
-  the backend validates the user, requires the reason, and writes balance and ledger entry in one
-  database transaction. The entry already shows in the public ledger with the admin's name.
-- **Admin Settings page:** I recommend *not* wiring the toggles yet (D5). Today they are not
-  saved or read, and they imply admins can switch off community voting. Interim option: replace
-  them with a read-only "How decisions are made" panel that states the real rules (admin approval
-  or 3 community votes; negative balances rejected), so the page stops promising controls it doesn't have.
+- **Categories (D4):**
+  - A category is **in active use**, and cannot be deleted, while any request using it is `in_progress`
+    or is `open` with at least one pending or accepted offer, or any earning claim using it is pending
+    or in a vote. **Unfilled** open requests (no offers) and **cancelled** requests do not block.
+  - Completed requests and approved claims are history. Deleting a category that history points at
+    would leave dangling references, so I recommend **archive instead of delete**: an `archived_at`
+    column hides it from pickers and keeps history readable, and a true delete is allowed only when
+    nothing references it. This needs a migration; see question 3.
+- **Manual balance adjustments (D5):**
+  - Up to a threshold (default 5 hours, changeable by admins) one admin can adjust, with a required
+    reason of 10+ characters, in a single database transaction.
+  - Above the threshold the adjustment becomes a **proposal** that needs a second person who is not
+    the proposer: an admin, or a facilitator of a chapter the recipient belongs to (Nextcloud groups
+    `chapter-<slug>`). If the recipient has no chapter, an admin must approve.
+  - Pending proposals are visible to facilitators, expire after 14 days, and the ledger entry names the
+    proposer, the approver and the reason. New table `timebank_adjustment_requests`.
+- **Settings (D5):**
+  - Every settings change is written to a **public governance log** (who, what, old and new value,
+    reason), readable by all members.
+  - Limits so settings can't concentrate control: community voting can never be switched off and the
+    vote count has a floor (3). I recommend wiring the toggles only once these rules exist. Until then,
+    replace the non-functional toggles with a read-only "How decisions are made" panel.
+- Size: L. Migrations for archive, adjustment proposals and the settings log.
 
-## Decisions I need from you
+## Notifying facilitators of pending claims (D6): flow, not built
 
-- **D1. Several offers.** When the requester accepts one, do the others get declined automatically
-  (recommended, simplest to understand), or can several helpers be accepted for a larger job
-  (needs a design for splitting hours)?
-- **D2. Withdrawing after being accepted.** Allowed, and the request reopens (recommended), or
-  needs the requester's consent?
-- **D3. Comments.** Author-only deletion (today), or the requester may also remove comments on their
-  own request, or community flagging?
-- **D4. Deleting a category.** Block it while in use (no migration), or archive it (needs a
-  migration and a small UI for archived categories)?
-- **D5. Concentrated control.** Should large manual balance adjustments need a second admin or a
-  community vote? Should changes to settings be logged publicly, with limits (e.g. community voting
-  can never be switched off, and the vote count has a floor)? This goes to your anti-hierarchy principle.
-- **D6. Hours on completion.** Confirm hours should keep going through the separate claim and
-  approval flow, not credit automatically when a request is completed.
+The claim and approval flow stays as it is. This adds notice to the people who can act on it.
+
+```
+Volunteer submits an earning claim          (EarningService::claim, status pending)
+        │
+        ▼
+Who is told?
+  1. Facilitators of the claimant's chapter(s): members of the Nextcloud group chapter-<slug> for each
+     chapter the claimant belongs to.
+  2. If there are none (no chapter, or the chapter has no facilitators): the timebank-facilitator group.
+  3. If that is empty too: Nextcloud admins.
+  The claimant is never notified about their own claim, and a facilitator never gets or acts on their own.
+        │
+        ▼
+In-app Nextcloud notification (INotificationManager), optional email per user
+  "New claim from <user>: <hours> h, <category>"  → link to #/admin/approvals
+  It shows who, hours and category only, never the description (which may contain personal details).
+        │
+        ├─ claim approved, rejected or sent to a vote → the notification is cleared for everyone
+        └─ still pending after 3 days → one reminder; after 7 days → escalate to the next group in the list above
+```
+
+Build plan: `lib/Notification/Notifier.php` registered in `Application::register()`, a hook in
+`EarningService`, a daily `TimedJob` for reminders and escalation (registered in `info.xml`), a per-user
+opt-out setting, and tests that check who gets notified.
+
+## Questions I still need answered
+
+1. **Volunteers needed (D1).** Do you want an optional per-request cap, or is "any number" enough?
+2. **Author retract (D3).** Should authors be able to retract their own comment for a short window
+   (for example 10 minutes, to fix a typo), or never?
+3. **Archive vs delete (D4).** Is archiving (with a true delete only when nothing references the
+   category) acceptable? It needs a migration.
+4. **Adjustment threshold (D5).** Is 5 hours a sensible default for "large", and 14 days a sensible expiry?
+5. **Who can act on claims (D6).** Today only admins can approve, reject or send a claim to a vote.
+   Notifying facilitators who can't act would frustrate them. Should chapter facilitators be allowed to
+   approve or send to a vote for their own chapter? That would spread control and fits your
+   anti-hierarchy principle, but it is a permissions change.
 
 ## Out of scope
 
-Notifications (email or Talk), geocoding free-text addresses, and mobile layouts.
+Email templates beyond a plain notice, geocoding free-text addresses, and mobile layouts.
 
-## How each step will be verified
+## How each step is verified
 
 `composer lint`, `composer cs:check`, ESLint staying at its baseline, PHPUnit, `smoke-test.sh`,
-`desk-smoke.sh`, `ui-smoke.cjs`, then the full run across Nextcloud 29–35 (about 25 minutes). Nothing
-is pushed unless you ask.
+`desk-smoke.sh`, `ui-smoke.cjs`, then the full run across Nextcloud 29–35.

@@ -189,19 +189,30 @@ that the caller created the resource being modified.
 - `GET /api/requests/{id}` - Get request details, volunteers, and comments
 - `GET /api/requests/my` - List the current user's own requests
 - `POST /api/requests` - Create a new request
-- `PUT /api/requests/{id}` - Update a request *(owner only; no UI yet)*
-- `POST /api/requests/{id}/complete` - Mark complete and select the winning volunteer *(owner only; no UI yet)*
-- `POST /api/requests/{id}/cancel` - Cancel a request *(owner only; no UI yet)*
+- `PUT /api/requests/{id}` - Update a request *(owner only, while it is open; no UI yet)*
+- `POST /api/requests/{id}/complete` - Mark complete: every accepted volunteer is completed and credited for the hours they proposed. `volunteerId` is optional; if given it must be an accepted volunteer of this request *(owner only; no UI yet)*
+- `POST /api/requests/{id}/cancel` - Cancel a request that is still open or in progress *(owner only; no UI yet)*
 
 There is no delete endpoint for requests — use cancel instead.
+
+##### Request lifecycle
+
+A request is `open` until the requester accepts an offer, then `in_progress`, and ends as
+`completed` or `cancelled` (both final). Several people can offer, offers are still accepted
+while a request is in progress, and the requester can accept as many as the job needs. Nobody
+is declined automatically, and each accepted volunteer is credited for their own proposed hours
+(hour for hour, not split). Completing a request does not credit hours: volunteers claim them
+through the earning-claim flow, which an admin or 3 community votes approve. Moves the rules
+refuse return HTTP 400 with a plain message; acting on someone else's request or offer returns 403.
 
 #### Volunteers
 
 - `POST /api/requests/{requestId}/volunteer` - Offer to help with a request
-- `DELETE /api/volunteers/{id}` - Withdraw a volunteer offer *(owner only; no UI yet)*
+- `DELETE /api/volunteers/{id}` - Withdraw an offer. Withdrawing after being accepted needs a `reason` (3+ characters), which is kept in the log of withdrawn help, and reopens the request if no accepted volunteers remain *(offer owner only; no UI yet)*
 - `POST /api/volunteers/{id}/accept` - Accept a volunteer offer *(request owner only; no UI yet)*
 - `POST /api/volunteers/{id}/decline` - Decline a volunteer offer *(request owner only; no UI yet)*
 - `GET /api/volunteers/my` - List the current user's own volunteer offers *(no UI yet)*
+- `GET /api/withdrawals/my` - The current user's own log of withdrawn help, with reasons *(no UI yet)*
 
 #### Comments
 
