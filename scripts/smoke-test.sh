@@ -105,7 +105,7 @@ call bob GET /earnings/my
 expect "bob's claims" 200
 
 call bob GET /earnings/pending
-[ "$STATUS" = 403 ] && pass "non-admin blocked from pending queue (403)" || fail "non-admin pending queue returned $STATUS (expected 403)"
+[ "$STATUS" = 200 ] && [ "$(jq -r '[.[] | select(.userId=="bob")] | length' <<<"$BODY")" = 0 ] && pass "a member's pending queue never holds their own claims" || fail "pending queue for bob: $STATUS $BODY"
 
 call admin GET /earnings/pending
 expect "admin pending queue" 200

@@ -278,7 +278,9 @@ const pickFirstOption = async (page, placeholder) => {
 
 	console.log('- Admin tools: categories, adjustments, second approval')
 	occ('group:add', 'chapter-mt-hood')
+	occ('group:add', 'chapter-mt-hood-facilitator')
 	occ('group:adduser', 'chapter-mt-hood', 'bob')
+	occ('group:adduser', 'chapter-mt-hood-facilitator', 'bob')
 	occ('group:adduser', 'chapter-mt-hood', 'alice')
 	const catName = `UI cat ${stamp}`
 	await go(admin, '/admin/categories')

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- README: part of the API and security sections had been duplicated by an earlier edit; removed.
 - Moving from one request to another in the address bar kept showing the first request; the page now reloads
   when the id changes.
 - **Primary and destructive buttons were unstyled everywhere.** `@nextcloud/vue` 9 uses
@@ -81,6 +82,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Facilitators approve for their own state, and are notified** (Step D of `docs/proposals/ui-gaps.md`).
+  - **Facilitating a chapter now takes two groups:** `chapter-<slug>` and `chapter-<slug>-facilitator`. Either
+    alone does nothing. This also applies to the organizer desk, where `chapter-<slug>` used to be enough, so
+    existing facilitators must be added to the new `-facilitator` group.
+  - A person may approve, reject or send to a vote a claim by member U (never their own) if they are an admin,
+    or facilitate a chapter U belongs to, or none of U's chapters has a facilitator and they are in `GSUS`
+    (setting `fallback_approver_group`). The pending list shows only the claims you may decide, and why. Large
+    balance adjustments use the same rule for their second approver.
+  - **Notifications:** submitting a claim notifies the facilitators of the claimant's chapters (else `GSUS`, else
+    admins) with who, hours and category only. It clears when the claim is decided. An hourly job reminds them
+    after 3 days and tells the admins after 7. Migration `Version000006` (0.7.0) adds `notified_stage`.
+  - `GET /api/roles` also reports `fallbackApprover`.
+  - `scripts/approver-smoke.sh` checks all of it; `dev-native.sh` now installs the Notifications app.
 - **Admin tools** (Step C of `docs/proposals/ui-gaps.md`).
   - **Nobody decides on their own claim.** Approve, reject, send to a vote and vote all refuse the claimant,
     admins included. A claim can be decided only once and votes are taken only while it is in a vote

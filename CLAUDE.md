@@ -107,6 +107,9 @@ then `make docker-install-app`. Run the smoke test with
 - **Comments are moderated, not author-deleted.** 3 distinct flags hide a comment from members;
   moderators (NC admins and `timebank-organizer`) remove or dismiss. Removal is soft (`removed_at`/`removed_by`).
   `RequestController::show` swaps in `CommentService::getForViewer` so hidden text never leaves the server.
+- **Facilitating a chapter takes two groups:** `chapter-<slug>` AND `chapter-<slug>-facilitator`. `ApproverPolicy`
+  decides who may act for a member (admin, chapter facilitator, or the `GSUS` fallback when the chapter has none).
+  `scripts/approver-smoke.sh` covers it; the dev server needs the Notifications app (`dev-native.sh` installs it).
 - **Nobody decides on their own claim or adjustment.** `EarningService::requireDecidable` covers approve, reject,
   send-to-vote and vote; `AdjustmentService` refuses the proposer and the member. Keep that rule in any new path.
 - **Admin changes are logged publicly.** Call `GovernanceLog::record()` for any new admin power. Categories in
@@ -139,7 +142,7 @@ then `make docker-install-app`. Run the smoke test with
 
 ## Known gaps (as of v0.5.x - check README "Known Limitations")
 
-- Only admins approve claims; chapter facilitators (Step D) and claim notifications are not built.
+- Roles are Nextcloud groups filled by hand (no assignment UI). Only claim notices exist; other events are not notified.
 - Voting always resolves at exactly 3 votes and negative balances are always rejected; these are fixed rules, shown
   read-only in Admin Settings. Only the adjustment threshold is a setting (`adjustment_threshold`, logged).
 - Bundle is a single ~1.6 MB chunk (MapLibre) - candidate for lazy-loading the map.

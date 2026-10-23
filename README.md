@@ -217,11 +217,11 @@ Moderators are Nextcloud administrators and members of the `timebank-organizer` 
 
 - `POST /api/earnings/claim` - Submit an earning claim
 - `GET /api/earnings/my` - Get the current user's claims
-- `GET /api/earnings/pending` - Get pending claims (admin)
+- `GET /api/earnings/pending` - Pending claims you may decide on, each with `decidingAs` (`admin`, `facilitator` or `fallback`). Never your own claims
 - `GET /api/earnings/voting` - Get claims currently in community voting
-- `POST /api/earnings/{id}/approve` - Approve a claim (admin)
-- `POST /api/earnings/{id}/reject` - Reject a claim (admin)
-- `POST /api/earnings/{id}/send-to-vote` - Send a claim to community voting (admin)
+- `POST /api/earnings/{id}/approve` - Approve a claim *(an approver for the claimant, see Roles below; never the claimant)*
+- `POST /api/earnings/{id}/reject` - Reject a claim, with a reason *(same)*
+- `POST /api/earnings/{id}/send-to-vote` - Send a claim to community voting *(same)*
 - `POST /api/earnings/{id}/vote` - Cast a vote (`approve`/`reject`/`abstain`) on a claim in voting
 
 #### Balance
@@ -258,9 +258,29 @@ needed no second person.
 
 #### Organizer desk (organizer or facilitator roles)
 
-Roles come from Nextcloud groups: `timebank-organizer`, `timebank-facilitator`, and
-`chapter-<slug>` (see `lib/Schema/SchemaSpec.php`). Nextcloud admins are not
-organizers unless they are also in the organizer group.
+#### Roles
+
+Roles come from Nextcloud groups (create them under Users, or with `occ group:add`):
+
+| Group | Meaning |
+|-------|---------|
+| `chapter-<slug>` (for example `chapter-mt-hood`) | You belong to that state or chapter. Gives no powers. |
+| `chapter-<slug>-facilitator` | Facilitator role for that chapter. Powerless alone. |
+| `GSUS` | Fallback approvers, for members whose chapter has no facilitator (and members with no chapter). Another group name can be set with the app setting `fallback_approver_group`. |
+| `timebank-organizer` | Organizer desk; also moderates comments. |
+| `timebank-facilitator` | Organizer desk access, without chapter rows. Does not let anyone approve claims. |
+
+**Facilitating a chapter takes both `chapter-<slug>` and `chapter-<slug>-facilitator`.** A person may decide on a
+claim, or approve a large balance adjustment, for member U (never their own) when they are a Nextcloud admin,
+or they facilitate a chapter U belongs to, or none of U's chapters has a facilitator and they are in `GSUS`.
+`GSUS` never overrides a chapter that has facilitators. Nextcloud admins are not organizers unless they are
+also in the organizer group.
+
+When a claim is submitted, the facilitators of the claimant's chapters are told in Nextcloud's notifications
+(else `GSUS`, else the admins). The notice names who, hours and category, never the description, and clears for
+everyone once the claim is decided. After 3 days they get a reminder, and after 7 days the admins are told too
+(an hourly background job; Nextcloud needs its normal cron). It needs the Nextcloud *Notifications* app, which
+is enabled on a normal install.
 
 - `GET /api/schema` - layers, fields, visibility levels, lookups, chapters (organizer or facilitator)
 - `GET /api/layers/{layer}/rows` - rows you may see; filters `assigned=me|unassigned`, `source=form|manual`
@@ -450,236 +470,19 @@ with a reason, and completing. As of v0.6.0, requesters can edit (while open) an
 requests, offers and withdrawn help, comments are moderated by community flags, and admins manage
 categories and balance adjustments in the app. Remaining gaps:
 
-- **Only admins can approve claims.** Chapter facilitators approving their own chapter's claims, and
-  notifying people of pending claims, are designed (Step D) but not built. Nobody can decide on their
-  own claim, admins included.
-- **One admin cannot make a second approval.** On a server with a single admin, a large adjustment waits for a
-  facilitator of the member's chapter (Nextcloud group `chapter-<slug>`); a member with no chapter needs a second admin.
-- **Nobody is notified automatically** when a request is cancelled, a flag hides a comment, or an offer
-  is accepted. Tell the people involved.
+- **Roles are Nextcloud groups you create and fill by hand,** including `chapter-<slug>-facilitator` and `GSUS`.
+  There is no screen in NextTime for assigning them, and chapters are defined in code
+  (`lib/Schema/SchemaSpec.php`: `mt-hood`, `gresham`).
+- **Claim notices need the Nextcloud Notifications app and cron.** Other events (a cancelled request, a hidden
+  comment, an accepted offer) are not notified.
+- **A large balance adjustment needs a second approver the same way claims do** (another admin, a facilitator of
+  the member's chapter, or `GSUS` when that chapter has none).
+- **Nobody is told** when a request is cancelled, a flag hides a comment, or an offer is accepted. Tell the people involved.
 - A member can flag a comment once, ever: after a moderator dismisses flags, those members cannot flag
   the same comment again.
 
 Organizer desk: rows can only be entered by hand (`source=manual`); form submissions do
 not create rows yet.
-
-## Map
-
-- `GET /api/map/requests` - GeoJSON of open requests (points rounded to about 1 km; no contact fields)
-- `GET /api/layers/{layer}/feed` - GeoJSON of published rows for `point_snapped` layers (`needs_offers`, `issue_reports`)
-
-#### Organizer desk (organizer or facilitator roles)
-
-Roles come from Nextcloud groups: `timebank-organizer`, `timebank-facilitator`, and
-`chapter-<slug>` (see `lib/Schema/SchemaSpec.php`). Nextcloud admins are not
-organizers unless they are also in the organizer group.
-
-- `GET /api/schema` - layers, fields, visibility levels, lookups, chapters (organizer or facilitator)
-- `GET /api/layers/{layer}/rows` - rows you may see; filters `assigned=me|unassigned`, `source=form|manual`
-- `POST /api/layers/{layer}/rows` - add a row by hand (organizer); starts unpublished unless `publish=yes`
-- `POST /api/layers/{layer}/rows/{id}/assign` - claim a row (organizer; optional `status`)
-- `DELETE /api/layers/{layer}/rows/{id}/assign` - release a row you hold
-- `POST /api/layers/{layer}/rows/{id}/status` - set `assigned`, `in_progress` or `done` on a row you hold
-- `GET /api/assignments` - rows assigned to you; filters `layer`, `source`
-
-Fields are filtered by visibility on every read. A field marked `organizer` is
-never returned to a facilitator or member, and a field marked `chapter` only
-to that chapter's facilitators. Undeclared fields are treated as organizer-only.
-The survey layer is aggregate-only and has no row endpoints.
-
-#### Ledger
-
-- `GET /api/ledger` - Get the public transaction ledger
-- `GET /api/ledger/my` - Get the current user's transaction history
-- `GET /api/ledger/user/{userId}` - Get another user's transaction history (names in the app link to it)
-
-### Example API Calls
-
-#### Create a Request
-
-```bash
-curl -X POST http://localhost:8080/apps/timebank/api/requests \
-  -H "Content-Type: application/json" \
-  -u admin:admin \
-  -d '{
-    "title": "Need help with garden cleanup",
-    "description": "Looking for assistance clearing overgrown garden area, approximately 3-4 hours of work",
-    "categoryId": 1,
-    "hoursBudget": 4,
-    "priority": "normal",
-    "location": "123 Main Street"
-  }'
-```
-
-#### Submit Earning Claim
-
-```bash
-curl -X POST http://localhost:8080/apps/timebank/api/earnings/claim \
-  -H "Content-Type: application/json" \
-  -u volunteer:password \
-  -d '{
-    "categoryId": 1,
-    "hoursClaimed": 3.5,
-    "description": "Completed garden cleanup - cleared overgrown area, removed debris"
-  }'
-```
-
-## Database Schema
-
-### Tables
-
-- `timebank_categories` - Service categories with earn rate multipliers
-- `timebank_requests` - Service requests posted by community members
-- `timebank_volunteers` - Volunteer offers for service requests
-- `timebank_earnings` - Earning claims submitted by volunteers
-- `timebank_votes` - Community votes on earning claims
-- `timebank_balances` - User time bank balances
-- `timebank_transactions` - Complete transaction history (public ledger)
-- `timebank_user_stats` - User statistics by category
-- `timebank_comments` - Comments on requests (soft-removed ones keep their text and who removed them)
-- `timebank_comment_flags` - Members' flags on comments, with reasons
-- `timebank_adjustments` - Manual balance adjustments and who proposed and approved them
-- `timebank_governance_log` - The public, append-only log of admin decisions
-
-## Testing
-
-### Run Unit Tests
-
-```bash
-make test
-```
-
-### Run Code Style Checks
-
-```bash
-make cs-check
-```
-
-### Run Static Analysis
-
-```bash
-make psalm
-```
-
-## Security
-
-Where the data lives, who can read it, what is not protected, and how to get raw
-data out are written up in [docs/data-and-access.md](docs/data-and-access.md).
-
-### Input Validation
-
-All API endpoints validate input parameters:
-- Hours must be positive numbers (max 1000)
-- Descriptions require minimum character lengths
-- Category and priority values are whitelisted
-- User permissions are checked on all sensitive operations
-
-### SQL Injection Prevention
-
-All database queries use parameter binding through Nextcloud's Query Builder.
-
-### CSRF Protection
-
-CSRF tokens are required on all POST/PUT/DELETE endpoints (except API routes marked NoCSRFRequired for external access).
-
-### Admin Authorization
-
-Admin-only endpoints verify user group membership before allowing access.
-
-## Troubleshooting
-
-### Frontend Build Issues
-
-```bash
-# Clean and reinstall
-make clean
-make install
-make build
-```
-
-### Database Migration Issues
-
-```bash
-# Run migrations manually
-sudo -u www-data php occ migrations:execute timebank latest
-```
-
-### Docker Issues
-
-```bash
-# View logs
-make docker-logs
-
-# Rebuild containers
-make docker-rebuild
-
-# Access container shell
-make docker-shell
-```
-
-### Enable Debug Mode
-
-Add to `config/config.php`:
-```php
-'debug' => true,
-'loglevel' => 0,
-```
-
-View logs:
-```bash
-tail -f /path/to/nextcloud/data/nextcloud.log
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and code style checks (`make test && make cs-check`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Code Style
-
-This project follows PSR-12 coding standards. Use `make cs-fix` to automatically fix style issues.
-
-## License
-
-This project is licensed under the AGPL-3.0-or-later License - see the LICENSE file for details.
-
-## Support
-
-- **Issues**: https://github.com/definitelynotaspren/NextTime-Dev/issues
-- **Nextcloud Community**: https://help.nextcloud.com
-- **Developer Docs**: https://docs.nextcloud.com/server/latest/developer_manual
-
-## Known Limitations
-
-The request lifecycle (open → volunteer → accept → complete) now works end to
-end in the UI, including accepting several volunteers, declining, withdrawing
-with a reason, and completing. As of v0.6.0, requesters can edit (while open) and cancel, "My Activity" lists your
-requests, offers and withdrawn help, comments are moderated by community flags, and admins manage
-categories and balance adjustments in the app. Remaining gaps:
-
-- **Only admins can approve claims.** Chapter facilitators approving their own chapter's claims, and
-  notifying people of pending claims, are designed (Step D) but not built. Nobody can decide on their
-  own claim, admins included.
-- **One admin cannot make a second approval.** On a server with a single admin, a large adjustment waits for a
-  facilitator of the member's chapter (Nextcloud group `chapter-<slug>`); a member with no chapter needs a second admin.
-- **Nobody is notified automatically** when a request is cancelled, a flag hides a comment, or an offer
-  is accepted. Tell the people involved.
-- A member can flag a comment once, ever: after a moderator dismisses flags, those members cannot flag
-  the same comment again.
-
-Organizer desk: rows can only be entered by hand (`source=manual`); form submissions do
-not create rows yet.
-
-Additionally, the **Admin Settings page is currently non-functional**: the
-approval/voting/negative-balance toggles it displays aren't wired to a save
-action and aren't read by any backend logic (see Configuration above for
-specifics). Treat the values shown there as placeholders, not live
-configuration, until this is implemented.
 
 ## Map
 

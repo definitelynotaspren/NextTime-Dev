@@ -52,13 +52,17 @@ ensure_shipped_apps() {
 	# checkout, and `occ upgrade` refuses to run without them (viewer on stable31).
 	local branch app
 	branch="$(git -C "$NC_DIR" rev-parse --abbrev-ref HEAD)"
-	for app in viewer; do
+	for app in viewer notifications; do
 		if grep -q "\"$app\"" "$NC_DIR/core/shipped.json" && [ ! -d "$NC_DIR/apps/$app" ]; then
 			echo ">> Cloning the $app app (shipped with Nextcloud, separate repo)"
 			git clone --depth 1 --branch "$branch" "https://github.com/nextcloud/$app.git" "$NC_DIR/apps/$app" ||
 				echo ">> Could not clone $app; occ upgrade may fail"
 		fi
 	done
+	# NextTime's claim notices need the notifications app; it is enabled on a normal install.
+	if [ -d "$NC_DIR/apps/notifications" ]; then
+		occ app:enable notifications >/dev/null 2>&1 || true
+	fi
 }
 
 link_app() {

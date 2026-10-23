@@ -157,7 +157,7 @@ volunteers, decline a third, one accepted volunteer withdraws with a reason, the
     replace the non-functional toggles with a read-only "How decisions are made" panel.
 - Size: L. Migrations for archive, adjustment proposals and the settings log.
 
-## Step D: facilitators approve claims for their own state, and are notified (D6, D6a)
+## Step D: facilitators approve claims for their own state, and are notified (D6, D6a) (built in v0.7.0)
 
 The claim and approval flow stays as it is, with two changes: more people may act on a claim, and the
 people who may act are told when one is waiting. Decided 2026-10-25: **a state role and a separate
