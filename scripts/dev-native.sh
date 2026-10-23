@@ -59,6 +59,12 @@ ensure_shipped_apps() {
 				echo ">> Could not clone $app; occ upgrade may fail"
 		fi
 	done
+	# Newer branches of the notifications app need their PHP dependencies, which a git
+	# checkout lacks; without them even `occ maintenance:install` fails.
+	if [ -f "$NC_DIR/apps/notifications/composer/autoload.php" ] && [ ! -f "$NC_DIR/apps/notifications/vendor/autoload.php" ]; then
+		(cd "$NC_DIR/apps/notifications" && COMPOSER_ALLOW_SUPERUSER=1 timeout 150 composer install --no-dev --no-scripts --no-plugins --no-interaction >/dev/null 2>&1) ||
+			echo ">> Could not install the notifications app's dependencies"
+	fi
 	# NextTime's claim notices need the notifications app; it is enabled on a normal install.
 	if [ -d "$NC_DIR/apps/notifications" ]; then
 		occ app:enable notifications >/dev/null 2>&1 || true
