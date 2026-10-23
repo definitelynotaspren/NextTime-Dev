@@ -157,52 +157,55 @@ volunteers, decline a third, one accepted volunteer withdraws with a reason, the
     replace the non-functional toggles with a read-only "How decisions are made" panel.
 - Size: L. Migrations for archive, adjustment proposals and the settings log.
 
-## Step D: facilitators approve claims for their own chapter, and are notified (D6, D6a)
+## Step D: facilitators approve claims for their own state, and are notified (D6, D6a)
 
 The claim and approval flow stays as it is, with two changes: more people may act on a claim, and the
-people who may act are told when one is waiting.
+people who may act are told when one is waiting. Decided 2026-10-25: **a state role and a separate
+state-facilitator role must both be present**, and the group **`GSUS`** (shown as "GSUS (Everyone)")
+decides for people who have no facilitator.
+
+### Roles (Nextcloud groups)
+
+| Group | Meaning |
+|-------|---------|
+| `chapter-<slug>` | Member of that state or chapter. It says where a person belongs. It gives no powers. |
+| `chapter-<slug>-facilitator` | Facilitator role for that state. **Powerless alone.** |
+| `GSUS` | Fallback approvers, used only for people whose state has no facilitator (or who have no state). The group name is the setting `fallback_approver_group`. |
+| `timebank-organizer` | Organizer desk and comment moderation, unchanged. |
+| `timebank-facilitator` | Unchanged for the organizer desk's non-chapter fields. It no longer lets anyone approve claims by itself. |
+
+Before this step, being in `chapter-<slug>` made someone both a member and a facilitator. That is why
+the roles are now split: facilitating a state means being in **both** `chapter-<slug>` and
+`chapter-<slug>-facilitator`. This also tightens the organizer desk, which used the old single group.
 
 ### Who may act (D6a)
 
-- For a claim by user U, the **approvers** are Nextcloud admins and the facilitators of every chapter U
-  belongs to (members of the `chapter-<slug>` groups for U's chapters). If U belongs to no chapter, the
-  approvers are admins and the `timebank-facilitator` group.
-- Approvers can **approve, reject, or send to a community vote**, exactly what only admins can do today.
-  Reject keeps requiring a reason.
-- **Nobody acts on their own claim,** including admins. This is a new rule; today an admin could approve
-  their own claim.
-- The pending queue shows each person only the claims they can act on; admins see all.
-- The ledger entry and the claim already record the approver (`approver_id`); the page will also show
-  whether they acted as admin or as facilitator of a chapter.
-- This spreads control away from admin-only, in line with the anti-hierarchy principle. It needs a small
-  policy class with tests, changes to `EarningController` and `EarningService`, and no migration.
-  Size: S–M.
+For a claim, or a large balance adjustment, about user U, a person P may decide when P is not U and one of
+these holds:
+
+1. P is a Nextcloud admin (kept so the community can never be locked out, and logged by the ledger).
+2. For some state S that U belongs to, P is in **both** `chapter-S` and `chapter-S-facilitator`.
+3. **None** of U's states has a facilitator (or U has no state), and P is in `GSUS`.
+
+Rule 3 applies only while rule 2 has nobody to offer, so GSUS cannot override a state's own facilitators.
+Approvers can approve, reject (with a reason) or send to a community vote. The pending list shows each
+person only the claims they may decide, with the reason ("as facilitator of mt-hood", "as GSUS"). Nobody
+acts on their own claim.
 
 ### Who is notified
 
-```
-Volunteer submits an earning claim          (EarningService::claim, status pending)
-        │
-        ▼
-Who is told?
-  1. Facilitators of the claimant's chapter(s): members of the Nextcloud group chapter-<slug> for each
-     chapter the claimant belongs to.
-  2. If there are none (no chapter, or the chapter has no facilitators): the timebank-facilitator group.
-  3. If that is empty too: Nextcloud admins.
-  The claimant is never notified about their own claim, and a facilitator never gets or acts on their own.
-        │
-        ▼
-In-app Nextcloud notification (INotificationManager), optional email per user
-  "New claim from <user>: <hours> h, <category>"  → link to #/admin/approvals
-  It shows who, hours and category only, never the description (which may contain personal details).
-        │
-        ├─ claim approved, rejected or sent to a vote → the notification is cleared for everyone
-        └─ still pending after 3 days → one reminder; after 7 days → escalate to the next group in the list above
-```
+1. Facilitators (both groups) of the claimant's states; if there are none,
+2. `GSUS` members; if there are none,
+3. Nextcloud admins.
 
-Build plan: `lib/Notification/Notifier.php` registered in `Application::register()`, a hook in
-`EarningService`, a daily `TimedJob` for reminders and escalation (registered in `info.xml`), a per-user
-opt-out setting, and tests that check who gets notified.
+The claimant is never notified of their own claim. The in-app notification shows who, hours and category,
+never the description, and links to the approvals page. It is cleared for everyone as soon as the claim is
+approved, rejected or sent to a vote. After 3 days still pending, the same people get one reminder; after 7
+days the admins are told too.
+
+Build: `ApproverPolicy` (used for claims and adjustments), a notifier registered in `Application`, hooks in
+`EarningService`, an hourly `TimedJob` for reminders (one column, `earnings.notified_stage`), tests for who may
+act and who is told. Per-user opt-out is left to Nextcloud's own notification settings.
 
 ## Questions I still need answered
 
@@ -212,8 +215,8 @@ opt-out setting, and tests that check who gets notified.
 3. **Archive vs delete (D4).** Is archiving (with a true delete only when nothing references the
    category) acceptable? It needs a migration.
 4. **Adjustment threshold (D5).** Is 5 hours a sensible default for "large", and 14 days a sensible expiry?
-5. **Claims about yourself (D6a).** I propose that nobody, admins included, can approve or reject their
-   own claim, so another approver has to. Is that right, or should admins keep that power?
+   (Built with those; the threshold is changeable.)
+5. ~~Claims about yourself (D6a).~~ Decided: nobody approves their own claim. Built in Step C.
 
 ## Out of scope
 
