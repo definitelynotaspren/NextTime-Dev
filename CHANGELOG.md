@@ -20,9 +20,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SeedCategories` now also runs as an `<install>` repair step.
 - ESLint used the Vue 2 / JS preset and couldn't parse the TypeScript sources;
   now uses `@nextcloud/eslint-config/vue3`.
+- **Posting a need, submitting earnings and the board filters sent bad data.**
+  `NcSelect` returns the whole option object, but the forms treated it as an id, so
+  requests and claims went out with `categoryId: null` (HTTP 400) and filters with
+  `status=[object Object]`. All selects now use `:reduce`. The priority list offered
+  "Flexible", which the backend rejects; it now matches low/normal/high/urgent, and the
+  status filter offers every status the backend sets (open, in progress, completed, cancelled).
+- **The map never loaded.** Nextcloud's Content-Security-Policy only allows connections
+  to itself, so the basemap style request was refused and no markers were drawn. The
+  map host is now allowed in the page policy (including `blob:` web workers).
+- Page titles were clipped by the sidebar toggle on every screen; content is now offset.
+- Status badges were pale on pale; they now use the darker theme colours, and
+  completed/cancelled requests have badges too.
+- `scripts/smoke-test.sh` failed on Nextcloud 29 (`CSRF check failed`): versions before
+  30 ignore the `OCS-APIRequest` header, so it now keeps a session and sends a token.
 
 ### Changed
 
+- Basemap: Carto → [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key).
+  Viewers' browsers contact `tiles.openfreemap.org`; see README → Map to change it.
 - Declares support for Nextcloud 35 (`max-version` 33 → 35). Nextcloud 35
   requires PHP 8.3; the declared minimum stays 8.1 for Nextcloud 29–34. Only
   tested so far against the stable31 dev server. `nextcloud/ocp` stays at
@@ -49,6 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Survey rows are aggregate-only and never returned by any endpoint.
 - Roles come from the Nextcloud groups `timebank-organizer`,
   `timebank-facilitator`, and `chapter-<slug>`.
+- `GET /api/roles`: the caller's own organizer/facilitator flags. The Organizer Desk and
+  Data Schema links now show only to organizers and facilitators.
+- `scripts/desk-smoke.sh`: organizer-desk and PII checks over HTTP (re-runnable).
+- `scripts/ui-smoke.cjs`: browser test that fills the real forms (needs Playwright). It
+  fails on the old select bug, which the API smoke test could not see.
 
 ### Removed
 

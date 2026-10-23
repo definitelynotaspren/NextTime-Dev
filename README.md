@@ -440,11 +440,26 @@ API endpoints with **no corresponding UI**:
 - **Viewing another user's transaction history** (`/api/ledger/user/{userId}`)
   — only "my transactions" and the full public ledger have pages.
 
+Organizer desk: rows can only be entered by hand (`source=manual`); form submissions do
+not create rows yet.
+
 Additionally, the **Admin Settings page is currently non-functional**: the
 approval/voting/negative-balance toggles it displays aren't wired to a save
 action and aren't read by any backend logic (see Configuration above for
 specifics). Treat the values shown there as placeholders, not live
 configuration, until this is implemented.
+
+## Map
+
+- A request appears on the map only if it has coordinates: pick a point on the map in the
+  form, or type `lat, lng`. A free-text address (for example "123 Main Street") is saved
+  but not plotted; geocoding is not implemented.
+- The basemap is [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key).
+  Viewers' browsers connect to `tiles.openfreemap.org`. To use another tile source, change
+  `MAP_STYLE_URL` in `src/composables/useMap.ts` **and** `MAP_HOST` in
+  `lib/Controller/PageController.php`: Nextcloud's Content-Security-Policy blocks any host
+  not listed there.
+- Map and feed output is rounded to about 1 km and never includes contact fields.
 
 ## Roadmap
 

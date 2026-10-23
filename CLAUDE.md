@@ -18,6 +18,8 @@ lib/Controller/*        HTTP API. #[FrontpageRoute] attributes define URLs
 lib/Service/*           business logic (balances, earnings/voting, requests)
 lib/Db/*                Entities + QBMappers (tables prefixed oc_timebank_)
 lib/Migration/          schema migration + SeedCategories repair step
+lib/Schema/             organizer-desk spec (SchemaSpec), visibility rules (FieldPolicy), row validation
+lib/Geo/                coordinate parsing and rounding for map output
 lib/Settings/           admin settings page (display-only, see Known gaps)
 src/                    Vue 3 + Pinia + vue-router (hash history) + MapLibre GL
   stores/               API calls via @nextcloud/axios + generateUrl()
@@ -51,6 +53,8 @@ NEXTCLOUD_ROOT=../nc-server composer test:unit
 scripts/dev-native.sh setup     # once: clone NC stable31, SQLite install, enable app, users
 scripts/dev-native.sh start     # http://127.0.0.1:8081  (stop / serve / reset / occ ...)
 scripts/smoke-test.sh           # 30 checks across the full lifecycle; exit code = failures
+scripts/desk-smoke.sh           # organizer desk + PII rules over HTTP; re-runnable
+node scripts/ui-smoke.cjs       # browser test of the real forms and map (needs Playwright)
 ```
 
 Logins on the dev server: `admin/admin`, `alice/alice-pass-123`,
@@ -105,6 +109,17 @@ then `make docker-install-app`. Run the smoke test with
   don't add new ones in files you touch.
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
+
+- **`NcSelect` returns the option object, not its id.** Always pass
+  `:reduce="(option) => option.id"`, or forms send `categoryId: null` / `[object Object]`.
+  `scripts/ui-smoke.cjs` guards this; the API smoke test cannot.
+- **The map host must be in the page's Content-Security-Policy.** Nextcloud refuses
+  connections to unlisted hosts, so the style fetch fails silently and no markers show.
+  `MAP_STYLE_URL` (useMap.ts) and `MAP_HOST` (PageController.php) change together.
+- **Scripts and CSRF:** before Nextcloud 30 the `OCS-APIRequest` header does not satisfy
+  CSRF, so the smoke scripts keep a cookie session and send a `requesttoken`.
+- **Dev server workers:** PHP's built-in server is single-threaded and stalls browser
+  tests on newer Nextcloud; run it with `PHP_CLI_SERVER_WORKERS=4`.
 
 ## Known gaps (as of v0.2.x - check README "Known Limitations")
 
