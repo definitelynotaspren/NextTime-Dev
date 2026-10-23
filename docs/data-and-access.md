@@ -21,7 +21,8 @@ workbook yet.
 |-------|-------|-------------|
 | `oc_timebank_requests` | title, description, free-text `location`, `latitude`/`longitude`, requester | Visible to every logged-in member. Free text can contain an address. |
 | `oc_timebank_volunteers` | who offered, hours, message, status | Visible to members on the request page |
-| `oc_timebank_comments` | comments on requests | Visible to members |
+| `oc_timebank_comments` | comments on requests | Members, except flagged-hidden or removed ones: the server withholds their text, moderators still see it |
+| `oc_timebank_comment_flags` | who flagged which comment, and why | Names and reasons: moderators only. Counts are public |
 | `oc_timebank_withdrawals` | log of withdrawn help, with reasons | The volunteer, and the requester of that request |
 | `oc_timebank_earnings`, `oc_timebank_votes` | hour claims, approvals, community votes | Your own claims; admins see pending ones; claims in a vote are visible so members can vote |
 | `oc_timebank_balances`, `oc_timebank_transactions` | balances and the public ledger | Public to members by design |
@@ -90,6 +91,82 @@ and all but the last need a Nextcloud account.
    ```
    For PostgreSQL or MySQL the same tables exist under the same names, and `data` is JSON text (not run here).
    This route bypasses every protection above, so it is for the server's administrators only.
+
+## Requiring a WireGuard tunnel (or any VPN) for sensitive data
+
+**Nothing here has been built or run.** This is the design and what each piece does and does not buy you.
+
+### Two different things, and only one is the one you asked for
+
+1. **Putting the database behind the tunnel.** The database listens only on the WireGuard (or
+   localhost) address, and the firewall drops everything else. This stops anyone on the internet, or any
+   other machine, from talking to the database. It is worth doing. **It does not make a person need the VPN
+   to view PII**, because the Nextcloud server must reach the database and it reads PII for whoever is
+   logged in, wherever they are.
+2. **Making the VPN a condition of seeing PII or using admin powers.** This has to be enforced in front of
+   the app (reverse proxy) or inside it, using the network address the request arrives from.
+
+### Recommended setup, in order of effort
+
+- **A. Database behind the tunnel (no code).** PostgreSQL: `listen_addresses` set to the WireGuard
+  address, `pg_hba.conf` allowing only the tunnel subnet. If the database is on another host, make it a
+  WireGuard peer of the app server. SQLite has no network port, so there is nothing to hide, but the file
+  itself (`data/owncloud.db`) and backups need the same care.
+- **B. Gate the sensitive URLs at the reverse proxy (no code).** Serve NextTime normally on the public
+  hostname, but refuse these paths unless the request comes from the tunnel subnet. It is a network
+  rule, so it holds even for someone with a valid password or app password. The paths, from the routes in
+  this app:
+  - PII (organizers and facilitators): `/index.php/apps/timebank/api/layers/`, `/api/assignments`,
+    `/api/schema`, and the Organizer Desk screens that call them.
+  - Admin powers: `/api/balance/adjust`, `/api/balance/all`, `/api/earnings/pending`, `/api/earnings/{id}/approve`,
+    `/reject`, `/send-to-vote`, `POST|PUT|DELETE /api/categories`, and Nextcloud's own `/settings/admin`,
+    `/settings/users`, `/settings/apps`, and `/ocs/v2.php/cloud/users` and `/ocs/v2.php/cloud/groups`. The
+    last two matter most: whoever can add a user to `timebank-organizer` can give themselves PII access.
+  ```nginx
+  # Example only, not run. 10.8.0.0/24 is the WireGuard subnet.
+  location ~ ^/index\.php/apps/timebank/api/(layers|assignments|schema|balance|earnings/pending|earnings/\d+/(approve|reject|send-to-vote)) {
+      allow 10.8.0.0/24;
+      deny all;
+      try_files $uri /index.php$request_uri;   # then your usual PHP handling
+  }
+  ```
+  Two traps: set Nextcloud's `trusted_proxies` and make the proxy overwrite (not append to) `X-Forwarded-For`,
+  or the app sees the proxy's address, or a spoofed one. And block the same paths on every hostname that
+  reaches the server, or the rule is bypassed by the other name.
+- **C. Check it inside the app too (small code change, needs your go-ahead).** A setting such as
+  `pii_networks` (a list of CIDRs). When the request's address, as Nextcloud sees it, is outside the list,
+  the server treats the viewer as a plain member for organizer-desk data: organizer-only and chapter fields
+  are removed exactly as `FieldPolicy` does today, and the desk endpoints answer `403`. It fails closed, so an
+  empty or broken setting means no PII. This is defense in depth: if a proxy rule is mistyped or an upgrade
+  adds a new route, the app still refuses. It also lets the screen say "connect to the VPN to see this".
+
+### What stays out of reach of this
+
+- **Regular members cannot all be on a VPN**, so the board, comments, names, and the free-text `location`
+  of requests stay visible to any logged-in member over the normal site. Keep addresses out of that free
+  text, or move to exact-location-only-after-acceptance as a later feature.
+- **A tunnel proves the device, not the person.** Add Nextcloud's two-factor login (TOTP app) and, in
+  Settings, Security, enforce it for the `timebank-organizer`, `timebank-facilitator` and admin groups.
+- **Whoever has a shell or database credentials on the server bypasses all of it,** including admins. The
+  VPN narrows who can *reach* the server; it cannot stop its own administrators. What helps there: keep the
+  number of server administrators small, use the Nextcloud *Auditing / Logging* app to record group changes
+  and logins, treat backups as sensitive, and keep NextTime's own decisions public (the proposed public log
+  of settings changes). Removing someone's WireGuard peer ends their network access at once.
+
+### How the same rule applies to admins
+
+Admins get the same network rule plus more: the admin paths in B are tunnel-only, two-factor is
+enforced for the admin group, and large balance adjustments need a second person (decision 5), so one
+compromised admin cannot move hours alone. Nextcloud admins are *not* organizers unless they are in the
+`timebank-organizer` group, so the admin role by itself does not expose organizer-desk PII in the app.
+(They can still read the database, see the limit above.)
+
+### What I would build, if you say go
+
+C alone: `pii_networks` setting, a check in the layer and assignment endpoints, a "VPN required" message in
+the desk, unit tests for in/out of range and for a spoofed forwarded header, and an entry in the Admin
+Settings page. Size S. A and B are server configuration, not code; I can write them up as a step-by-step
+install note for your host if you tell me which web server and database you run.
 
 ## Options if you want data to leave NextTime
 
