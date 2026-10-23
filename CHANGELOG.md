@@ -39,10 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Basemap: Carto → [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key).
   Viewers' browsers contact `tiles.openfreemap.org`; see README → Map to change it.
-- Declares support for Nextcloud 35 (`max-version` 33 → 35). Nextcloud 35
-  requires PHP 8.3; the declared minimum stays 8.1 for Nextcloud 29–34. Only
-  tested so far against the stable31 dev server. `nextcloud/ocp` stays at
+- Nextcloud support is now 29–35 (`max-version` 33 → 35), and only versions that were run
+  are claimed: unit tests, `smoke-test.sh`, `desk-smoke.sh` and `ui-smoke.cjs` all pass on
+  29.0.16, 30.0.17, 31.0.14, 32.0.15, 33.0.10, 34.0.5 and 35.0.2, each a fresh install on SQLite with PHP 8.3. PostgreSQL, MySQL and PHP 8.1/8.2
+  were not run here (Nextcloud 35 itself requires PHP 8.3). `nextcloud/ocp` stays at
   `dev-stable31`, matching `composer.lock`.
+- `scripts/dev-native.sh start`/`serve` now run PHP with 4 workers (`PHP_WORKERS`), and
+  `stop` ends the whole process group; worker processes otherwise outlive the parent.
 - App version 0.2.0 → 0.3.0 so the new migration runs on upgrade.
 
 ### Added

@@ -1,6 +1,6 @@
 # NextTime (Nextcloud app id: `timebank`)
 
-Community time-banking and mutual-aid coordination app for Nextcloud 29–33.
+Community time-banking and mutual-aid coordination app for Nextcloud 29–35 (each of 29.0.16, 30.0.17, 31.0.14, 32.0.15, 33.0.10, 34.0.5 and 35.0.2 passes unit, smoke, desk and UI tests; all on SQLite and PHP 8.3).
 Members post service requests, volunteer for each other, and earn hours that
 are approved by an admin or by a 3-vote community process; every movement of
 hours lands in a public ledger.
