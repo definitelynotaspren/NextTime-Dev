@@ -10,6 +10,8 @@ use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Db\UserStatsMapper;
 use OCA\TimeBank\Db\Volunteer;
 use OCA\TimeBank\Db\VolunteerMapper;
+use OCA\TimeBank\Db\Withdrawal;
+use OCA\TimeBank\Db\WithdrawalMapper;
 use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\NotAuthorizedException;
 use OCA\TimeBank\Service\RequestService;
@@ -26,6 +28,7 @@ final class RequestServiceTest extends TestCase {
 	private RequestMapper&MockObject $requests;
 	private VolunteerMapper&MockObject $volunteers;
 	private UserStatsMapper&MockObject $stats;
+	private WithdrawalMapper&MockObject $withdrawals;
 	private RequestService $service;
 
 	protected function setUp(): void {
@@ -33,11 +36,13 @@ final class RequestServiceTest extends TestCase {
 		$this->requests = $this->createMock(RequestMapper::class);
 		$this->volunteers = $this->createMock(VolunteerMapper::class);
 		$this->stats = $this->createMock(UserStatsMapper::class);
+		$this->withdrawals = $this->createMock(WithdrawalMapper::class);
 		$this->service = new RequestService(
 			$this->requests,
 			$this->volunteers,
 			$this->createMock(CommentMapper::class),
 			$this->stats,
+			$this->withdrawals,
 		);
 
 		$this->requests->method('update')->willReturnArgument(0);
@@ -118,7 +123,7 @@ final class RequestServiceTest extends TestCase {
 			$this->requests->method('update')->willReturnArgument(0);
 			$stats = $this->createMock(UserStatsMapper::class);
 			$stats->expects($this->never())->method('incrementStats');
-			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $stats);
+			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $stats, $this->withdrawals);
 
 			try {
 				$service->completeRequest(1, 'alice');
@@ -152,7 +157,7 @@ final class RequestServiceTest extends TestCase {
 			$this->requests = $this->createMock(RequestMapper::class);
 			$this->requests->method('find')->willReturn($this->request($status));
 			$this->requests->method('update')->willReturnArgument(0);
-			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats);
+			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats, $this->withdrawals);
 
 			$this->assertSame('cancelled', $service->cancelRequest(1, 'alice')->getStatus());
 		}
@@ -173,6 +178,28 @@ final class RequestServiceTest extends TestCase {
 		$this->service->cancelRequest(1, 'mallory');
 	}
 
+	// ---- request details -----------------------------------------------------
+
+	public function testOnlyTheRequesterSeesWhyPeopleWithdrew(): void {
+		$this->requests->method('find')->willReturn($this->request('open', 'alice'));
+		$this->volunteers->method('findByRequest')->willReturn([]);
+		$entry = new Withdrawal();
+		$entry->setId(1);
+		$entry->setRequestId(1);
+		$entry->setVolunteerId('bob');
+		$entry->setOfferStatus('accepted');
+		$entry->setProposedHours('2');
+		$entry->setReason('Family emergency');
+		$this->withdrawals->method('findByRequest')->willReturn([$entry]);
+
+		$forRequester = $this->service->getRequestDetails(1, 'alice');
+		$this->assertSame('Family emergency', $forRequester['withdrawals'][0]['reason']);
+
+		foreach (['bob', 'carol', null] as $viewer) {
+			$this->assertArrayNotHasKey('withdrawals', $this->service->getRequestDetails(1, $viewer), 'reasons stay private to the requester');
+		}
+	}
+
 	// ---- editing -------------------------------------------------------------
 
 	public function testARequestCanBeEditedOnlyWhileOpen(): void {
@@ -182,7 +209,7 @@ final class RequestServiceTest extends TestCase {
 		foreach (['in_progress', 'completed', 'cancelled'] as $status) {
 			$requests = $this->createMock(RequestMapper::class);
 			$requests->method('find')->willReturn($this->request($status));
-			$service = new RequestService($requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats);
+			$service = new RequestService($requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats, $this->withdrawals);
 
 			try {
 				$service->updateRequest(1, 'alice', ['title' => 'Sneaky edit']);

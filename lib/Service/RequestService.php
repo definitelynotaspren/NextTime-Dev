@@ -9,6 +9,7 @@ use OCA\TimeBank\Db\Request;
 use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Db\UserStatsMapper;
 use OCA\TimeBank\Db\VolunteerMapper;
+use OCA\TimeBank\Db\WithdrawalMapper;
 use OCA\TimeBank\Geo\Coordinates;
 use OCP\AppFramework\Db\DoesNotExistException;
 
@@ -18,17 +19,20 @@ class RequestService {
 	private VolunteerMapper $volunteerMapper;
 	private CommentMapper $commentMapper;
 	private UserStatsMapper $statsMapper;
+	private WithdrawalMapper $withdrawalMapper;
 
 	public function __construct(
 		RequestMapper $requestMapper,
 		VolunteerMapper $volunteerMapper,
 		CommentMapper $commentMapper,
 		UserStatsMapper $statsMapper,
+		WithdrawalMapper $withdrawalMapper,
 	) {
 		$this->requestMapper = $requestMapper;
 		$this->volunteerMapper = $volunteerMapper;
 		$this->commentMapper = $commentMapper;
 		$this->statsMapper = $statsMapper;
+		$this->withdrawalMapper = $withdrawalMapper;
 	}
 
 	/**
@@ -59,10 +63,13 @@ class RequestService {
 	}
 
 	/**
-	 * @return array{request: array<string, mixed>, volunteers: array<array-key, mixed>, comments: array<array-key, mixed>}
+	 * Request, offers and comments. The requester also gets the reasons people gave for
+	 * withdrawing their help; nobody else does, since reasons can be personal.
+	 *
+	 * @return array{request: array<string, mixed>, volunteers: array<array-key, mixed>, comments: array<array-key, mixed>, withdrawals?: array<array-key, mixed>}
 	 * @throws DoesNotExistException
 	 */
-	public function getRequestDetails(int $id): array {
+	public function getRequestDetails(int $id, ?string $viewerId = null): array {
 		$request = $this->requestMapper->find($id);
 		$volunteers = $this->volunteerMapper->findByRequest($id);
 		$comments = $this->commentMapper->findByRequest($id);
@@ -84,11 +91,20 @@ class RequestService {
 			return $b['completedInCategory'] - $a['completedInCategory'];
 		});
 
-		return [
+		$details = [
 			'request' => $request->jsonSerialize(),
 			'volunteers' => $enrichedVolunteers,
 			'comments' => array_map(fn ($c) => $c->jsonSerialize(), $comments),
 		];
+
+		if ($viewerId !== null && $viewerId === $request->getRequesterId()) {
+			$details['withdrawals'] = array_map(
+				fn ($entry) => $entry->jsonSerialize(),
+				$this->withdrawalMapper->findByRequest($id),
+			);
+		}
+
+		return $details;
 	}
 
 	/**

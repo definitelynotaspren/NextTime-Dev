@@ -55,7 +55,7 @@ class RequestController extends Controller {
 	#[FrontpageRoute(verb: 'GET', url: '/api/requests/{id}', requirements: ['id' => '\\d+'])]
 	public function show(int $id): DataResponse {
 		try {
-			$data = $this->requestService->getRequestDetails($id);
+			$data = $this->requestService->getRequestDetails($id, $this->userId);
 			return new DataResponse($data);
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
