@@ -14,7 +14,9 @@
 #   scripts/dev-native.sh reset    # wipe the Nextcloud install and set up again
 #   scripts/dev-native.sh occ ...  # run occ against the dev server
 #
-# Env overrides: NC_DIR (default ../nc-server), NC_BRANCH (stable31), PORT (8081)
+# Env overrides: NC_DIR (default ../nc-server), NC_BRANCH (stable31), PORT (8081),
+#   PHP_WORKERS (4: PHP's built-in server is single-threaded by default and stalls
+#   browser tests on newer Nextcloud)
 # Requires: git, php >= 8.1 with sqlite3/pdo_sqlite/gd/intl/zip/mbstring/xml/curl.
 
 set -euo pipefail
@@ -95,20 +97,26 @@ setup)
 	;;
 serve)
 	echo ">> Serving $NC_DIR at http://127.0.0.1:$PORT  (Ctrl-C to stop)"
-	exec php -S "127.0.0.1:$PORT" -t "$NC_DIR"
+	PHP_CLI_SERVER_WORKERS="${PHP_WORKERS:-4}" exec php -S "127.0.0.1:$PORT" -t "$NC_DIR"
 	;;
 start)
 	if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
 		echo "Already running (pid $(cat "$PIDFILE")) on http://127.0.0.1:$PORT"
 		exit 0
 	fi
-	nohup php -S "127.0.0.1:$PORT" -t "$NC_DIR" >"$NC_DIR/php-server.log" 2>&1 &
+	# setsid gives the server its own process group so stop can end the workers too.
+	PHP_CLI_SERVER_WORKERS="${PHP_WORKERS:-4}" setsid nohup php -S "127.0.0.1:$PORT" -t "$NC_DIR" >"$NC_DIR/php-server.log" 2>&1 &
 	echo $! >"$PIDFILE"
 	sleep 1
 	echo "Started (pid $(cat "$PIDFILE")) on http://127.0.0.1:$PORT - log: $NC_DIR/php-server.log"
 	;;
 stop)
-	if [ -f "$PIDFILE" ]; then kill "$(cat "$PIDFILE")" 2>/dev/null || true; rm -f "$PIDFILE"; echo "Stopped"; else echo "Not running"; fi
+	if [ -f "$PIDFILE" ]; then
+		pid="$(cat "$PIDFILE")"
+		# Worker processes outlive their parent, so end the whole process group.
+		kill -- "-$pid" 2>/dev/null || { pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null; } || true
+		rm -f "$PIDFILE"; echo "Stopped"
+	else echo "Not running"; fi
 	;;
 reset)
 	"$0" stop || true
