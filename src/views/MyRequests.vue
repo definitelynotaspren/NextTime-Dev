@@ -71,7 +71,7 @@ onMounted(() => {
 				You haven't posted any requests yet.
 			</template>
 			<template #action>
-				<NcButton type="primary" @click="router.push({ name: 'Board' })">
+				<NcButton variant="primary" @click="router.push({ name: 'Board' })">
 					Post a Request
 				</NcButton>
 			</template>

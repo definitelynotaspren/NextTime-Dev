@@ -167,7 +167,7 @@ const submit = async () => {
 				Cancel
 			</NcButton>
 			<NcButton
-				type="primary"
+				variant="primary"
 				@click="submit"
 				:disabled="!isValid || submitting"
 			>

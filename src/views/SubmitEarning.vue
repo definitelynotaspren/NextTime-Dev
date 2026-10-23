@@ -171,7 +171,7 @@ onMounted(() => {
 			</div>
 
 			<NcButton
-				type="primary"
+				variant="primary"
 				@click="submit"
 				:disabled="!isValid || submitting"
 			>

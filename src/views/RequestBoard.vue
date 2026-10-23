@@ -85,7 +85,7 @@ onMounted(() => {
 	<div class="request-board">
 		<div class="board-header">
 			<h1>Community Time Bank</h1>
-			<NcButton type="primary" @click="showNewRequestModal = true">
+			<NcButton variant="primary" @click="showNewRequestModal = true">
 				+ Post New Need
 			</NcButton>
 		</div>

@@ -141,14 +141,14 @@ onMounted(() => {
 						</div>
 						<div class="claim-actions">
 							<NcButton
-								type="primary"
+								variant="primary"
 								@click="approve(claim.id)"
 								:disabled="processing === claim.id"
 							>
 								Approve
 							</NcButton>
 							<NcButton
-								type="error"
+								variant="error"
 								@click="showRejectModal = claim.id"
 								:disabled="processing === claim.id"
 							>
@@ -171,7 +171,7 @@ onMounted(() => {
 							<div class="reject-actions">
 								<NcButton @click="showRejectModal = null">Cancel</NcButton>
 								<NcButton
-									type="error"
+									variant="error"
 									@click="reject(claim.id)"
 									:disabled="!rejectReason.trim() || processing === claim.id"
 								>
@@ -206,14 +206,14 @@ onMounted(() => {
 						</div>
 						<div class="claim-actions">
 							<NcButton
-								type="primary"
+								variant="primary"
 								@click="vote(claim.id, 'approve')"
 								:disabled="processing === claim.id"
 							>
 								Vote Approve
 							</NcButton>
 							<NcButton
-								type="error"
+								variant="error"
 								@click="vote(claim.id, 'reject')"
 								:disabled="processing === claim.id"
 							>
