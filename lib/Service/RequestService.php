@@ -127,7 +127,10 @@ class RequestService {
 		$request = $this->requestMapper->find($id);
 
 		if ($request->getRequesterId() !== $userId) {
-			throw new \Exception('Not authorized to update this request');
+			throw new NotAuthorizedException('Not authorized to update this request');
+		}
+		if ($request->getStatus() !== 'open') {
+			throw new InvalidStateException('A request can only be edited while it is open');
 		}
 
 		if (isset($data['title'])) {
@@ -187,25 +190,44 @@ class RequestService {
 	/**
 	 * @throws DoesNotExistException
 	 */
-	public function completeRequest(int $id, string $userId, int $selectedVolunteerId): Request {
+	public function completeRequest(int $id, string $userId, ?int $selectedVolunteerId = null): Request {
 		$request = $this->requestMapper->find($id);
 
 		if ($request->getRequesterId() !== $userId) {
-			throw new \Exception('Not authorized to complete this request');
+			throw new NotAuthorizedException('Not authorized to complete this request');
+		}
+		if (!in_array($request->getStatus(), ['open', 'in_progress'], true)) {
+			throw new InvalidStateException('This request is already finished');
+		}
+
+		// Every accepted volunteer completes together and is credited for the hours they
+		// proposed (hour for hour, never split). Volunteers are looked up through this
+		// request, so another request's offers can never be completed from here.
+		$accepted = array_values(array_filter(
+			$this->volunteerMapper->findByRequest($id),
+			fn ($volunteer) => $volunteer->getStatus() === 'accepted',
+		));
+		if ($accepted === []) {
+			throw new InvalidStateException('Accept at least one volunteer before completing the request');
+		}
+		if ($selectedVolunteerId !== null
+			&& !in_array($selectedVolunteerId, array_map(fn ($volunteer) => $volunteer->getId(), $accepted), true)) {
+			throw new InvalidStateException('That volunteer has not been accepted for this request');
+		}
+
+		foreach ($accepted as $volunteer) {
+			$volunteer->setStatus('completed');
+			$this->volunteerMapper->update($volunteer);
+
+			$this->statsMapper->incrementStats(
+				$volunteer->getVolunteerId(),
+				$request->getCategoryId(),
+				(float)$volunteer->getProposedHours()
+			);
 		}
 
 		$request->setStatus('completed');
 		$request->setUpdatedAt(new \DateTime());
-
-		$volunteer = $this->volunteerMapper->find($selectedVolunteerId);
-		$volunteer->setStatus('completed');
-		$this->volunteerMapper->update($volunteer);
-
-		$this->statsMapper->incrementStats(
-			$volunteer->getVolunteerId(),
-			$request->getCategoryId(),
-			(float)$volunteer->getProposedHours()
-		);
 
 		return $this->requestMapper->update($request);
 	}
@@ -217,7 +239,10 @@ class RequestService {
 		$request = $this->requestMapper->find($id);
 
 		if ($request->getRequesterId() !== $userId) {
-			throw new \Exception('Not authorized to cancel this request');
+			throw new NotAuthorizedException('Not authorized to cancel this request');
+		}
+		if (!in_array($request->getStatus(), ['open', 'in_progress'], true)) {
+			throw new InvalidStateException('This request is already finished');
 		}
 
 		$request->setStatus('cancelled');

@@ -14,6 +14,7 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
 class VolunteerController extends Controller {
+	use ServiceErrors;
 
 	private VolunteerService $volunteerService;
 	private ?string $userId;
@@ -41,18 +42,21 @@ class VolunteerController extends Controller {
 			$volunteer = $this->volunteerService->offer($requestId, $this->userId, $data);
 			return new DataResponse($volunteer->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+			return $this->errorResponse($e);
 		}
 	}
 
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'DELETE', url: '/api/volunteers/{id}', requirements: ['id' => '\\d+'])]
 	public function withdraw(int $id): DataResponse {
+		// Withdrawing an accepted offer needs a reason; it goes into the log of withdrawn help.
+		$reason = $this->request->getParam('reason');
+
 		try {
-			$this->volunteerService->withdraw($id, $this->userId);
+			$this->volunteerService->withdraw($id, $this->userId, is_string($reason) ? $reason : null);
 			return new DataResponse(['success' => true]);
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -63,7 +67,7 @@ class VolunteerController extends Controller {
 			$volunteer = $this->volunteerService->accept($id, $this->userId);
 			return new DataResponse($volunteer->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -74,7 +78,7 @@ class VolunteerController extends Controller {
 			$volunteer = $this->volunteerService->decline($id, $this->userId);
 			return new DataResponse($volunteer->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -84,5 +88,13 @@ class VolunteerController extends Controller {
 	public function myOffers(): DataResponse {
 		$offers = $this->volunteerService->getMyVolunteerOffers($this->userId);
 		return new DataResponse(array_map(fn ($v) => $v->jsonSerialize(), $offers));
+	}
+
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[FrontpageRoute(verb: 'GET', url: '/api/withdrawals/my')]
+	public function myWithdrawals(): DataResponse {
+		$entries = $this->volunteerService->getMyWithdrawals($this->userId);
+		return new DataResponse(array_map(fn ($w) => $w->jsonSerialize(), $entries));
 	}
 }

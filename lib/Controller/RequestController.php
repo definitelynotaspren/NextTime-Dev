@@ -14,6 +14,7 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
 class RequestController extends Controller {
+	use ServiceErrors;
 
 	private RequestService $requestService;
 	private ?string $userId;
@@ -140,20 +141,22 @@ class RequestController extends Controller {
 			$request = $this->requestService->updateRequest($id, $this->userId, $data);
 			return new DataResponse($request->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return $this->errorResponse($e);
 		}
 	}
 
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/requests/{id}/complete', requirements: ['id' => '\\d+'])]
 	public function complete(int $id): DataResponse {
-		$volunteerId = (int)$this->request->getParam('volunteerId');
+		// Optional: completing finishes every accepted volunteer. If given, it must be one of them.
+		$volunteerParam = $this->request->getParam('volunteerId');
+		$volunteerId = ($volunteerParam === null || $volunteerParam === '') ? null : (int)$volunteerParam;
 
 		try {
 			$request = $this->requestService->completeRequest($id, $this->userId, $volunteerId);
 			return new DataResponse($request->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return $this->errorResponse($e);
 		}
 	}
 
@@ -164,7 +167,7 @@ class RequestController extends Controller {
 			$request = $this->requestService->cancelRequest($id, $this->userId);
 			return new DataResponse($request->jsonSerialize());
 		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+			return $this->errorResponse($e);
 		}
 	}
 
