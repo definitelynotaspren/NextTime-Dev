@@ -19,6 +19,8 @@ interface Earning {
 	status: string
 	createdAt: string
 	votes?: { voterId: string }[]
+	decidingAs?: 'admin' | 'facilitator' | 'fallback'
+	decidingChapter?: string | null
 }
 
 const currentUserId = getCurrentUser()?.uid ?? null
@@ -160,7 +162,10 @@ onMounted(() => {
 						<p v-if="claim.userId === currentUserId" class="own-claim">
 							This is your claim. Someone else has to approve it, reject it or send it to a vote.
 						</p>
-						<div v-else class="claim-actions">
+						<p v-else class="deciding-as">
+							You decide on this {{ claim.decidingAs === 'admin' ? 'as an admin' : claim.decidingAs === 'facilitator' ? `as a facilitator of ${claim.decidingChapter}` : 'as part of the fallback group, because this member has no facilitator' }}.
+						</p>
+						<div v-if="claim.userId !== currentUserId" class="claim-actions">
 							<NcButton
 								variant="primary"
 								@click="approve(claim.id)"
@@ -261,6 +266,11 @@ onMounted(() => {
 
 .admin-approvals h1 {
 	margin-bottom: 20px;
+}
+
+.deciding-as {
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
 }
 
 .own-claim {

@@ -19,19 +19,22 @@ const isStaff = ref(false)
 const isModerator = ref(false)
 const isAdmin = ref(false)
 const isFacilitator = ref(false)
+const isFallbackApprover = ref(false)
 
 const fetchRoles = async () => {
 	try {
-		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean, moderator: boolean, admin: boolean }>(generateUrl('/apps/timebank/api/roles'))
+		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean, moderator: boolean, admin: boolean, fallbackApprover: boolean }>(generateUrl('/apps/timebank/api/roles'))
 		isStaff.value = data.organizer || data.facilitator
 		isModerator.value = data.moderator
 		isAdmin.value = data.admin
 		isFacilitator.value = data.facilitator
+		isFallbackApprover.value = data.fallbackApprover
 	} catch {
 		isStaff.value = false
 		isModerator.value = false
 		isAdmin.value = false
 		isFacilitator.value = false
+		isFallbackApprover.value = false
 	}
 }
 
@@ -92,7 +95,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:name="isAdmin ? 'Approvals & Votes' : 'Votes on Claims'"
+					:name="isAdmin || isFacilitator || isFallbackApprover ? 'Approvals & Votes' : 'Votes on Claims'"
 					:to="{ name: 'AdminApprovals' }"
 					:active="route.name === 'AdminApprovals'"
 				>
@@ -118,7 +121,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					v-if="isAdmin || isFacilitator"
+					v-if="isAdmin || isFacilitator || isFallbackApprover"
 					:name="'Adjustments'"
 					:to="{ name: 'AdminAdjustments' }"
 					:active="route.name === 'AdminAdjustments'">
