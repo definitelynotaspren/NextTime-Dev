@@ -147,6 +147,79 @@ N="$(json 'length')"
 call bob GET /ledger/my
 expect "bob's transactions" 200
 
+echo "- Lifecycle rules: several volunteers"
+call alice POST /requests "{\"title\":\"Smoke test: move a couch\",\"description\":\"Three people to carry a couch upstairs.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4}"
+expect "alice posts a second request" 201
+COUCH_ID="$(json '.id')"
+
+call bob POST "/requests/$COUCH_ID/volunteer" '{"proposedHours":2}'
+expect "bob offers" 201
+V_BOB="$(json '.id')"
+call carol POST "/requests/$COUCH_ID/volunteer" '{"proposedHours":3}'
+expect "carol also offers on the same request" 201
+V_CAROL="$(json '.id')"
+
+call alice POST "/volunteers/$V_BOB/accept"
+expect "alice accepts bob" 200
+call alice GET "/requests/$COUCH_ID"
+[ "$(json '.request.status')" = in_progress ] && pass "the first acceptance moves the request in progress" || fail "request status is '$(json '.request.status')', expected in_progress"
+
+call admin POST "/requests/$COUCH_ID/volunteer" '{"proposedHours":1}'
+expect "someone can still offer while the request is in progress" 201
+call alice POST "/volunteers/$V_CAROL/accept"
+expect "alice accepts carol too" 200
+call alice GET "/requests/$COUCH_ID"
+[ "$(jq -r '[.volunteers[] | select(.status=="accepted")] | length' <<<"$BODY")" = 2 ] && pass "both accepted volunteers stay accepted (no one is auto-declined)" || fail "expected 2 accepted volunteers: $BODY"
+
+echo "- Lifecycle rules: integrity"
+call bob POST /requests "{\"title\":\"Smoke test: other request\",\"description\":\"Owned by bob, to check offers cannot cross requests.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1}"
+expect "bob posts his own request" 201
+OTHER_ID="$(json '.id')"
+[ -n "$OTHER_ID" ] && [ "$OTHER_ID" != null ] || { fail "could not create the second request; skipping the integrity checks"; OTHER_ID=0; }
+call carol POST "/requests/$OTHER_ID/volunteer" '{"proposedHours":1}'
+expect "carol offers on bob's request" 201
+V_FOREIGN="$(json '.id')"
+call alice POST "/requests/$COUCH_ID/complete" "{\"volunteerId\":$V_FOREIGN}"
+expect "completing with another request's volunteer is refused" 400
+call bob GET "/requests/$OTHER_ID"
+[ "$(jq -r '.volunteers[0].status' <<<"$BODY")" = offered ] && pass "the other request's offer was left untouched" || fail "other offer status: $BODY"
+call carol POST "/volunteers/$V_FOREIGN/accept"
+expect "only the requester can accept (carol cannot accept her own offer)" 403
+
+call alice POST "/requests/$COUCH_ID/complete"
+expect "completing finishes every accepted volunteer" 200
+call alice GET "/requests/$COUCH_ID"
+[ "$(jq -r '[.volunteers[] | select(.status=="completed")] | length' <<<"$BODY")" = 2 ] && pass "bob and carol are both completed" || fail "expected 2 completed volunteers: $BODY"
+call alice POST "/requests/$COUCH_ID/cancel"
+expect "a completed request cannot be cancelled" 400
+call alice POST "/requests/$COUCH_ID/complete"
+expect "a completed request cannot be completed again" 400
+call alice PUT "/requests/$COUCH_ID" '{"title":"Edited after completion"}'
+expect "a finished request cannot be edited" 400
+
+echo "- Lifecycle rules: withdrawing and the log"
+call alice POST /requests "{\"title\":\"Smoke test: withdraw\",\"description\":\"For the withdrawal log.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2}"
+expect "alice posts a third request" 201
+WD_ID="$(json '.id')"
+call bob POST "/requests/$WD_ID/volunteer" '{"proposedHours":2}'
+expect "bob offers" 201
+V_WD="$(json '.id')"
+call alice POST "/volunteers/$V_WD/accept"
+expect "alice accepts bob" 200
+call carol DELETE "/volunteers/$V_WD"
+expect "nobody else can withdraw bob's offer" 403
+call bob DELETE "/volunteers/$V_WD"
+expect "withdrawing accepted help without a reason is refused" 400
+call bob DELETE "/volunteers/$V_WD" '{"reason":"Family emergency"}'
+expect "withdrawing accepted help with a reason" 200
+call alice GET "/requests/$WD_ID"
+[ "$(json '.request.status')" = open ] && pass "the request reopens when no accepted volunteers remain" || fail "request status is '$(json '.request.status')', expected open"
+call bob GET /withdrawals/my
+expect "bob reads his log of withdrawn help" 200
+[ "$(jq -r --argjson r "$WD_ID" '[.[] | select(.requestId==$r and .reason=="Family emergency")] | length' <<<"$BODY")" = 1 ] && pass "the withdrawal and its reason are logged" || fail "withdrawal not in the log: $BODY"
+call bob POST "/requests/$WD_ID/volunteer" '{"proposedHours":2}'
+expect "bob can offer again after withdrawing" 201
+
 echo "- Frontend page"
 code="$(curl -s -o "$TMP/page" -w '%{http_code}' -u alice:alice-pass-123 "$BASE/index.php/apps/timebank/")"
 [ "$code" = 200 ] && grep -q 'timebank-main' "$TMP/page" && pass "app page loads and references built JS" || fail "app page: $code (is js/ built?)"
