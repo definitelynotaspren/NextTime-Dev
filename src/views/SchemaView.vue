@@ -32,7 +32,7 @@ interface Schema {
 	systemFields: Field[]
 	layers: Record<string, Layer>
 	lookups: Record<string, string[]>
-	chapters: { slug: string, zips: string[] }[]
+	chapters: { slug: string, name: string, covers: string }[]
 }
 
 const schema = ref<Schema | null>(null)
@@ -111,7 +111,7 @@ const toggle = (name: string) => {
 				<h2>Chapters</h2>
 				<ul>
 					<li v-for="chapter in schema.chapters" :key="chapter.slug">
-						<strong>{{ chapter.slug }}</strong>: ZIPs {{ chapter.zips.join(', ') }}
+						<strong>{{ chapter.name }}</strong>: {{ chapter.covers }}
 					</li>
 				</ul>
 			</section>

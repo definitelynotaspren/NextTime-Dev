@@ -18,6 +18,7 @@ const balanceStore = useBalanceStore()
 const isStaff = ref(false)
 const isModerator = ref(false)
 const isAdmin = ref(false)
+const isOrganizer = ref(false)
 const isFacilitator = ref(false)
 const isFallbackApprover = ref(false)
 
@@ -27,12 +28,14 @@ const fetchRoles = async () => {
 		isStaff.value = data.organizer || data.facilitator
 		isModerator.value = data.moderator
 		isAdmin.value = data.admin
+		isOrganizer.value = data.organizer
 		isFacilitator.value = data.facilitator
 		isFallbackApprover.value = data.fallbackApprover
 	} catch {
 		isStaff.value = false
 		isModerator.value = false
 		isAdmin.value = false
+		isOrganizer.value = false
 		isFacilitator.value = false
 		isFallbackApprover.value = false
 	}
@@ -109,6 +112,15 @@ onMounted(() => {
 					:active="route.name === 'GovernanceLog'">
 					<template #icon>
 						<span class="nav-icon">&#128220;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					v-if="isAdmin || isOrganizer"
+					:name="'Chapters'"
+					:to="{ name: 'ChapterCheck' }"
+					:active="route.name === 'ChapterCheck'">
+					<template #icon>
+						<span class="nav-icon">&#128506;</span>
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem

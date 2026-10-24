@@ -12,6 +12,7 @@ import ModerationQueue from '../views/ModerationQueue.vue'
 import AdminCategories from '../views/AdminCategories.vue'
 import AdminAdjustments from '../views/AdminAdjustments.vue'
 import GovernanceLog from '../views/GovernanceLog.vue'
+import ChapterCheck from '../views/ChapterCheck.vue'
 
 const routes = [
 	{
@@ -70,6 +71,11 @@ const routes = [
 		path: '/admin/adjustments',
 		name: 'AdminAdjustments',
 		component: AdminAdjustments,
+	},
+	{
+		path: '/chapters',
+		name: 'ChapterCheck',
+		component: ChapterCheck,
 	},
 	{
 		path: '/governance',
