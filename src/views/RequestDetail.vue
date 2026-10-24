@@ -262,8 +262,7 @@ watch(requestId, (id) => {
 				<div v-if="isRequester && withdrawals.length" class="withdrawn-section">
 					<h3>Withdrawn help ({{ withdrawals.length }})</h3>
 					<div v-for="entry in withdrawals" :key="entry.id" class="withdrawn-entry">
-						<strong>{{ entry.volunteerId }}</strong>
-						<span class="comment-date">{{ entry.proposedHours }} h, {{ new Date(entry.createdAt).toLocaleDateString() }}</span>
+						<strong>{{ entry.volunteerId }}</strong> <span class="comment-date">{{ entry.proposedHours }} h, {{ new Date(entry.createdAt).toLocaleDateString() }}</span>
 						<p>{{ entry.reason }}</p>
 					</div>
 				</div>
