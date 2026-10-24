@@ -96,28 +96,106 @@ class FormsIntake {
 	}
 
 	/**
-	 * @return list<array{id: int, title: string, active: bool}>
+	 * The forms that were added, with their titles. Only forms someone added by their link
+	 * are listed, never every form on the server, so nobody sees titles of forms they were
+	 * not given.
+	 *
+	 * @return list<array{formId: int, layer: string, title: string, exists: bool}>
 	 */
-	public function availableForms(): array {
-		if (!$this->formsAvailable()) {
-			return [];
-		}
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('id', 'title', 'state')->from('forms_v2_forms')->orderBy('id', 'DESC');
-		$result = $qb->executeQuery();
-		$rows = $result->fetchAll();
-		$result->closeCursor();
-
+	public function addedForms(): array {
 		$out = [];
-		foreach ($rows as $row) {
-			// state 2 is archived
-			if ((int)$row['state'] === 2) {
-				continue;
-			}
-			$out[] = ['id' => (int)$row['id'], 'title' => (string)$row['title'], 'active' => (int)$row['state'] === 0];
+		foreach ($this->enabled() as $entry) {
+			$info = $this->formInfo($entry['formId']);
+			$out[] = $entry + ['title' => $info['title'] ?? '', 'exists' => $info !== null];
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Finds the form a pasted link points to. The link must be on this server and carry the
+	 * form's code: the Forms share link (.../apps/forms/s/<code>) or the address of the form
+	 * itself (.../apps/forms/<code>, also /edit and /results). The bare code works too.
+	 *
+	 * @return array{id: int, title: string, questions: int, owner: string}
+	 * @throws InvalidStateException with a message that says what to paste instead
+	 */
+	public function findByLink(string $link, string $serverHost): array {
+		$link = trim($link);
+		if ($link === '') {
+			throw new InvalidStateException('Paste the form\'s link first');
+		}
+		if (!$this->formsAvailable()) {
+			throw new InvalidStateException('The Nextcloud Forms app is not installed or enabled on this server');
+		}
+
+		$hash = self::hashFromLink($link, $serverHost);
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id', 'title', 'owner_id', 'state')
+			->from('forms_v2_forms')
+			->where($qb->expr()->eq('hash', $qb->createNamedParameter($hash)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		if ($row === false) {
+			throw new InvalidStateException('No form on this server has that code. Copy the link again from the Forms app.');
+		}
+		if ((int)$row['state'] === 2) {
+			throw new InvalidStateException('That form is archived. Restore it in the Forms app first.');
+		}
+
+		return [
+			'id' => (int)$row['id'],
+			'title' => (string)$row['title'],
+			'questions' => count($this->questions((int)$row['id'])),
+			'owner' => (string)$row['owner_id'],
+		];
+	}
+
+	/**
+	 * The form's code from a pasted link or from the bare code.
+	 *
+	 * @throws InvalidStateException
+	 */
+	public static function hashFromLink(string $link, string $serverHost): string {
+		$link = trim($link);
+		if (preg_match('/^[A-Za-z0-9]{8,64}$/', $link) === 1) {
+			return $link;
+		}
+		if (!preg_match('#^https?://#i', $link)) {
+			throw new InvalidStateException('That is not a link. Copy the form\'s link from the Forms app (Share, then the share link), for example https://your-server/index.php/apps/forms/s/AbCdEf123456');
+		}
+
+		$parts = parse_url($link);
+		$host = strtolower((string)($parts['host'] ?? ''));
+		$expected = strtolower(preg_replace('/:\d+$/', '', $serverHost) ?? $serverHost);
+		if ($host === '' || $host !== $expected) {
+			throw new InvalidStateException("That link is on $host, not on this server ($expected). Only forms in this Nextcloud's Forms app can be added.");
+		}
+		if (!preg_match('#/apps/forms/(?:s/)?([A-Za-z0-9]{8,64})(?:/|$)#', (string)($parts['path'] ?? ''), $m)) {
+			throw new InvalidStateException('That link is not to a form. Use the Forms share link (.../apps/forms/s/<code>) or the address of the form while it is open in the Forms app.');
+		}
+
+		return $m[1];
+	}
+
+	/**
+	 * @return array{title: string}|null
+	 */
+	private function formInfo(int $formId): ?array {
+		if (!$this->formsAvailable()) {
+			return null;
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('title')
+			->from('forms_v2_forms')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($formId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		return $row === false ? null : ['title' => (string)$row['title']];
 	}
 
 	/**

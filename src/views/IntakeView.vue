@@ -8,33 +8,34 @@ import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { errorMessage } from '../stores/requestStore'
 
-interface FormInfo { id: number, title: string, active: boolean }
-interface Enabled { formId: number, layer: string }
+interface Added { formId: number, layer: string, title: string, exists: boolean }
 interface LogEntry { id: number, formId: number, submissionId: number, status: string, layer: string, uid: string | null, reason: string | null, createdAt: string }
 interface Preview { mapped: { question: string, field: string }[], ignored: string[], missing: string[], defaulted: string[] }
+interface Found { id: number, title: string, questions: number, owner: string, layer: string, preview: Preview, alreadyAdded: boolean }
 
 const loading = ref(true)
 const error = ref<string | null>(null)
 const notice = ref<string | null>(null)
 const busy = ref(false)
 const formsInstalled = ref(true)
-const forms = ref<FormInfo[]>([])
+const added = ref<Added[]>([])
 const layers = ref<{ name: string, title: string }[]>([])
-const enabled = ref<Enabled[]>([])
 const recent = ref<LogEntry[]>([])
 const previews = ref<Record<number, Preview>>({})
 
-const layerOf = (formId: number) => enabled.value.find((e) => e.formId === formId)?.layer ?? null
+const link = ref('')
+const found = ref<Found | null>(null)
+const lookupError = ref<string | null>(null)
 
 const load = async () => {
 	try {
 		const { data } = await axios.get(generateUrl('/apps/timebank/api/intake'))
 		formsInstalled.value = data.formsInstalled
-		forms.value = data.forms
+		added.value = data.forms
 		layers.value = data.layers
-		enabled.value = data.enabled
 		recent.value = data.recent
 	} catch (e) {
 		error.value = errorMessage(e, 'Failed to load')
@@ -58,18 +59,42 @@ const run = async (task: () => Promise<unknown>, done?: string) => {
 	}
 }
 
+const lookUp = async () => {
+	busy.value = true
+	lookupError.value = null
+	found.value = null
+	try {
+		const { data } = await axios.post<Found>(generateUrl('/apps/timebank/api/intake/forms/lookup'), { link: link.value })
+		found.value = data
+	} catch (e) {
+		lookupError.value = errorMessage(e, 'Could not look that up')
+	} finally {
+		busy.value = false
+	}
+}
+
+const saveList = (forms: { formId: number, layer: string }[]) =>
+	axios.put(generateUrl('/apps/timebank/api/intake/forms'), { forms })
+
+const addFound = () => {
+	const f = found.value
+	if (!f) return Promise.resolve()
+	const next = [...added.value.map(({ formId, layer }) => ({ formId, layer })), { formId: f.id, layer: f.layer }]
+	return run(async () => {
+		await saveList(next)
+		found.value = null
+		link.value = ''
+	}, `Added "${f.title}". New submissions are picked up every five minutes, or press Check now.`)
+}
+
+const remove = (formId: number) =>
+	run(() => saveList(added.value.filter((a) => a.formId !== formId).map(({ formId: id, layer }) => ({ formId: id, layer }))),
+		'Removed. Rows already imported stay on the desk.')
+
 const preview = (formId: number, layer: string) => run(async () => {
 	const { data } = await axios.get<Preview>(generateUrl(`/apps/timebank/api/intake/forms/${formId}/preview?layer=${layer}`))
 	previews.value = { ...previews.value, [formId]: data }
 })
-
-const toggle = (formId: number) => {
-	const layer = layers.value[0]?.name
-	const next = layerOf(formId)
-		? enabled.value.filter((e) => e.formId !== formId)
-		: [...enabled.value, { formId, layer }]
-	return run(() => axios.put(generateUrl('/apps/timebank/api/intake/forms'), { forms: next }), layerOf(formId) ? 'Switched off.' : 'Switched on. New submissions are picked up every five minutes.')
-}
 
 const checkNow = () => run(async () => {
 	const { data } = await axios.post(generateUrl('/apps/timebank/api/intake/run'))
@@ -108,45 +133,106 @@ onMounted(load)
 			</p>
 
 			<template v-else>
-				<h2>Your forms</h2>
-				<p v-if="forms.length === 0" class="subtitle">
-					No forms yet. Create one in the Forms app. Name each question after the desk field it feeds
-					(Need or offer, Category, Summary, ZIP, Urgency, Contact route, and so on).
-				</p>
-				<div v-for="form in forms" :key="form.id" class="card">
-					<div class="head">
-						<strong>{{ form.title || `Form ${form.id}` }}</strong>
-						<span class="tag">{{ layerOf(form.id) ? 'on' : 'off' }}</span>
-					</div>
+				<h2>Add a form</h2>
+				<div class="card">
+					<p>
+						<strong>Which link to paste.</strong> Make the form in the Nextcloud <em>Forms</em> app on this
+						server, then copy its link from there:
+					</p>
+					<ol>
+						<li>
+							Open the form in Forms and choose <strong>Share</strong> and copy the <strong>share link</strong>. It looks like
+							<code>https://your-server/index.php/apps/forms/s/AbCdEf123456</code>.
+						</li>
+						<li>
+							Or copy the address from your browser while the form is open in Forms:
+							<code>https://your-server/index.php/apps/forms/AbCdEf123456</code> (also fine with
+							<code>/edit</code> or <code>/results</code> on the end).
+						</li>
+					</ol>
+					<p class="subtitle">
+						The long code at the end is what identifies the form. It has to be a form on <em>this</em> Nextcloud:
+						links to Google Forms, other servers, or a downloaded results file will not work. The form's questions
+						must be named after desk fields (Need or offer, Category, Summary, ZIP, Urgency, Contact route); the next
+						step shows how each question would be used before anything is added.
+					</p>
+					<NcTextField v-model="link"
+						label="Paste the form's link"
+						placeholder="https://your-server/index.php/apps/forms/s/..."
+						@keyup.enter="lookUp" />
 					<div class="actions">
-						<NcButton :disabled="busy" @click="preview(form.id, layerOf(form.id) ?? layers[0]?.name ?? 'needs_offers')">
-							Check how it maps
-						</NcButton>
-						<NcButton :variant="layerOf(form.id) ? 'tertiary' : 'primary'" :disabled="busy" @click="toggle(form.id)">
-							{{ layerOf(form.id) ? 'Switch off' : 'Switch on' }}
+						<NcButton variant="primary" :disabled="busy || !link.trim()" @click="lookUp">
+							Look up this form
 						</NcButton>
 					</div>
-					<div v-if="previews[form.id]" class="preview">
-						<p v-for="m in previews[form.id].mapped" :key="m.question">
+					<p v-if="lookupError" class="error" role="alert">
+						{{ lookupError }}
+					</p>
+
+					<div v-if="found" class="preview" data-test="found">
+						<p>
+							<strong>{{ found.title || `Form ${found.id}` }}</strong>
+							<span class="subtitle"> · {{ found.questions }} questions · made by {{ found.owner }}</span>
+						</p>
+						<p v-for="m in found.preview.mapped" :key="m.question">
 							“{{ m.question }}” → <strong>{{ m.field }}</strong>
 						</p>
-						<p v-if="previews[form.id].ignored.length" class="subtitle">
-							Ignored (no matching field, answers not kept): {{ previews[form.id].ignored.join(', ') }}
+						<p v-if="found.preview.ignored.length" class="subtitle">
+							Ignored (no matching field, answers not kept): {{ found.preview.ignored.join(', ') }}
 						</p>
-						<p v-if="previews[form.id].missing.length" class="error">
-							The form has no question for: {{ previews[form.id].missing.join(', ') }}. Every submission would be rejected.
+						<p v-if="found.preview.missing.length" class="error">
+							This form has no question for: {{ found.preview.missing.join(', ') }}. Every submission would be rejected until it does.
 						</p>
 						<p class="subtitle">
-							Filled in when not asked: {{ previews[form.id].defaulted.join(', ') }}.
+							Filled in when not asked: {{ found.preview.defaulted.join(', ') }}.
+						</p>
+						<p v-if="found.alreadyAdded" class="notice">
+							This form is already added.
+						</p>
+						<NcButton v-else
+							variant="primary"
+							:disabled="busy"
+							@click="addFound">
+							Add this form
+						</NcButton>
+					</div>
+				</div>
+
+				<h2>Added forms</h2>
+				<p v-if="added.length === 0" class="subtitle">
+					None yet. Add one above.
+				</p>
+				<div v-for="form in added" :key="form.formId" class="card">
+					<div class="head">
+						<strong>{{ form.exists ? (form.title || `Form ${form.formId}`) : `Form ${form.formId} (no longer exists)` }}</strong>
+						<span class="tag">checked every 5 minutes</span>
+					</div>
+					<div class="actions">
+						<NcButton :disabled="busy || !form.exists" @click="preview(form.formId, form.layer)">
+							Check how it maps
+						</NcButton>
+						<NcButton variant="tertiary" :disabled="busy" @click="remove(form.formId)">
+							Remove
+						</NcButton>
+					</div>
+					<div v-if="previews[form.formId]" class="preview">
+						<p v-for="m in previews[form.formId].mapped" :key="m.question">
+							“{{ m.question }}” → <strong>{{ m.field }}</strong>
+						</p>
+						<p v-if="previews[form.formId].ignored.length" class="subtitle">
+							Ignored: {{ previews[form.formId].ignored.join(', ') }}
+						</p>
+						<p v-if="previews[form.formId].missing.length" class="error">
+							No question for: {{ previews[form.formId].missing.join(', ') }}.
 						</p>
 					</div>
 				</div>
 
 				<div class="actions">
-					<NcButton :disabled="busy || enabled.length === 0" @click="checkNow">
+					<NcButton :disabled="busy || added.length === 0" @click="checkNow">
 						Check now
 					</NcButton>
-					<NcButton :disabled="busy || enabled.length === 0" @click="retry">
+					<NcButton :disabled="busy || added.length === 0" @click="retry">
 						Look again at rejected
 					</NcButton>
 				</div>

@@ -327,6 +327,11 @@ const pickFirstOption = async (page, placeholder) => {
 
 	await go(admin, '/intake')
 	check('admins and organizers get a Form intake page', await admin.getByRole('heading', { name: 'Form intake' }).count() > 0)
+	check('the intake page says which link to paste', await admin.getByText('Which link to paste.').count() > 0 && await admin.getByText(/apps\/forms\/s\//).count() > 0)
+	await admin.getByLabel("Paste the form's link").fill('https://docs.google.com/forms/d/e/abc/viewform')
+	await admin.getByRole('button', { name: 'Look up this form' }).click()
+	await admin.waitForTimeout(1200)
+	check('a link on another server is refused with a plain message', await admin.getByText(/not on this server/).count() > 0)
 	await go(carol, '/intake')
 	check('members cannot use the intake page', await carol.getByText('Admin or organizer role required').count() > 0)
 	await go(bob, '/desk')

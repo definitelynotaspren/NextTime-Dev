@@ -51,10 +51,30 @@ class IntakeController extends Controller {
 
 			return new DataResponse([
 				'formsInstalled' => $this->intake->formsAvailable(),
-				'forms' => $this->intake->availableForms(),
-				'enabled' => $this->intake->enabled(),
+				'forms' => $this->intake->addedForms(),
 				'layers' => $layers,
 				'recent' => array_map(fn ($e) => $e->jsonSerialize(), $this->log->findRecent()),
+			]);
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	/**
+	 * Find the form a pasted link points to, and show how it would map. Adds nothing.
+	 */
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/intake/forms/lookup')]
+	public function lookup(): DataResponse {
+		try {
+			$this->requireManager();
+			$layer = (string)($this->request->getParam('layer') ?? 'needs_offers');
+			$form = $this->intake->findByLink((string)$this->request->getParam('link'), $this->request->getServerHost());
+
+			return new DataResponse($form + [
+				'layer' => $layer,
+				'preview' => $this->intake->preview($form['id'], $layer),
+				'alreadyAdded' => in_array($form['id'], array_column($this->intake->enabled(), 'formId'), true),
 			]);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);

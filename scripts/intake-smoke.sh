@@ -69,12 +69,26 @@ occ group:adduser "Washington Facilitators" carol
 echo "- Choosing the form"
 call carol GET /intake; expect "members cannot open intake" 403
 call admin GET /intake; expect "admin opens intake" 200
-[ "$(jq -r --argjson f "$FORM" '[.forms[] | select(.id==$f)] | length' <<<"$BODY")" = 1 ] && pass "the form is listed" || fail "form not listed: $BODY"
-call admin GET "/intake/forms/$FORM/preview?layer=needs_offers"; expect "admin previews the mapping" 200
-[ "$(jq -r '[.mapped[].field] | sort | join(",")' <<<"$BODY")" = "category,contact_route,need_or_offer,requester_contact,summary,urgency,zip" ] && pass "questions map to fields by their text or name" || fail "mapping: $BODY"
-[ "$(jq -r '.ignored | join(",")' <<<"$BODY")" = "Favourite colour" ] && pass "an unrelated question is ignored" || fail "ignored: $BODY"
-[ "$(jq -r '.missing | length' <<<"$BODY")" = 0 ] && pass "nothing required is missing" || fail "missing: $BODY"
-call admin PUT /intake/forms "{\"forms\":[{\"formId\":$FORM,\"layer\":\"needs_offers\"}]}"; expect "admin switches the form on" 200
+[ "$(jq -r '.forms | length' <<<"$BODY")" = 0 ] && pass "no form is listed until someone adds it by its link" || fail "forms listed unasked: $BODY"
+HASH="$(forms admin GET "/forms/$FORM" | jq -r '.ocs.data.hash')"
+HOST="${BASE#*://}"
+call carol POST /intake/forms/lookup "{\"link\":\"$BASE/index.php/apps/forms/s/$HASH\"}"; expect "members cannot look a form up" 403
+call admin POST /intake/forms/lookup '{"link":"my needs form"}'; expect "something that is not a link is refused" 400
+grep -q "AbCdEf123456" <<<"$BODY" && pass "and the message shows what to paste" || fail "no example in: $BODY"
+call admin POST /intake/forms/lookup '{"link":"https://docs.google.com/forms/d/e/1FAIpQLSdxyz/viewform"}'; expect "a link on another server is refused" 400
+grep -q "docs.google.com" <<<"$BODY" && pass "and the message names that server" || fail "unclear: $BODY"
+call admin POST /intake/forms/lookup "{\"link\":\"$BASE/index.php/apps/forms/s/ZZZZZZZZZZZZZZZZ\"}"; expect "a code no form has is refused" 400
+call admin POST /intake/forms/lookup "{\"link\":\"$BASE/index.php/apps/files/\"}"; expect "a link that is not to a form is refused" 400
+call admin POST /intake/forms/lookup "{\"link\":\"$BASE/index.php/apps/forms/s/$HASH\"}"; expect "the share link finds the form" 200
+[ "$(jq -r '.id' <<<"$BODY")" = "$FORM" ] && pass "and it is the right form" || fail "wrong form: $BODY"
+[ "$(jq -r '[.preview.mapped[].field] | sort | join(",")' <<<"$BODY")" = "category,contact_route,need_or_offer,requester_contact,summary,urgency,zip" ] && pass "questions map to fields by their text or name" || fail "mapping: $BODY"
+[ "$(jq -r '.preview.ignored | join(",")' <<<"$BODY")" = "Favourite colour" ] && pass "an unrelated question is ignored" || fail "ignored: $BODY"
+[ "$(jq -r '.preview.missing | length' <<<"$BODY")" = 0 ] && pass "nothing required is missing" || fail "missing: $BODY"
+call admin POST /intake/forms/lookup "{\"link\":\"$BASE/index.php/apps/forms/$HASH/edit\"}"; expect "the form's own address (with /edit) works too" 200
+call admin POST /intake/forms/lookup "{\"link\":\"$HASH\"}"; expect "and so does the bare code" 200
+call admin PUT /intake/forms "{\"forms\":[{\"formId\":$FORM,\"layer\":\"needs_offers\"}]}"; expect "admin adds the form" 200
+call admin GET /intake
+[ "$(jq -r --argjson f "$FORM" '[.forms[] | select(.formId==$f and .exists==true)] | length' <<<"$BODY")" = 1 ] && pass "the added form is listed with its title" || fail "not listed: $BODY"
 call admin PUT /intake/forms '{"forms":[{"formId":999999,"layer":"needs_offers"}]}'; expect "a form that does not exist is refused" 400
 call admin PUT /intake/forms "{\"forms\":[{\"formId\":$FORM,\"layer\":\"needs_offers\"}]}" >/dev/null
 

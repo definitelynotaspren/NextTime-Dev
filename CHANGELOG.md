@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The README is rewritten to match the app: working curl examples (they need `/index.php` and the `OCS-APIRequest`
+  header), the real install and dev steps, the right Make targets and table list, a Roles section that no longer sat
+  under the wrong heading, and limitations that were out of date.
 - README: part of the API and security sections had been duplicated by an earlier edit; removed.
 - Moving from one request to another in the address bar kept showing the first request; the page now reloads
   when the id changes.
@@ -82,6 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Add a form by its link** on the Form Intake page: paste the Forms share link (or the form's address) and the page
+  looks the form up, says plainly which links work (a form on this server; not Google Forms or another Nextcloud), shows how
+  each question maps, and adds it on a click. Only forms added this way are listed, so organizers no longer see the
+  titles of every form on the server. `POST /api/intake/forms/lookup`.
 - **Nextcloud Forms intake** (Form Intake page, background job every five minutes, `scripts/intake-smoke.sh`).
   New submissions of the forms you switch on become unpublished desk rows with `source = form` and an ID that shows
   the origin (`NO-F<form>-<submission>`; hand-typed rows are `NO-M...`). Rejections are logged with the reason.

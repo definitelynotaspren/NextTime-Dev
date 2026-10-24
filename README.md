@@ -117,7 +117,7 @@ Set with `occ config:app:set timebank <key> --value=<value>`:
 | `fallback_approver_group` | `GSUS` | Group id of the people who decide for members whose chapter has no facilitator |
 | `chapter_zip_prefixes` | built-in for New York City | JSON for city chapters, for example `{"Chicago": ["606"]}`. Replaces the default when set |
 | `adjustment_threshold` | `5` | Hours up to which one admin can adjust a balance alone (1 to 20). Change it under **Adjustments**, which records a reason publicly |
-| `forms_intake` | none | Which forms feed the desk. Change it on the **Form Intake** page |
+| `forms_intake` | none | Which forms feed the desk. Add and remove them on the **Form Intake** page |
 
 ### Category earn rates
 
@@ -184,6 +184,14 @@ Intake** page, for admins and organizers). Each new submission becomes one **unp
 `source = form`. Every row has a unique ID that shows its origin: `NO-F3-17` is submission 17 of form 3 (Nextcloud
 Forms), `NO-M1A2B3C` was typed in on the desk by hand. A submission is looked at once; one that fails the desk's rules is
 logged as rejected with the reason, and is looked at again only when someone presses **Look again at rejected**.
+
+**To add a form**, open **Form Intake**, paste the form's link under **Add a form**, press **Look up this form**, check
+how its questions map, and press **Add this form**. The link has to be a form on this same Nextcloud, made in the Forms
+app: the **share link** from the form's Share panel (`https://your-server/index.php/apps/forms/s/<code>`), or the address
+shown while the form is open (`https://your-server/index.php/apps/forms/<code>`, also with `/edit` or `/results`). The
+code at the end identifies the form; links to other servers or to Google Forms are refused with a message. Only forms
+added this way are listed, so organizers never see the titles of forms nobody gave them. **Remove** stops checking a form;
+rows already imported stay on the desk.
 
 A question feeds the desk field whose key matches its internal name or its text, ignoring case and punctuation ("Need or
 offer" feeds `need_or_offer`). Choice answers are matched to the field's allowed values ("Transportation" becomes
@@ -300,7 +308,8 @@ is aggregate-only and has no row endpoints.
 
 - `GET /api/roles` - your own flags (`organizer`, `facilitator`, `moderator`, `admin`, `fallbackApprover`)
 - `GET /api/chapters/check` - chapters found from your groups, their facilitators, and groups that did not pair
-- `GET /api/intake`, `PUT /api/intake/forms`, `GET /api/intake/forms/{id}/preview?layer=needs_offers`,
+- `GET /api/intake` (the added forms and recent submissions), `POST /api/intake/forms/lookup` (`link`: finds a form and
+  shows its mapping, adds nothing), `PUT /api/intake/forms` (the full list of added forms), `GET /api/intake/forms/{id}/preview?layer=needs_offers`,
   `POST /api/intake/run`, `POST /api/intake/retry`
 
 ### Example calls
