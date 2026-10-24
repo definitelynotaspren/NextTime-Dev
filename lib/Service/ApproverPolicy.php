@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Service;
 
 use OCA\TimeBank\AppInfo\Application;
+use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Schema\SchemaSpec;
 use OCP\IConfig;
 use OCP\IGroupManager;
@@ -14,7 +15,8 @@ use OCP\IGroupManager;
  *
  * Person P may decide about member U when P is not U and one of these holds:
  *  1. P is a Nextcloud admin, so the community can never be locked out.
- *  2. For a chapter U belongs to, P is in both the chapter's member group and its facilitator group.
+ *  2. P is in the facilitator group of a chapter U belongs to. The facilitator group is enough on its
+ *     own; P need not also be in the chapter's member group. Chapters are found by ChapterDirectory.
  *  3. None of U's chapters has a facilitator (or U has no chapter) and P is in the fallback group
  *     (default GSUS). The fallback never overrides a chapter that has its own facilitators.
  */
@@ -25,7 +27,7 @@ class ApproverPolicy {
 	public const AS_FALLBACK = 'fallback';
 
 	public function __construct(
-		private ViewerResolver $viewers,
+		private ChapterDirectory $chapters,
 		private IGroupManager $groups,
 		private IConfig $config,
 	) {
@@ -50,8 +52,8 @@ class ApproverPolicy {
 			return ['as' => self::AS_ADMIN, 'chapter' => null];
 		}
 
-		$memberChapters = $this->viewers->memberChapters($memberId);
-		foreach ($this->viewers->facilitatedChapters($deciderId) as $slug) {
+		$memberChapters = $this->chapters->memberChapters($memberId);
+		foreach ($this->chapters->facilitatedChapters($deciderId) as $slug) {
 			if (in_array($slug, $memberChapters, true)) {
 				return ['as' => self::AS_FACILITATOR, 'chapter' => $slug];
 			}
@@ -75,7 +77,7 @@ class ApproverPolicy {
 	 * @return list<string>
 	 */
 	public function recipients(string $memberId): array {
-		$memberChapters = $this->viewers->memberChapters($memberId);
+		$memberChapters = $this->chapters->memberChapters($memberId);
 
 		$facilitators = [];
 		foreach ($memberChapters as $slug) {
@@ -122,26 +124,15 @@ class ApproverPolicy {
 	 * @return list<string>
 	 */
 	private function facilitatorsOf(string $slug): array {
-		$chapter = SchemaSpec::chapters()[$slug] ?? null;
-		if ($chapter === null) {
-			return [];
-		}
+		$chapter = $this->chapters->get($slug);
 
-		return array_values(array_filter(
-			$this->usersOf($chapter['facilitator_group']),
-			fn (string $user) => $this->groups->isInGroup($user, $chapter['group']),
-		));
+		return $chapter === null ? [] : $this->chapters->usersOf($chapter->facilitatorGroup);
 	}
 
 	/**
 	 * @return list<string>
 	 */
 	private function usersOf(string $groupId): array {
-		$group = $this->groups->get($groupId);
-		if ($group === null) {
-			return [];
-		}
-
-		return array_values(array_map(fn ($user) => $user->getUID(), $group->getUsers()));
+		return $this->chapters->usersOf($groupId);
 	}
 }

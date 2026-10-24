@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Controller;
 
+use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Schema\SchemaSpec;
 use OCA\TimeBank\Service\ApproverPolicy;
 use OCA\TimeBank\Service\CommentService;
@@ -32,6 +33,7 @@ class SchemaController extends Controller {
 		private CommentService $comments,
 		private IGroupManager $groups,
 		private ApproverPolicy $policy,
+		private ChapterDirectory $chapterDirectory,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -53,8 +55,14 @@ class SchemaController extends Controller {
 		}
 
 		$chapters = [];
-		foreach (SchemaSpec::chapters() as $slug => $chapter) {
-			$chapters[] = ['slug' => $slug, 'zips' => $chapter['zips']];
+		foreach ($this->chapterDirectory->all() as $chapter) {
+			$chapters[] = [
+				'slug' => $chapter->slug,
+				'name' => $chapter->name,
+				'covers' => $chapter->zipPrefixes !== []
+					? 'ZIPs starting ' . implode(', ', $chapter->zipPrefixes)
+					: ($chapter->state !== null ? 'every ZIP in ' . $chapter->state : 'no ZIPs'),
+			];
 		}
 
 		return new DataResponse([
@@ -64,6 +72,24 @@ class SchemaController extends Controller {
 			'chapters' => $chapters,
 			'visibilityLevels' => ['public', 'facilitator', 'chapter', 'organizer'],
 		]);
+	}
+
+	/**
+	 * The states and chapters found from the Nextcloud groups, with who facilitates each, and the
+	 * groups that look like they were meant to pair but did not. For admins and organizers.
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[FrontpageRoute(verb: 'GET', url: '/api/chapters/check')]
+	public function chapterCheck(): DataResponse {
+		if ($this->userId === null) {
+			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);
+		}
+		if (!$this->groups->isAdmin($this->userId) && !$this->viewers->forUser($this->userId)->organizer) {
+			return new DataResponse(['error' => 'Admin or organizer role required'], Http::STATUS_FORBIDDEN);
+		}
+
+		return new DataResponse($this->chapterDirectory->report());
 	}
 
 	/**

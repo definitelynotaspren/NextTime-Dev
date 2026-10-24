@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Tests\Unit\Service;
 
+use OCA\TimeBank\Chapter\Chapter;
+use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Db\Adjustment;
 use OCA\TimeBank\Db\AdjustmentMapper;
 use OCA\TimeBank\Schema\Viewer;
@@ -57,7 +59,15 @@ final class AdjustmentServiceTest extends TestCase {
 		$config = $this->createMock(IConfig::class);
 		$config->method('getAppValue')->willReturnArgument(2);
 
-		$policy = new ApproverPolicy($viewers, $groups, $config);
+		$directory = $this->createMock(ChapterDirectory::class);
+		$directory->method('memberChapters')->willReturnCallback(fn (string $u) => $this->chapters[$u] ?? []);
+		$directory->method('facilitatedChapters')->willReturnCallback(fn (string $u) => $this->facilitates[$u] ?? []);
+		$directory->method('get')->willReturnCallback(fn (string $slug) => new Chapter($slug, $slug, null, 'fac-' . $slug, null));
+		$directory->method('usersOf')->willReturnCallback(function (string $gid) {
+			$slug = substr($gid, 4);
+			return array_keys(array_filter($this->facilitates, fn (array $c) => in_array($slug, $c, true)));
+		});
+		$policy = new ApproverPolicy($directory, $groups, $config);
 		$this->service = new AdjustmentService($this->mapper, $this->balances, $this->transactions, $this->log, $viewers, $policy, $groups, $users, $config, $this->db);
 
 		$this->mapper->method('insert')->willReturnCallback(function (Adjustment $a) {

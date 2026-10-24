@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Service;
 
+use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Db\LayerRow;
 use OCA\TimeBank\Db\LayerRowMapper;
 use OCA\TimeBank\Geo\Coordinates;
-use OCA\TimeBank\Schema\ChapterResolver;
 use OCA\TimeBank\Schema\FieldPolicy;
 use OCA\TimeBank\Schema\LayerException;
 use OCA\TimeBank\Schema\RowValidator;
@@ -29,7 +29,10 @@ class LayerService {
 
 	private LayerRowMapper $rowMapper;
 
-	public function __construct(LayerRowMapper $rowMapper) {
+	public function __construct(
+		LayerRowMapper $rowMapper,
+		private ChapterDirectory $chapters,
+	) {
 		$this->rowMapper = $rowMapper;
 	}
 
@@ -55,7 +58,7 @@ class LayerService {
 
 		$out = [];
 		foreach ($this->rowMapper->findForLayer($layer, $dbFilters) as $row) {
-			if (!$viewer->canSeeChapter($row->getChapter())) {
+			if (!$viewer->canSeeChapter($this->chapterOf($row))) {
 				continue;
 			}
 			$out[] = $this->present($row, $viewer);
@@ -85,7 +88,7 @@ class LayerService {
 		$row = new LayerRow();
 		$row->setLayer($layer);
 		$row->setUid($this->newUid($layer, $spec['uid_prefix']));
-		$row->setChapter(ChapterResolver::forZip($result['data']['zip'] ?? null));
+		$row->setChapter($this->chapters->chapterForZip($result['data']['zip'] ?? null));
 		$row->setPublish($result['publish']);
 		$row->setSource('manual');
 		$row->setData(json_encode($result['data'], JSON_THROW_ON_ERROR));
@@ -215,7 +218,7 @@ class LayerService {
 			}
 
 			$payload = array_merge(['uid' => $row->getUid(), 'publish' => 'yes'], $data);
-			$properties = FieldPolicy::filter($fields, $payload, $viewer, $row->getChapter());
+			$properties = FieldPolicy::filter($fields, $payload, $viewer, $this->chapterOf($row));
 
 			$features[] = [
 				'type' => 'Feature',
@@ -231,6 +234,18 @@ class LayerService {
 			'type' => 'FeatureCollection',
 			'features' => $features,
 		];
+	}
+
+	/**
+	 * The chapter that reviews this row, worked out from its ZIP each time rather than read
+	 * from what was stored when it was written. If a chapter's group is added, renamed or
+	 * removed, rows follow it, and a facilitator who loses the role loses the rows with it.
+	 */
+	private function chapterOf(LayerRow $row): ?string {
+		$data = $this->decode($row->getData());
+		$zip = isset($data['zip']) ? (string)$data['zip'] : null;
+
+		return $this->chapters->chapterForZip($zip);
 	}
 
 	/**
@@ -251,11 +266,11 @@ class LayerService {
 			'id' => $row->getId(),
 			'layer' => $row->getLayer(),
 			'source' => $row->getSource(),
-			'chapter' => $row->getChapter(),
+			'chapter' => $this->chapterOf($row),
 			'assignedTo' => $row->getAssignedTo(),
 			'assignmentStatus' => $row->getAssignmentStatus(),
 			'assignedAt' => $row->getAssignedAt()?->format('Y-m-d H:i:s'),
-			'fields' => FieldPolicy::filter($fields, $payload, $viewer, $row->getChapter()),
+			'fields' => FieldPolicy::filter($fields, $payload, $viewer, $this->chapterOf($row)),
 		];
 	}
 

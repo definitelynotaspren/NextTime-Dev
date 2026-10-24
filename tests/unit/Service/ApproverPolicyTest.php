@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Tests\Unit\Service;
 
+use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Service\ApproverPolicy;
-use OCA\TimeBank\Service\ViewerResolver;
 use OCP\IConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
@@ -13,8 +13,8 @@ use OCP\IUser;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Who may decide about a member. Chapter powers need both the chapter group and its
- * facilitator group; the fallback group only covers members without a facilitator.
+ * Who may decide about a member. A chapter's facilitator group alone gives the power; the
+ * fallback group only covers members without a facilitator.
  */
 final class ApproverPolicyTest extends TestCase {
 
@@ -26,10 +26,10 @@ final class ApproverPolicyTest extends TestCase {
 		parent::setUp();
 		$this->groups = [
 			'admin' => ['root'],
-			'chapter-mt-hood' => ['bob', 'fay', 'onlyfac2'],
-			'chapter-mt-hood-facilitator' => ['fay', 'onlyfac', 'onlyfac2x'],
-			'chapter-gresham' => ['carol', 'gus'],
-			'chapter-gresham-facilitator' => ['gus'],
+			'Oregon' => ['bob', 'fay'],
+			'Oregon Facilitators' => ['fay', 'onlyfac'],
+			'Washington' => ['carol'],
+			'Washington Facilitators' => ['gus'],
 			'GSUS' => ['gina', 'fay'],
 		];
 		$this->policy = $this->build();
@@ -37,26 +37,26 @@ final class ApproverPolicyTest extends TestCase {
 
 	private function build(): ApproverPolicy {
 		$manager = $this->createMock(IGroupManager::class);
-		$manager->method('isAdmin')->willReturnCallback(fn (string $u) => in_array($u, $this->groups['admin'] ?? [], true));
-		$manager->method('isInGroup')->willReturnCallback(fn (string $u, string $g) => in_array($u, $this->groups[$g] ?? [], true));
-		$manager->method('get')->willReturnCallback(function (string $g) {
-			if (!isset($this->groups[$g])) {
-				return null;
-			}
+		$make = function (string $gid) {
 			$group = $this->createMock(IGroup::class);
+			$group->method('getGID')->willReturn($gid);
+			$group->method('getDisplayName')->willReturn($gid);
 			$group->method('getUsers')->willReturn(array_map(function (string $id) {
 				$user = $this->createMock(IUser::class);
 				$user->method('getUID')->willReturn($id);
 				return $user;
-			}, $this->groups[$g]));
+			}, $this->groups[$gid]));
 			return $group;
-		});
+		};
+		$manager->method('isAdmin')->willReturnCallback(fn (string $u) => in_array($u, $this->groups['admin'] ?? [], true));
+		$manager->method('isInGroup')->willReturnCallback(fn (string $u, string $g) => in_array($u, $this->groups[$g] ?? [], true));
+		$manager->method('search')->willReturnCallback(fn () => array_map($make, array_keys($this->groups)));
+		$manager->method('get')->willReturnCallback(fn (string $g) => isset($this->groups[$g]) ? $make($g) : null);
 
-		$viewers = new ViewerResolver($manager);
 		$config = $this->createMock(IConfig::class);
 		$config->method('getAppValue')->willReturnArgument(2);
 
-		return new ApproverPolicy($viewers, $manager, $config);
+		return new ApproverPolicy(new ChapterDirectory($manager, $config), $manager, $config);
 	}
 
 	public function testAdminsMayDecideExceptOnThemselves(): void {
@@ -64,11 +64,13 @@ final class ApproverPolicyTest extends TestCase {
 		$this->assertNull($this->policy->capacity('root', 'root'));
 	}
 
-	public function testAFacilitatorNeedsBothGroupsForTheMembersChapter(): void {
-		$this->assertSame(['as' => 'facilitator', 'chapter' => 'mt-hood'], $this->policy->capacity('fay', 'bob'));
+	public function testTheFacilitatorGroupAloneIsEnough(): void {
+		$this->assertSame(['as' => 'facilitator', 'chapter' => 'oregon'], $this->policy->capacity('fay', 'bob'));
+		$this->assertSame('facilitator', $this->policy->capacity('onlyfac', 'bob')['as'], 'not in the Oregon group, still a facilitator');
+	}
 
-		$this->assertNull($this->policy->capacity('onlyfac', 'bob'), 'the facilitator group alone does nothing');
-		$this->assertNull($this->policy->capacity('onlyfac2', 'bob'), 'the chapter group alone does nothing');
+	public function testBelongingToAChapterGivesNoPowers(): void {
+		$this->assertNull($this->policy->capacity('bob', 'fay'));
 		$this->assertNull($this->policy->capacity('gus', 'bob'), 'a facilitator of another chapter cannot decide');
 	}
 
@@ -76,8 +78,16 @@ final class ApproverPolicyTest extends TestCase {
 		$this->assertNull($this->policy->capacity('fay', 'fay'));
 	}
 
+	public function testLosingTheFacilitatorGroupRemovesTheAbilityAtOnce(): void {
+		$this->assertTrue($this->policy->mayDecide('onlyfac', 'bob'));
+
+		$this->groups['Oregon Facilitators'] = ['fay'];
+
+		$this->assertFalse($this->build()->mayDecide('onlyfac', 'bob'));
+	}
+
 	public function testTheFallbackGroupCoversMembersWithoutAFacilitator(): void {
-		$this->groups['chapter-gresham-facilitator'] = [];
+		$this->groups['Washington Facilitators'] = [];
 		$policy = $this->build();
 
 		$this->assertSame('fallback', $policy->capacity('gina', 'carol')['as']);
@@ -86,19 +96,11 @@ final class ApproverPolicyTest extends TestCase {
 
 	public function testTheFallbackNeverOverridesAChapterThatHasFacilitators(): void {
 		$this->assertNull($this->policy->capacity('gina', 'bob'));
-		$this->assertNull($this->policy->capacity('gina', 'carol'), 'gresham has gus');
-	}
-
-	public function testAFacilitatorWhoIsTheOnlyOneDoesNotCountForThemselves(): void {
-		$this->groups['chapter-gresham'] = ['gus'];
-		$policy = $this->build();
-
-		$this->assertSame('fallback', $policy->capacity('gina', 'gus')['as']);
-		$this->assertNull($policy->capacity('gus', 'gus'));
+		$this->assertNull($this->policy->capacity('gina', 'carol'), 'Washington has gus');
 	}
 
 	public function testNotificationsGoToFacilitatorsThenFallbackThenAdmins(): void {
-		$this->assertSame(['fay'], $this->policy->recipients('bob'), 'facilitators with both groups only');
+		$this->assertEqualsCanonicalizing(['fay', 'onlyfac'], $this->policy->recipients('bob'));
 		$this->assertSame(['gus'], $this->policy->recipients('carol'));
 		$this->assertSame(['gina', 'fay'], $this->policy->recipients('stranger'), 'no chapter: the fallback group');
 
