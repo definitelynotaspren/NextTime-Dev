@@ -81,6 +81,18 @@ class LayerController extends Controller {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->unassign($viewer, $layer, $id));
 	}
 
+	/** publish=yes puts the row in the public feed (public fields, rounded point); publish=no takes it down. */
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/publish', requirements: ['layer' => '[a-z_]+', 'id' => '\\d+'])]
+	public function publish(string $layer, int $id): DataResponse {
+		return $this->run(fn (Viewer $viewer) => $this->layerService->setPublished(
+			$viewer,
+			$layer,
+			$id,
+			$this->request->getParam('publish') === 'yes',
+		));
+	}
+
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/status', requirements: ['layer' => '[a-z_]+', 'id' => '\\d+'])]
 	public function status(string $layer, int $id): DataResponse {

@@ -77,11 +77,15 @@ class LayerService {
 	 */
 	public function create(Viewer $viewer, string $layer, array $input): array {
 		$spec = $this->requireReadableLayer($layer);
-		$this->requireOrganizer($viewer);
+		$this->requireStaff($viewer);
 
 		$result = RowValidator::validate($spec['fields'], $input);
 		if ($result['errors'] !== []) {
 			throw LayerException::invalid(implode('; ', $result['errors']));
+		}
+		// Organizers add rows anywhere; a facilitator only inside a chapter they facilitate.
+		if (!$viewer->canSeeChapter($this->chapters->chapterForZip($result['data']['zip'] ?? null))) {
+			throw LayerException::forbidden('You can add rows only for ZIP codes in a chapter you facilitate');
 		}
 
 		$now = new \DateTime();
@@ -100,21 +104,52 @@ class LayerService {
 	}
 
 	/**
-	 * Claims a row for the organizer. Fails if another organizer holds it.
+	 * A row that came from a Nextcloud form. Never published by itself; an organizer or the
+	 * chapter's facilitator reviews and publishes it. The ID says where it came from:
+	 * "NO-F3-17" is submission 17 of form 3, "NO-M1A2B3C" was typed in on the desk.
+	 *
+	 * @param array<string, mixed> $data already validated
+	 * @throws LayerException
+	 */
+	public function importFromForm(string $layer, string $uid, array $data): LayerRow {
+		$this->requireReadableLayer($layer);
+		if ($this->rowMapper->findByUid($layer, $uid) !== null) {
+			throw LayerException::conflict("Row $uid already exists");
+		}
+
+		$now = new \DateTime();
+		$row = new LayerRow();
+		$row->setLayer($layer);
+		$row->setUid($uid);
+		$row->setChapter($this->chapters->chapterForZip($data['zip'] ?? null));
+		$row->setPublish(false);
+		$row->setSource('form');
+		$row->setData(json_encode($data, JSON_THROW_ON_ERROR));
+		$row->setCreatedBy('forms');
+		$row->setCreatedAt($now);
+		$row->setUpdatedAt($now);
+
+		return $this->rowMapper->insert($row);
+	}
+
+	/**
+	 * Claims a row. Organizers can claim any row; a facilitator only rows in a chapter they
+	 * facilitate. Fails if someone else holds it.
 	 *
 	 * @return array<string, mixed>
 	 * @throws LayerException
 	 */
 	public function assign(Viewer $viewer, string $layer, int $id, ?string $status = null): array {
 		$this->requireReadableLayer($layer);
-		$this->requireOrganizer($viewer);
+		$this->requireStaff($viewer);
 
 		$status ??= 'assigned';
 		$this->requireAssignmentStatus($status);
 
 		$row = $this->findRow($layer, $id);
+		$this->requireCanWork($row, $viewer);
 		if ($row->getAssignedTo() !== null && $row->getAssignedTo() !== $viewer->userId) {
-			throw LayerException::conflict('This row is already assigned to another organizer');
+			throw LayerException::conflict('This row is already assigned to someone else');
 		}
 
 		$now = new \DateTime();
@@ -138,6 +173,7 @@ class LayerService {
 
 		$row = $this->findRow($layer, $id);
 		$this->requireHolder($row, $viewer);
+		$this->requireCanWork($row, $viewer);
 
 		$row->setAssignmentStatus($status);
 		$row->setUpdatedAt(new \DateTime());
@@ -146,6 +182,29 @@ class LayerService {
 	}
 
 	/**
+	 * Makes a row public (it then appears in the public feed, with public fields only and a
+	 * rounded point) or takes it down. Whoever may work the row may do this.
+	 *
+	 * @return array<string, mixed>
+	 * @throws LayerException
+	 */
+	public function setPublished(Viewer $viewer, string $layer, int $id, bool $publish): array {
+		$this->requireReadableLayer($layer);
+		$this->requireStaff($viewer);
+
+		$row = $this->findRow($layer, $id);
+		$this->requireCanWork($row, $viewer);
+
+		$row->setPublish($publish);
+		$row->setUpdatedAt(new \DateTime());
+
+		return $this->present($this->rowMapper->update($row), $viewer);
+	}
+
+	/**
+	 * Releases a row. The holder can; so can an organizer, so a row is never stuck with
+	 * someone who has left or lost their role.
+	 *
 	 * Releases a row the viewer holds.
 	 *
 	 * @return array<string, mixed>
@@ -155,7 +214,10 @@ class LayerService {
 		$this->requireReadableLayer($layer);
 
 		$row = $this->findRow($layer, $id);
-		$this->requireHolder($row, $viewer);
+		if (!$viewer->organizer) {
+			$this->requireHolder($row, $viewer);
+			$this->requireCanWork($row, $viewer);
+		}
 
 		$row->setAssignedTo(null);
 		$row->setAssignmentStatus(null);
@@ -172,11 +234,15 @@ class LayerService {
 	 * @throws LayerException
 	 */
 	public function myAssignments(Viewer $viewer, ?string $layer = null, ?string $source = null): array {
-		$this->requireOrganizer($viewer);
+		$this->requireStaff($viewer);
 
 		$out = [];
 		foreach ($this->rowMapper->findAssignedTo($viewer->userId, $layer, $source) as $row) {
 			if (SchemaSpec::layer($row->getLayer()) === null) {
+				continue;
+			}
+			// Someone who lost a chapter's facilitator role no longer sees its rows, held or not.
+			if (!$viewer->canSeeChapter($this->chapterOf($row))) {
 				continue;
 			}
 			$out[] = $this->present($row, $viewer);
@@ -296,15 +362,16 @@ class LayerService {
 		}
 	}
 
-	private function requireOrganizer(Viewer $viewer): void {
-		if (!$viewer->organizer) {
-			throw LayerException::forbidden('Organizer role required');
+	/** Organizers work any row; a facilitator works rows of the chapters they facilitate. */
+	private function requireCanWork(LayerRow $row, Viewer $viewer): void {
+		if (!$viewer->canSeeChapter($this->chapterOf($row))) {
+			throw LayerException::forbidden('You can work only rows in a chapter you facilitate');
 		}
 	}
 
 	private function requireHolder(LayerRow $row, Viewer $viewer): void {
 		if ($row->getAssignedTo() !== $viewer->userId) {
-			throw LayerException::forbidden('Only the organizer holding this row can change it');
+			throw LayerException::forbidden('Only the person holding this row can change it');
 		}
 	}
 
