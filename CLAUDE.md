@@ -107,9 +107,11 @@ then `make docker-install-app`. Run the smoke test with
 - **Comments are moderated, not author-deleted.** 3 distinct flags hide a comment from members;
   moderators (NC admins and `timebank-organizer`) remove or dismiss. Removal is soft (`removed_at`/`removed_by`).
   `RequestController::show` swaps in `CommentService::getForViewer` so hidden text never leaves the server.
-- **Facilitating a chapter takes two groups:** `chapter-<slug>` AND `chapter-<slug>-facilitator`. `ApproverPolicy`
-  decides who may act for a member (admin, chapter facilitator, or the `GSUS` fallback when the chapter has none).
-  `scripts/approver-smoke.sh` covers it; the dev server needs the Notifications app (`dev-native.sh` installs it).
+- **Chapters come from group names** (`lib/Chapter/ChapterDirectory.php`): "<Name>" plus "<Name> Facilitator(s)".
+  The facilitator group alone gives the power. Membership and roles are checked by group id, never cached across
+  requests. `ApproverPolicy` decides who may act for a member (admin, chapter facilitator, or the `GSUS` fallback when
+  no chapter of theirs has one). Desk rows get their chapter from the ZIP (`lib/Geo/ZipStates.php`). Tests need
+  group names with spaces; `scripts/approver-smoke.sh` and `desk-smoke.sh` create "Oregon" groups with occ.
 - **Nobody decides on their own claim or adjustment.** `EarningService::requireDecidable` covers approve, reject,
   send-to-vote and vote; `AdjustmentService` refuses the proposer and the member. Keep that rule in any new path.
 - **Admin changes are logged publicly.** Call `GovernanceLog::record()` for any new admin power. Categories in

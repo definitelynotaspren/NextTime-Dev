@@ -2,8 +2,9 @@
 # Who may decide on a claim: chapter facilitators (both groups), the fallback group, admins.
 # Also checks the in-app notification. Uses occ to set up groups, so it needs the dev server.
 #
-# Dev users as roles: bob is a member of mt-hood; carol is member and facilitator (both groups);
-# alice has only the facilitator group and no chapter; admin is an admin. Groups are removed again at the end.
+# Dev users as roles: bob is a member of the Oregon group; carol is in "Oregon Facilitators" only (the
+# facilitator group on its own is enough); alice is in no group at all; admin is an admin. Chapters are
+# found from the group names. Groups are removed again at the end.
 #
 # Usage:  scripts/approver-smoke.sh [BASE_URL]
 # Exit code is the number of failed checks (0 = all good).
@@ -16,8 +17,8 @@ API="$BASE/index.php/apps/timebank/api"
 FAILS=0
 TMP="$(mktemp -d)"
 cleanup() {
-	for g in "chapter-mt-hood bob" "chapter-mt-hood carol" "chapter-mt-hood-facilitator carol" "chapter-mt-hood-facilitator alice" "GSUS bob" "GSUS alice"; do
-		scripts/dev-native.sh occ group:removeuser $g >/dev/null 2>&1 || true
+	for pair in "Oregon|bob" "Oregon Facilitators|carol" "GSUS|bob" "GSUS|alice"; do
+		scripts/dev-native.sh occ group:removeuser "${pair%%|*}" "${pair##*|}" >/dev/null 2>&1 || true
 	done
 	rm -rf "$TMP"
 }
@@ -51,12 +52,9 @@ ocs() { # ocs USER PATH -> OCS notifications, JSON
 echo "NextTime approver smoke test against $BASE"
 
 echo "- Roles"
-for g in chapter-mt-hood chapter-mt-hood-facilitator GSUS; do occ group:add "$g"; done
-# bob: member of mt-hood. carol: member and facilitator. alice: facilitator group only.
-occ group:adduser chapter-mt-hood bob
-occ group:adduser chapter-mt-hood carol
-occ group:adduser chapter-mt-hood-facilitator carol
-occ group:adduser chapter-mt-hood-facilitator alice
+for g in "Oregon" "Oregon Facilitators" "GSUS"; do occ group:add "$g"; done
+occ group:adduser "Oregon" bob
+occ group:adduser "Oregon Facilitators" carol
 
 call alice GET /categories; CAT_ID="$(jq -r '.[0].id' <<<"$BODY")"
 
@@ -66,11 +64,13 @@ expect "bob submits a claim" 201
 BOB_CLAIM="$(jq -r '.id' <<<"$BODY")"
 
 call alice GET /earnings/pending
-[ "$(jq -r --argjson c "$BOB_CLAIM" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 0 ] && pass "the facilitator group alone does not show bob's claim" || fail "alice sees bob's claim: $BODY"
+[ "$(jq -r --argjson c "$BOB_CLAIM" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 0 ] && pass "someone in no group does not see bob's claim" || fail "alice sees bob's claim: $BODY"
 call alice POST "/earnings/$BOB_CLAIM/approve"
-expect "the facilitator group alone cannot approve" 403
+expect "someone in no group cannot approve" 403
 call carol GET /earnings/pending
-[ "$(jq -r --argjson c "$BOB_CLAIM" '[.[] | select(.id==$c)][0].decidingAs' <<<"$BODY")" = facilitator ] && pass "carol (both groups) sees it, as a facilitator" || fail "carol's list: $BODY"
+[ "$(jq -r --argjson c "$BOB_CLAIM" '[.[] | select(.id==$c)][0].decidingAs' <<<"$BODY")" = facilitator ] && pass "carol (Oregon Facilitators only) sees it, as a facilitator" || fail "carol's list: $BODY"
+call bob POST "/earnings/$BOB_CLAIM/send-to-vote"
+expect "belonging to Oregon gives bob no powers" 403
 call bob GET /earnings/pending
 [ "$(jq -r '[.[] | select(.userId=="bob")] | length' <<<"$BODY")" = 0 ] && pass "bob sees none of his own claims to decide" || fail "bob's list: $BODY"
 call bob POST "/earnings/$BOB_CLAIM/approve"
@@ -81,7 +81,7 @@ N="$(ocs carol)"
 jq -e --arg c "$BOB_CLAIM" '[.ocs.data[] | select(.object_type=="claim" and .object_id==$c)] | length == 1' <<<"$N" >/dev/null 2>&1 && pass "carol was told about bob's claim" || fail "no notification for carol: $(head -c 300 <<<"$N")"
 jq -e --arg c "$BOB_CLAIM" '[.ocs.data[] | select(.object_id==$c) | .subject] | all(contains("Approver smoke") | not)' <<<"$N" >/dev/null 2>&1 && pass "the description is not in the notification" || fail "description leaked into the notification"
 jq -e --arg c "$BOB_CLAIM" '[(.ocs.data // [])[] | select(.object_id==$c)] | length == 0' <<<"$(ocs bob)" >/dev/null 2>&1 && pass "bob is not told about his own claim" || fail "bob was notified"
-jq -e --arg c "$BOB_CLAIM" '[(.ocs.data // [])[] | select(.object_id==$c)] | length == 0' <<<"$(ocs alice)" >/dev/null 2>&1 && pass "a facilitator-group-only member is not told" || fail "alice was notified"
+jq -e --arg c "$BOB_CLAIM" '[(.ocs.data // [])[] | select(.object_id==$c)] | length == 0' <<<"$(ocs alice)" >/dev/null 2>&1 && pass "someone in no group is not told" || fail "alice was notified"
 
 call carol POST "/earnings/$BOB_CLAIM/approve"
 expect "carol approves bob's claim" 200
@@ -94,7 +94,7 @@ call alice POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"de
 expect "alice (no chapter) submits a claim" 201
 ALICE_CLAIM="$(jq -r '.id' <<<"$BODY")"
 call carol POST "/earnings/$ALICE_CLAIM/approve"
-expect "a facilitator of another member's chapter cannot decide for someone with no chapter" 403
+expect "the Oregon facilitator cannot decide for someone with no chapter" 403
 call bob POST "/earnings/$ALICE_CLAIM/approve"
 expect "a plain member cannot" 403
 occ group:adduser GSUS bob
@@ -113,6 +113,26 @@ call bob POST "/earnings/$BOB2/approve"
 expect "and nobody decides on their own claim" 403
 call admin POST "/earnings/$BOB2/approve"
 expect "an admin still can" 200
+
+echo "- Losing the facilitator role takes the ability away at once"
+call bob POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Approver smoke: bob, facilitator removed\"}"
+BOB3="$(jq -r '.id' <<<"$BODY")"
+call carol GET /earnings/pending
+[ "$(jq -r --argjson c "$BOB3" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 1 ] && pass "carol sees the new claim" || fail "carol's list: $BODY"
+occ group:removeuser "Oregon Facilitators" carol
+call carol POST "/earnings/$BOB3/approve"
+expect "once removed from the facilitator group carol can no longer approve" 403
+call carol GET /earnings/pending
+[ "$(jq -r --argjson c "$BOB3" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 0 ] && pass "and no longer sees the claim" || fail "carol still sees it: $BODY"
+call admin POST "/earnings/$BOB3/reject" '{"reason":"Approver smoke: cleaning up this claim"}'
+expect "an admin can still settle it" 200
+
+echo "- Chapter check page"
+call carol GET /chapters/check
+expect "members cannot open the chapter check" 403
+call admin GET /chapters/check
+expect "admin opens the chapter check" 200
+[ "$(jq -r '[.chapters[] | select(.slug=="oregon")] | length' <<<"$BODY")" = 1 ] && pass "Oregon was found from the group names" || fail "Oregon missing: $BODY"
 
 echo
 if [ "$FAILS" -eq 0 ]; then echo "All approver checks passed."; else echo "$FAILS check(s) failed."; fi

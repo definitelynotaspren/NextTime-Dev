@@ -3,7 +3,7 @@
 #
 # Roles used (created here with occ, idempotent):
 #   alice  organizer            (group timebank-organizer)
-#   bob    facilitator of mt-hood (groups chapter-mt-hood and chapter-mt-hood-facilitator, both needed)
+#   bob    facilitator of Oregon (group "Oregon Facilitators" alone is enough; chapters are found from group names)
 #   carol  plain member
 # Checks that fields marked organizer/chapter never reach people outside those roles,
 # that the survey layer is never returned, that the public feed carries only public
@@ -57,11 +57,10 @@ echo "NextTime organizer desk smoke test against $BASE"
 echo "- Roles"
 occ group:add timebank-organizer
 occ group:add timebank-facilitator
-occ group:add chapter-mt-hood
-occ group:add chapter-mt-hood-facilitator
+occ group:add "Oregon"
+occ group:add "Oregon Facilitators"
 occ group:adduser timebank-organizer alice
-occ group:adduser chapter-mt-hood bob
-occ group:adduser chapter-mt-hood-facilitator bob
+occ group:adduser "Oregon Facilitators" bob
 
 echo "- Schema access"
 call carol GET /schema; eq "member cannot read the schema" 403
@@ -81,7 +80,7 @@ ID="$(jq -r '.id' "$TMP/body")"
 UID_="$(jq -r '.fields.uid' "$TMP/body")"
 has "organizer sees requester_contact" '.fields.requester_contact=="555-0100 Jane Doe"'
 has "organizer sees lat and lon" '.fields.lat==45.40731 and .fields.lon==-122.20149'
-has "chapter is derived from the ZIP, source is manual" '.chapter=="mt-hood" and .source=="manual"'
+has "chapter is derived from the ZIP, source is manual" '.chapter=="oregon" and .source=="manual"'
 call alice POST /layers/needs_offers/rows '{"summary":"x","ssn":"1"}'; eq "unknown field is rejected" 422
 call alice POST /layers/needs_offers/rows '{"need_or_offer":"need","category":"gold"}'; eq "value outside the lookup is rejected" 422
 
@@ -91,18 +90,20 @@ has "facilitator sees the row's summary" 'any(.[]; .id==$id and .fields.summary=
 has "no row shows requester_contact to a facilitator" 'any(.[]; .fields|has("requester_contact"))|not'
 has "no row shows lat or lon to a facilitator" 'any(.[]; .fields|has("lat") or has("lon"))|not'
 call carol GET /layers/needs_offers/rows; eq "member cannot list rows" 403
-occ group:add chapter-gresham
-occ group:add chapter-gresham-facilitator
-occ group:adduser chapter-gresham carol
-call carol GET /layers/needs_offers/rows; eq "belonging to a chapter without the facilitator group gives no desk access" 403
-occ group:removeuser chapter-gresham carol
-occ group:adduser chapter-gresham-facilitator carol
-call carol GET /layers/needs_offers/rows; eq "the facilitator group without the chapter group gives no desk access" 403
-occ group:adduser chapter-gresham carol
-call carol GET /layers/needs_offers/rows; eq "other-chapter facilitator (both groups) can list" 200
-has "other-chapter facilitator sees none of mt-hood's rows" 'any(.[]; .id==$id)|not' --argjson id "$ID"
-occ group:removeuser chapter-gresham carol
-occ group:removeuser chapter-gresham-facilitator carol
+occ group:add "Washington"
+occ group:add "Washington Facilitators"
+occ group:adduser "Washington" carol
+call carol GET /layers/needs_offers/rows; eq "belonging to a chapter's group gives no desk access" 403
+occ group:removeuser "Washington" carol
+occ group:adduser "Washington Facilitators" carol
+call carol GET /layers/needs_offers/rows; eq "the facilitator group alone gives desk access" 200
+has "a facilitator of another chapter sees none of Oregon's rows" 'any(.[]; .id==$id)|not' --argjson id "$ID"
+occ group:removeuser "Washington Facilitators" carol
+call carol GET /layers/needs_offers/rows; eq "removing the facilitator group removes desk access at once" 403
+call bob GET /layers/needs_offers/rows; eq "bob (Oregon Facilitators) still lists rows" 200
+occ group:removeuser "Oregon Facilitators" bob
+call bob GET /layers/needs_offers/rows; eq "a facilitator who loses the role loses the rows at once" 403
+occ group:adduser "Oregon Facilitators" bob
 
 echo "- Public feed"
 call carol GET /layers/needs_offers/feed; eq "member reads the feed" 200

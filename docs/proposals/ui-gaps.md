@@ -166,17 +166,17 @@ decides for people who have no facilitator.
 
 ### Roles (Nextcloud groups)
 
+*Revised 2026-10-24:* the first version of this step required two groups (`chapter-<slug>` and
+`chapter-<slug>-facilitator`) and used fixed group names. It now reads the organization's real groups and the
+facilitator group alone gives the power. See `README.md` (Roles) and `lib/Chapter/ChapterDirectory.php`.
+
 | Group | Meaning |
 |-------|---------|
-| `chapter-<slug>` | Member of that state or chapter. It says where a person belongs. It gives no powers. |
-| `chapter-<slug>-facilitator` | Facilitator role for that state. **Powerless alone.** |
-| `GSUS` | Fallback approvers, used only for people whose state has no facilitator (or who have no state). The group name is the setting `fallback_approver_group`. |
-| `timebank-organizer` | Organizer desk and comment moderation, unchanged. |
-| `timebank-facilitator` | Unchanged for the organizer desk's non-chapter fields. It no longer lets anyone approve claims by itself. |
-
-Before this step, being in `chapter-<slug>` made someone both a member and a facilitator. That is why
-the roles are now split: facilitating a state means being in **both** `chapter-<slug>` and
-`chapter-<slug>-facilitator`. This also tightens the organizer desk, which used the old single group.
+| `<State>` (for example "Colorado") | Member of that state. Says where a person belongs; gives no powers. |
+| `<State> Facilitator(s)` | Facilitators of that state. **Enough on its own.** |
+| `GSUS` | Fallback approvers, used only for people whose state has no facilitator (or who have no state). The group id is the setting `fallback_approver_group`. |
+| `timebank-organizer` | Organizer desk and comment moderation. |
+| `timebank-facilitator` | Desk access without chapter rows. It does not let anyone approve claims. |
 
 ### Who may act (D6a)
 
@@ -184,12 +184,12 @@ For a claim, or a large balance adjustment, about user U, a person P may decide 
 these holds:
 
 1. P is a Nextcloud admin (kept so the community can never be locked out, and logged by the ledger).
-2. For some state S that U belongs to, P is in **both** `chapter-S` and `chapter-S-facilitator`.
+2. For some state S that U belongs to, P is in S's facilitator group.
 3. **None** of U's states has a facilitator (or U has no state), and P is in `GSUS`.
 
 Rule 3 applies only while rule 2 has nobody to offer, so GSUS cannot override a state's own facilitators.
 Approvers can approve, reject (with a reason) or send to a community vote. The pending list shows each
-person only the claims they may decide, with the reason ("as facilitator of mt-hood", "as GSUS"). Nobody
+person only the claims they may decide, with the reason ("as facilitator of Colorado", "as GSUS"). Nobody
 acts on their own claim.
 
 ### Who is notified

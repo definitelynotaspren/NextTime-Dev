@@ -277,11 +277,10 @@ const pickFirstOption = async (page, placeholder) => {
 	check('a member name opens that member\'s ledger', /#\/ledger\/user\/bob/.test(carol.url()) && await carol.getByRole('heading', { name: 'Ledger for bob' }).count() > 0)
 
 	console.log('- Admin tools: categories, adjustments, second approval')
-	occ('group:add', 'chapter-mt-hood')
-	occ('group:add', 'chapter-mt-hood-facilitator')
-	occ('group:adduser', 'chapter-mt-hood', 'bob')
-	occ('group:adduser', 'chapter-mt-hood-facilitator', 'bob')
-	occ('group:adduser', 'chapter-mt-hood', 'alice')
+	occ('group:add', 'Oregon')
+	occ('group:add', 'Oregon Facilitators')
+	occ('group:adduser', 'Oregon Facilitators', 'bob')
+	occ('group:adduser', 'Oregon', 'alice')
 	const catName = `UI cat ${stamp}`
 	await go(admin, '/admin/categories')
 	await admin.getByRole('button', { name: 'New category' }).click()
@@ -326,7 +325,10 @@ const pickFirstOption = async (page, placeholder) => {
 	await go(bob, '/governance')
 	check('members can read the governance log', await bob.getByText(/applied an adjustment for/).count() > 0)
 
-	occ('group:removeuser', 'chapter-mt-hood', 'alice')
+	await go(admin, '/chapters')
+	check('the chapter check lists Oregon, found from the group names', await admin.locator('tr', { hasText: 'Oregon' }).count() === 1 && await admin.getByText('every ZIP in OR').count() > 0)
+	occ('group:removeuser', 'Oregon', 'alice')
+	occ('group:removeuser', 'Oregon Facilitators', 'bob')
 	await go(admin, '/admin/approvals')
 	check('an admin sees no approve button on their own claim', await admin.locator('.claim-card', { hasText: 'This is your claim' }).getByRole('button', { name: 'Approve' }).count() === 0)
 

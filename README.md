@@ -260,21 +260,33 @@ needed no second person.
 
 #### Roles
 
-Roles come from Nextcloud groups (create them under Users, or with `occ group:add`):
+Roles come from Nextcloud groups, so an admin creates nothing beyond the groups the organization already has:
 
 | Group | Meaning |
 |-------|---------|
-| `chapter-<slug>` (for example `chapter-mt-hood`) | You belong to that state or chapter. Gives no powers. |
-| `chapter-<slug>-facilitator` | Facilitator role for that chapter. Powerless alone. |
-| `GSUS` | Fallback approvers, for members whose chapter has no facilitator (and members with no chapter). Another group name can be set with the app setting `fallback_approver_group`. |
-| `timebank-organizer` | Organizer desk; also moderates comments. |
-| `timebank-facilitator` | Organizer desk access, without chapter rows. Does not let anyone approve claims. |
+| `<State>` (for example "Colorado") | Who belongs to that state or chapter. Gives no powers. |
+| `<State> Facilitator` or `<State> Facilitators` | The facilitators of that chapter. **This group alone gives the power**; they need not also be in `<State>`. |
+| `GSUS` | Fallback approvers, for members whose chapter has no facilitator (and members with no chapter). Another group id can be set with the app setting `fallback_approver_group`. |
+| `timebank-organizer` | Organizer desk (assign, publish); also moderates comments. |
+| `timebank-facilitator` | Desk access without chapter rows. Does not let anyone approve claims. |
 
-**Facilitating a chapter takes both `chapter-<slug>` and `chapter-<slug>-facilitator`.** A person may decide on a
-claim, or approve a large balance adjustment, for member U (never their own) when they are a Nextcloud admin,
-or they facilitate a chapter U belongs to, or none of U's chapters has a facilitator and they are in `GSUS`.
-`GSUS` never overrides a chapter that has facilitators. Nextcloud admins are not organizers unless they are
-also in the organizer group.
+NextTime finds chapters by pairing group names: a facilitator group pairs with the group of the same name minus
+"Facilitator(s)", ignoring case, spaces, hyphens and underscores. The name used is the group's display name, or its
+id when it has none; every role check uses the group id. A pair, or a lone facilitator group named after a US state
+(or city chapter), is a chapter. A facilitator group that matches nothing (such as "Chapter Facilitators") is
+ignored. The **Chapters** page (admins and organizers) lists what was found, who facilitates each, states that have no
+facilitator group, and groups it ignored, so a spelling mistake shows up.
+
+Which chapter reviews an organizer-desk row is worked out from its ZIP code each time: the chapter named after the ZIP's
+state, or a city chapter's own prefixes (New York City is built in; others go in the JSON app setting
+`chapter_zip_prefixes`, for example `{"Chicago": ["606"]}`). Roles are read from the groups on every request,
+nothing is cached, so removing someone from a facilitator group ends their ability to approve or see that chapter's
+rows on their next click.
+
+A person may decide on a claim, or approve a large balance adjustment, for member U (never their own) when they are a
+Nextcloud admin, or they are in the facilitator group of a chapter U belongs to, or none of U's chapters has a
+facilitator and they are in `GSUS`. `GSUS` never overrides a chapter that has facilitators. Nextcloud admins are not
+organizers unless they are also in the organizer group.
 
 When a claim is submitted, the facilitators of the claimant's chapters are told in Nextcloud's notifications
 (else `GSUS`, else the admins). The notice names who, hours and category, never the description, and clears for
@@ -470,9 +482,10 @@ with a reason, and completing. As of v0.6.0, requesters can edit (while open) an
 requests, offers and withdrawn help, comments are moderated by community flags, and admins manage
 categories and balance adjustments in the app. Remaining gaps:
 
-- **Roles are Nextcloud groups you create and fill by hand,** including `chapter-<slug>-facilitator` and `GSUS`.
-  There is no screen in NextTime for assigning them, and chapters are defined in code
-  (`lib/Schema/SchemaSpec.php`: `mt-hood`, `gresham`).
+- **Roles are Nextcloud groups you fill by hand.** There is no screen in NextTime for assigning people to chapters
+  or facilitator groups; the Chapters page shows what was found but does not edit it.
+- **ZIP-to-state uses a built-in table** (generated October 2026). A few prefixes that straddle a state line are
+  handled by exact ZIP, military and unassigned prefixes have no chapter, and city chapters need their prefixes set.
 - **Claim notices need the Nextcloud Notifications app and cron.** Other events (a cancelled request, a hidden
   comment, an accepted offer) are not notified.
 - **A large balance adjustment needs a second approver the same way claims do** (another admin, a facilitator of

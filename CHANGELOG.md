@@ -80,6 +80,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   were left alone. Stale Nextcloud ranges in INSTALL and DEPLOYMENT_GUIDE (29–33, 27–32) now
   say 29–35.
 
+### Changed
+
+- **Chapters are now discovered from Nextcloud groups** instead of two fixed ones. A group "Colorado" and a group
+  "Colorado Facilitators" (or "Facilitator") make the Colorado chapter, with no setup. **The facilitator group alone
+  gives the power**; the earlier rule that also required the `chapter-<slug>` member group is gone, and the old
+  `chapter-mt-hood` / `chapter-gresham` groups are no longer special. Organizer-desk rows are matched to a chapter
+  by ZIP code (a built-in ZIP-to-state table, plus ZIP prefixes for city chapters) each time they are read, so a
+  facilitator who loses the role stops seeing the rows and stops being able to approve at once.
+- New **Chapters** page (admins and organizers): chapters found, facilitators, states with no facilitator group,
+  and facilitator groups that were ignored.
+- `docs/flows.md` walks an offer, a need and a three-person job through the system; `docs/proposals/next-steps.md` is
+  the to-do list.
+
 ### Added
 
 - **Facilitators approve for their own state, and are notified** (Step D of `docs/proposals/ui-gaps.md`).
