@@ -116,6 +116,15 @@ onMounted(() => {
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					v-if="isAdmin || isOrganizer"
+					:name="'Form Intake'"
+					:to="{ name: 'IntakeView' }"
+					:active="route.name === 'IntakeView'">
+					<template #icon>
+						<span class="nav-icon">&#128229;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					v-if="isAdmin || isOrganizer"
 					:name="'Chapters'"
 					:to="{ name: 'ChapterCheck' }"
 					:active="route.name === 'ChapterCheck'">

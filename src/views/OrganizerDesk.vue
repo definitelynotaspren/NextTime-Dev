@@ -106,6 +106,8 @@ const act = async (row: Row, request: () => Promise<unknown>) => {
 
 const base = (row: Row) => `/apps/timebank/api/layers/${row.layer}/rows/${row.id}`
 const assign = (row: Row) => act(row, () => axios.post(generateUrl(`${base(row)}/assign`)))
+const setPublished = (row: Row, publish: boolean) =>
+	act(row, () => axios.post(generateUrl(`${base(row)}/publish`), { publish: publish ? 'yes' : 'no' }))
 const release = (row: Row) => act(row, () => axios.delete(generateUrl(`${base(row)}/assign`)))
 const setStatus = (row: Row, status: string) =>
 	act(row, () => axios.post(generateUrl(`${base(row)}/status`), { status }))
@@ -243,9 +245,13 @@ onMounted(async () => {
 					<span v-if="row.assignedTo" class="meta">
 						Assigned to {{ row.assignedTo }}<span v-if="row.assignmentStatus"> · {{ row.assignmentStatus }}</span>
 					</span>
+					<span class="meta">{{ row.fields.publish === 'yes' ? 'Public' : 'Not public' }}</span>
 				</div>
 
 				<div class="row-actions">
+					<NcButton :disabled="busyId === row.id" @click="setPublished(row, row.fields.publish !== 'yes')">
+						{{ row.fields.publish === 'yes' ? 'Unpublish' : 'Publish' }}
+					</NcButton>
 					<template v-if="!row.assignedTo">
 						<NcButton :disabled="busyId === row.id" @click="assign(row)">
 							Assign to me
