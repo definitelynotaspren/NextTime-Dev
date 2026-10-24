@@ -31,7 +31,8 @@ which can arrive from Nextcloud Forms.
 - **Database**: the app declares PostgreSQL 12+, MySQL 8.0+ and SQLite, but **only SQLite has been run**. Test the
   others before relying on them.
 - **Nextcloud Notifications app** (shipped and enabled on a normal install): needed for "a claim is waiting" notices.
-- **Nextcloud Forms app** (optional): only if you want form intake. Nextcloud's normal **background jobs (cron)**
+- **Nextcloud Forms app** (optional): only if you want form intake. Intake reads Forms' own tables and was run against
+  Forms 5.2 on Nextcloud 31; other Forms versions were not run, so check **Form Intake** after upgrading Forms. Nextcloud's normal **background jobs (cron)**
   must be running for reminders and for intake to check forms every five minutes.
 - **Node.js 20+ and npm 10+**: only to build from source. A release package ships the built frontend.
 
@@ -198,7 +199,7 @@ offer" feeds `need_or_offer`). Choice answers are matched to the field's allowed
 `transport`). `posted`, `expires` (30 days) and `status` (`open`) are filled in when the form does not ask. Answers to
 questions that match no field are not kept. The form needs questions for: Need or offer, Category, Summary, ZIP, Urgency
 and Contact route. Optional ones include Area hint and Requester contact (organizer-only). **Check how it maps** on the
-Form Intake page shows what a form would do before you switch it on.
+Form Intake page, and the lookup step before you add a form, show what a form would do.
 
 It reads the Forms app's own tables and writes nothing to Forms. Forms keeps the original answers, including who submitted
 them unless the form is anonymous; NextTime does not copy the submitter's account into the row.
@@ -387,7 +388,7 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **Facilitators cannot approve or see rows**: open **Chapters** and check that their facilitator group was found and that
   its name matches the chapter's group. A group named `Arkansas Facilitaters` will not pair with `Arkansas`.
 - **No claim notices**: the Nextcloud Notifications app must be enabled and Nextcloud cron running.
-- **Forms are not imported**: the Forms app must be enabled, the form switched on under **Form Intake**, and cron running;
+- **Forms are not imported**: the Forms app must be enabled, the form added under **Form Intake**, and cron running;
   rejected submissions and their reasons are listed on that page.
 - **Map shows no markers**: check the Content-Security-Policy host (see Map above) and that requests have coordinates.
 - **Dev server stalls**: PHP's built-in server is single-threaded; `make native-start` already runs it with 4 workers.
