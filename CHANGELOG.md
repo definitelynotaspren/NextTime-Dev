@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Missing spaces in two places: the Governance Log ran the action into the name ("an adjustment foralice",
+  "created categoryGardening") and Withdrawn help on a request ran the volunteer into the hours ("carol3 h").
 - The README is rewritten to match the app: working curl examples (they need `/index.php` and the `OCS-APIRequest`
   header), the real install and dev steps, the right Make targets and table list, a Roles section that no longer sat
   under the wrong heading, and limitations that were out of date.

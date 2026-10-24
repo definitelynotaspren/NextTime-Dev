@@ -89,7 +89,7 @@ onMounted(load)
 			</p>
 			<div v-for="entry in entries" :key="entry.id" class="entry">
 				<div class="entry-head">
-					<span><strong>{{ entry.actorId }}</strong> {{ describe(entry) }}<template v-if="entry.subject"> <strong>{{ entry.subject }}</strong></template></span>
+					<span><strong>{{ entry.actorId }}</strong> {{ describe(entry) }} <strong v-if="entry.subject">{{ entry.subject }}</strong></span>
 					<span class="when">{{ new Date(entry.createdAt).toLocaleString() }}</span>
 				</div>
 				<div v-if="detailText(entry)" class="detail">
