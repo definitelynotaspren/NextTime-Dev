@@ -62,7 +62,11 @@ export interface RequestComment {
 	flags?: CommentFlag[]
 }
 
-/** The server's plain-language message for a failed action, or a fallback. */
+/**
+ * The server's plain-language message for a failed action, or a fallback.
+ * @param error
+ * @param fallback
+ */
 export function errorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
 	const err = error as { response?: { data?: { error?: string } } }
 	return err.response?.data?.error || fallback
@@ -127,8 +131,7 @@ export const useRequestStore = defineStore('requests', {
 			try {
 				const params = new URLSearchParams()
 				if (this.filters.status) params.append('status', this.filters.status)
-				if (this.filters.categoryId)
-					params.append('categoryId', this.filters.categoryId.toString())
+				if (this.filters.categoryId) { params.append('categoryId', this.filters.categoryId.toString()) }
 				if (this.filters.priority) params.append('priority', this.filters.priority)
 				params.append('limit', this.pagination.limit.toString())
 				params.append('offset', this.pagination.offset.toString())
@@ -193,13 +196,21 @@ export const useRequestStore = defineStore('requests', {
 			await this.fetchRequestDetails(requestId, true)
 		},
 
-		/** Accepted help needs a reason; it goes into the log of withdrawn help. */
+		/**
+		 * Accepted help needs a reason; it goes into the log of withdrawn help.
+		 * @param offerId
+		 * @param requestId
+		 * @param reason
+		 */
 		async withdrawOffer(offerId: number, requestId: number, reason: string | null) {
 			await axios.delete(generateUrl(`/apps/timebank/api/volunteers/${offerId}`), { data: { reason } })
 			await this.fetchRequestDetails(requestId, true)
 		},
 
-		/** Completes every accepted volunteer; hours are still claimed separately. */
+		/**
+		 * Completes every accepted volunteer; hours are still claimed separately.
+		 * @param requestId
+		 */
 		async completeRequest(requestId: number) {
 			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/complete`))
 			await this.fetchRequestDetails(requestId, true)

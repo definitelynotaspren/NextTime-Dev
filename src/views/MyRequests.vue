@@ -214,8 +214,7 @@ onMounted(() => {
 				v-for="request in requests"
 				:key="request.id"
 				:request="request"
-				@click="viewRequest(request.id)"
-			/>
+				@click="viewRequest(request.id)" />
 		</div>
 
 		<NcModal v-if="withdrawTarget" size="small" @close="withdrawTarget = null">

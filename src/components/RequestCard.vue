@@ -60,9 +60,13 @@ const formatDate = (dateString: string | null) => {
 			</span>
 		</div>
 
-		<h3 class="card-title">{{ request.title }}</h3>
+		<h3 class="card-title">
+			{{ request.title }}
+		</h3>
 
-		<p class="card-description">{{ truncatedDescription }}</p>
+		<p class="card-description">
+			{{ truncatedDescription }}
+		</p>
 
 		<div class="card-meta">
 			<div class="meta-item">

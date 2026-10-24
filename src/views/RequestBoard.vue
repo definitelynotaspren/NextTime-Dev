@@ -97,38 +97,35 @@ onMounted(() => {
 				:reduce="(option) => option.id"
 				label-outside
 				placeholder="Status"
-				@update:model-value="applyFilters"
-			/>
+				@update:model-value="applyFilters" />
 			<NcSelect
 				v-model="selectedCategory"
 				:options="categoryOptions"
 				:reduce="(option) => option.id"
 				label-outside
 				placeholder="Category"
-				@update:model-value="applyFilters"
-			/>
+				@update:model-value="applyFilters" />
 			<NcSelect
 				v-model="selectedPriority"
 				:options="priorityOptions"
 				:reduce="(option) => option.id"
 				label-outside
 				placeholder="Priority"
-				@update:model-value="applyFilters"
-			/>
-			<NcButton @click="clearFilters">Clear Filters</NcButton>
+				@update:model-value="applyFilters" />
+			<NcButton @click="clearFilters">
+				Clear Filters
+			</NcButton>
 		</div>
 
 		<div class="view-toggle">
 			<NcButton
 				:type="viewMode === 'grid' ? 'primary' : 'secondary'"
-				@click="viewMode = 'grid'"
-			>
+				@click="viewMode = 'grid'">
 				Grid View
 			</NcButton>
 			<NcButton
 				:type="viewMode === 'map' ? 'primary' : 'secondary'"
-				@click="viewMode = 'map'"
-			>
+				@click="viewMode = 'map'">
 				Map View
 			</NcButton>
 		</div>
@@ -152,22 +149,19 @@ onMounted(() => {
 				v-for="request in requestStore.requests"
 				:key="request.id"
 				:request="request"
-				@click="viewRequest(request.id)"
-			/>
+				@click="viewRequest(request.id)" />
 		</div>
 
 		<div v-else-if="viewMode === 'map'" class="board-map">
 			<MapComponent
 				:requests="requestStore.requests"
-				@marker-click="onMarkerClick"
-			/>
+				@marker-click="onMarkerClick" />
 		</div>
 
 		<div v-if="!requestStore.loading && requestStore.requests.length > 0" class="board-pagination">
 			<NcButton
 				:disabled="requestStore.pagination.offset === 0"
-				@click="requestStore.prevPage()"
-			>
+				@click="requestStore.prevPage()">
 				Previous
 			</NcButton>
 			<span>
@@ -180,8 +174,7 @@ onMounted(() => {
 			</span>
 			<NcButton
 				:disabled="!requestStore.hasMore"
-				@click="requestStore.nextPage()"
-			>
+				@click="requestStore.nextPage()">
 				Next
 			</NcButton>
 		</div>
@@ -189,8 +182,7 @@ onMounted(() => {
 		<NcModal
 			v-if="showNewRequestModal"
 			size="large"
-			@close="showNewRequestModal = false"
-		>
+			@close="showNewRequestModal = false">
 			<NewRequestForm @created="onRequestCreated" @cancel="showNewRequestModal = false" />
 		</NcModal>
 	</div>

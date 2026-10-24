@@ -86,7 +86,7 @@ const isValid = ref(true)
 const validationMessage = ref('')
 const currentMarker = ref<maplibregl.Marker | null>(null)
 
-const { mapContainer, map, addMarker, clearMarkers } = useMap({
+const { mapContainer, map, clearMarkers } = useMap({
 	center: [-122.7528, 45.4215],
 	zoom: 10,
 })

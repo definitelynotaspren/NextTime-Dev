@@ -72,7 +72,7 @@ onMounted(() => {
 					{{ balanceStore.myBalance?.balance ?? 0 }}
 					<span class="unit">hours</span>
 				</div>
-				<p class="last-updated" v-if="balanceStore.myBalance?.updatedAt">
+				<p v-if="balanceStore.myBalance?.updatedAt" class="last-updated">
 					Last updated: {{ new Date(balanceStore.myBalance.updatedAt).toLocaleString() }}
 				</p>
 			</template>
@@ -93,8 +93,7 @@ onMounted(() => {
 						v-for="tx in transactions"
 						:key="tx.id"
 						class="transaction-item"
-						:class="tx.transactionType"
-					>
+						:class="tx.transactionType">
 						<div class="tx-main">
 							<span class="tx-type">
 								{{ tx.transactionType === 'earned' ? '+' : tx.transactionType === 'spent' ? '-' : '' }}
@@ -114,8 +113,7 @@ onMounted(() => {
 				<div class="pagination">
 					<NcButton
 						:disabled="pagination.offset === 0"
-						@click="prevPage"
-					>
+						@click="prevPage">
 						Previous
 					</NcButton>
 					<span>
@@ -125,8 +123,7 @@ onMounted(() => {
 					</span>
 					<NcButton
 						:disabled="pagination.offset + pagination.limit >= pagination.total"
-						@click="nextPage"
-					>
+						@click="nextPage">
 						Next
 					</NcButton>
 				</div>

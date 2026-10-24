@@ -274,13 +274,11 @@ watch(requestId, (id) => {
 						<NcTextArea
 							v-model="newComment"
 							placeholder="Add a comment..."
-							:rows="2"
-						/>
+							:rows="2" />
 						<NcButton
 							variant="primary"
 							:disabled="!newComment.trim() || commenting"
-							@click="addComment"
-						>
+							@click="addComment">
 							{{ commenting ? 'Posting...' : 'Post Comment' }}
 						</NcButton>
 						<p v-if="commentError" class="action-error" role="alert">
@@ -308,8 +306,7 @@ watch(requestId, (id) => {
 					<MapComponent
 						:requests="[requestStore.currentRequest.request]"
 						:zoom="14"
-						class="location-map"
-					/>
+						class="location-map" />
 				</div>
 
 				<div class="volunteer-section">
@@ -326,18 +323,15 @@ watch(requestId, (id) => {
 							type="number"
 							placeholder="Hours you can contribute"
 							min="0.5"
-							step="0.5"
-						/>
+							step="0.5" />
 						<NcTextArea
 							v-model="volunteerMessage"
 							placeholder="Why are you a good fit? (optional)"
-							:rows="2"
-						/>
+							:rows="2" />
 						<NcButton
 							variant="primary"
 							:disabled="!proposedHours || volunteering"
-							@click="volunteer"
-						>
+							@click="volunteer">
 							{{ volunteering ? 'Submitting...' : 'Volunteer' }}
 						</NcButton>
 					</div>

@@ -55,11 +55,11 @@ const priorityOptions = [
 
 const isValid = computed(() => {
 	return (
-		title.value.trim() &&
-		description.value.trim() &&
-		categoryId.value &&
-		hoursBudget.value &&
-		parseFloat(hoursBudget.value) > 0
+		title.value.trim()
+		&& description.value.trim()
+		&& categoryId.value
+		&& hoursBudget.value
+		&& parseFloat(hoursBudget.value) > 0
 	)
 })
 
@@ -109,8 +109,7 @@ const submit = async () => {
 				id="title"
 				v-model="title"
 				placeholder="What do you need help with?"
-				:disabled="submitting"
-			/>
+				:disabled="submitting" />
 		</div>
 
 		<div class="form-group">
@@ -120,8 +119,7 @@ const submit = async () => {
 				v-model="description"
 				placeholder="Describe what you need in detail..."
 				:disabled="submitting"
-				:rows="4"
-			/>
+				:rows="4" />
 		</div>
 
 		<div class="form-row">
@@ -133,8 +131,7 @@ const submit = async () => {
 					:options="categoryOptions"
 					:reduce="(option) => option.id"
 					placeholder="Select category"
-					:disabled="submitting"
-				/>
+					:disabled="submitting" />
 			</div>
 
 			<div class="form-group">
@@ -146,8 +143,7 @@ const submit = async () => {
 					placeholder="Estimated hours"
 					:disabled="submitting"
 					min="0.5"
-					step="0.5"
-				/>
+					step="0.5" />
 			</div>
 		</div>
 
@@ -159,8 +155,7 @@ const submit = async () => {
 					v-model="priority"
 					:options="priorityOptions"
 					:reduce="(option) => option.id"
-					:disabled="submitting"
-				/>
+					:disabled="submitting" />
 			</div>
 
 			<div class="form-group">
@@ -169,27 +164,24 @@ const submit = async () => {
 					id="deadline"
 					v-model="deadline"
 					type="date"
-					:disabled="submitting"
-				/>
+					:disabled="submitting" />
 			</div>
 		</div>
 
 		<div class="form-group">
 			<LocationPicker
 				v-model="location"
-				:show-map="true"
-			/>
+				:show-map="true" />
 		</div>
 
 		<div class="form-actions">
-			<NcButton @click="$emit('cancel')" :disabled="submitting">
+			<NcButton :disabled="submitting" @click="$emit('cancel')">
 				Cancel
 			</NcButton>
 			<NcButton
 				variant="primary"
-				@click="submit"
 				:disabled="!isValid || submitting"
-			>
+				@click="submit">
 				{{ submitting ? (editing ? 'Saving...' : 'Posting...') : (editing ? 'Save changes' : 'Post Request') }}
 			</NcButton>
 		</div>
