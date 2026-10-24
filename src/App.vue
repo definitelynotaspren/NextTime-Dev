@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
-import { RouterView, RouterLink, useRoute } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcAppNavigation from '@nextcloud/vue/components/NcAppNavigation'
 import NcAppNavigationItem from '@nextcloud/vue/components/NcAppNavigationItem'
@@ -55,8 +55,7 @@ onMounted(() => {
 				<NcAppNavigationItem
 					:name="'Request Board'"
 					:to="{ name: 'Board' }"
-					:active="route.name === 'Board'"
-				>
+					:active="route.name === 'Board'">
 					<template #icon>
 						<span class="nav-icon">&#127974;</span>
 					</template>
@@ -64,8 +63,7 @@ onMounted(() => {
 				<NcAppNavigationItem
 					:name="'My Activity'"
 					:to="{ name: 'MyRequests' }"
-					:active="route.name === 'MyRequests'"
-				>
+					:active="route.name === 'MyRequests'">
 					<template #icon>
 						<span class="nav-icon">&#128100;</span>
 					</template>
@@ -73,8 +71,7 @@ onMounted(() => {
 				<NcAppNavigationItem
 					:name="'Submit Earnings'"
 					:to="{ name: 'SubmitEarning' }"
-					:active="route.name === 'SubmitEarning'"
-				>
+					:active="route.name === 'SubmitEarning'">
 					<template #icon>
 						<span class="nav-icon">&#10133;</span>
 					</template>
@@ -82,8 +79,7 @@ onMounted(() => {
 				<NcAppNavigationItem
 					:name="'My Balance (' + (balanceStore.myBalance?.balance ?? 0) + ' hrs)'"
 					:to="{ name: 'MyBalance' }"
-					:active="route.name === 'MyBalance'"
-				>
+					:active="route.name === 'MyBalance'">
 					<template #icon>
 						<span class="nav-icon">&#128176;</span>
 					</template>
@@ -91,8 +87,7 @@ onMounted(() => {
 				<NcAppNavigationItem
 					:name="'Public Ledger'"
 					:to="{ name: 'PublicLedger' }"
-					:active="route.name === 'PublicLedger'"
-				>
+					:active="route.name === 'PublicLedger'">
 					<template #icon>
 						<span class="nav-icon">&#128218;</span>
 					</template>
@@ -100,8 +95,7 @@ onMounted(() => {
 				<NcAppNavigationItem
 					:name="isAdmin || isFacilitator || isFallbackApprover ? 'Approvals & Votes' : 'Votes on Claims'"
 					:to="{ name: 'AdminApprovals' }"
-					:active="route.name === 'AdminApprovals'"
-				>
+					:active="route.name === 'AdminApprovals'">
 					<template #icon>
 						<span class="nav-icon">&#9989;</span>
 					</template>

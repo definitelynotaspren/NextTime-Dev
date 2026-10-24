@@ -168,22 +168,19 @@ onMounted(() => {
 						<div v-if="claim.userId !== currentUserId" class="claim-actions">
 							<NcButton
 								variant="primary"
-								@click="approve(claim.id)"
 								:disabled="processing === claim.id"
-							>
+								@click="approve(claim.id)">
 								Approve
 							</NcButton>
 							<NcButton
 								variant="error"
-								@click="showRejectModal = claim.id"
 								:disabled="processing === claim.id"
-							>
+								@click="showRejectModal = claim.id">
 								Reject
 							</NcButton>
 							<NcButton
-								@click="sendToVote(claim.id)"
 								:disabled="processing === claim.id"
-							>
+								@click="sendToVote(claim.id)">
 								Send to Vote
 							</NcButton>
 						</div>
@@ -192,15 +189,15 @@ onMounted(() => {
 							<NcTextArea
 								v-model="rejectReason"
 								placeholder="Reason for rejection..."
-								:rows="2"
-							/>
+								:rows="2" />
 							<div class="reject-actions">
-								<NcButton @click="showRejectModal = null">Cancel</NcButton>
+								<NcButton @click="showRejectModal = null">
+									Cancel
+								</NcButton>
 								<NcButton
 									variant="error"
-									@click="reject(claim.id)"
 									:disabled="!rejectReason.trim() || processing === claim.id"
-								>
+									@click="reject(claim.id)">
 									Confirm Reject
 								</NcButton>
 							</div>
@@ -239,16 +236,14 @@ onMounted(() => {
 						<div v-else class="claim-actions">
 							<NcButton
 								variant="primary"
-								@click="vote(claim.id, 'approve')"
 								:disabled="processing === claim.id"
-							>
+								@click="vote(claim.id, 'approve')">
 								Vote Approve
 							</NcButton>
 							<NcButton
 								variant="error"
-								@click="vote(claim.id, 'reject')"
 								:disabled="processing === claim.id"
-							>
+								@click="vote(claim.id, 'reject')">
 								Vote Reject
 							</NcButton>
 						</div>

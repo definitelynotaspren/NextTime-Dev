@@ -66,14 +66,14 @@ const prevPage = () => {
 
 const getTypeIcon = (type: string) => {
 	switch (type) {
-		case 'earned':
-			return '&#10133;'
-		case 'spent':
-			return '&#10134;'
-		case 'adjusted':
-			return '&#9881;'
-		default:
-			return '&#8634;'
+	case 'earned':
+		return '&#10133;'
+	case 'spent':
+		return '&#10134;'
+	case 'adjusted':
+		return '&#9881;'
+	default:
+		return '&#8634;'
 	}
 }
 
@@ -126,7 +126,7 @@ watch(() => props.userId, () => {
 						<td>{{ new Date(tx.createdAt).toLocaleDateString() }}</td>
 						<td>
 							<span class="type-badge" :class="getTypeClass(tx.transactionType)">
-								<span v-html="getTypeIcon(tx.transactionType)"></span>
+								<span v-html="getTypeIcon(tx.transactionType)" />
 								{{ tx.transactionType }}
 							</span>
 						</td>
@@ -146,8 +146,12 @@ watch(() => props.userId, () => {
 								System
 							</template>
 						</td>
-						<td class="hours-cell">{{ tx.hours }}</td>
-						<td class="description-cell">{{ tx.description }}</td>
+						<td class="hours-cell">
+							{{ tx.hours }}
+						</td>
+						<td class="description-cell">
+							{{ tx.description }}
+						</td>
 					</tr>
 				</tbody>
 			</table>
@@ -155,8 +159,7 @@ watch(() => props.userId, () => {
 			<div class="pagination">
 				<NcButton
 					:disabled="pagination.offset === 0"
-					@click="prevPage"
-				>
+					@click="prevPage">
 					Previous
 				</NcButton>
 				<span>
@@ -166,8 +169,7 @@ watch(() => props.userId, () => {
 				</span>
 				<NcButton
 					:disabled="pagination.offset + pagination.limit >= pagination.total"
-					@click="nextPage"
-				>
+					@click="nextPage">
 					Next
 				</NcButton>
 			</div>
