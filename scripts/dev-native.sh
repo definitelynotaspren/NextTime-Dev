@@ -59,11 +59,17 @@ ensure_shipped_apps() {
 				echo ">> Could not clone $app; occ upgrade may fail"
 		fi
 	done
-	# Newer branches of the notifications app need their PHP dependencies, which a git
-	# checkout lacks; without them even `occ maintenance:install` fails.
-	if [ -f "$NC_DIR/apps/notifications/composer/autoload.php" ] && [ ! -f "$NC_DIR/apps/notifications/vendor/autoload.php" ]; then
-		(cd "$NC_DIR/apps/notifications" && COMPOSER_ALLOW_SUPERUSER=1 timeout 150 composer install --no-dev --no-scripts --no-plugins --no-interaction >/dev/null 2>&1) ||
-			echo ">> Could not install the notifications app's dependencies"
+	# Newer branches of the notifications app need their PHP dependencies and a build step
+	# that a git checkout lacks; without them even `occ maintenance:install` fails.
+	local napp="$NC_DIR/apps/notifications"
+	if [ -f "$napp/composer/autoload.php" ] && [ ! -d "$napp/lib/Vendor" ]; then
+		(
+			cd "$napp" && export COMPOSER_ALLOW_SUPERUSER=1
+			timeout 150 composer install --no-dev --no-scripts --no-plugins --no-interaction &&
+				timeout 150 composer bin mozart install --no-interaction &&
+				timeout 60 vendor/bin/mozart compose &&
+				timeout 60 composer dump-autoload
+		) >/dev/null 2>&1 || echo ">> Could not build the notifications app; claim notices will be skipped"
 	fi
 	# NextTime's claim notices need the notifications app; it is enabled on a normal install.
 	if [ -d "$NC_DIR/apps/notifications" ]; then
