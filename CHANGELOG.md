@@ -80,6 +80,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   were left alone. Stale Nextcloud ranges in INSTALL and DEPLOYMENT_GUIDE (29–33, 27–32) now
   say 29–35.
 
+### Added
+
+- **Nextcloud Forms intake** (Form Intake page, background job every five minutes, `scripts/intake-smoke.sh`).
+  New submissions of the forms you switch on become unpublished desk rows with `source = form` and an ID that shows
+  the origin (`NO-F<form>-<submission>`; hand-typed rows are `NO-M...`). Rejections are logged with the reason.
+  Migration `Version000007` (0.8.0) adds `timebank_intake_log`.
+- **Facilitators work their own chapter's desk rows**: add rows for their ZIPs, assign to themselves, set progress,
+  publish and unpublish (`POST .../rows/{id}/publish`). Losing the facilitator group ends it at once, and an
+  organizer can release a row held by someone who lost access.
+
 ### Changed
 
 - **Chapters are now discovered from Nextcloud groups** instead of two fixed ones. A group "Colorado" and a group

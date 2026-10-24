@@ -3,33 +3,33 @@
 Each flow says what works today, what is missing, and where each missing piece appears in
 [the to-do list](proposals/next-steps.md) (items T1, T2 and so on). "Checked" means a script in `scripts/` runs it.
 
-Who is who: **Priya** fills in a form on her phone. **Sam** is an organizer (group `timebank-organizer`), who works the
-desk. **Dana** is in "Colorado Facilitators". Priya, Ola, Wen, Max and Pat live in Colorado (group "Colorado").
+Who is who: **Priya** fills in a form on her phone. **Sam** is an organizer (group `timebank-organizer`). **Dana** is in "Colorado Facilitators". Priya, Ola, Wen, Max and Pat live in Colorado (group "Colorado").
 
 ---
 
 ## 1. An offer, from a phone form to the desk
 
-*Priya fills in a form: "I can drive people to appointments on weekends, ZIP 80202."*
+*Priya fills in a form on her phone: "I can drive people to appointments on weekends, ZIP 80202."* The form is a
+Nextcloud Form (made in the Forms app) with questions named after the desk fields.
 
 | Step | What happens | State |
 |------|--------------|-------|
-| 1 | Priya submits a form on her phone. | **Not built.** There is no form yet (T1). |
-| 2 | The submission becomes a row in `oc_timebank_layer_rows`, layer `needs_offers`, `source=form`, `publish=no`. Required fields are checked by the same rules as a hand-typed row (`RowValidator`). | The row storage and `source=form` exist; nothing writes them (T1). |
-| 3 | Her ZIP, 80202, decides the chapter: ZIP prefix 802 is Colorado, so the Colorado chapter (the group "Colorado Facilitators") reviews it. Rows are never given a chapter by anyone's say-so; it is worked out from the ZIP each time. | Built and checked (`desk-smoke.sh`). |
-| 4 | Sam and Dana both see the row on **Organizer Desk**. Dana, as facilitator of Colorado, sees public and chapter fields for Colorado rows only; Sam, as organizer, sees all fields. Contact details Priya gave never reach anyone outside the roles that may see them. If Dana leaves "Colorado Facilitators" she stops seeing Colorado rows at once. | Built and checked. |
-| 5 | Sam presses **Assign to me**. The row is his (another organizer cannot take it), status `assigned`. He moves it to `in_progress` and `done` as he works. "Assigned to me" lists his rows; filter by source `form` or `manual` to tell phone submissions from hand entry. | Built and checked. **Only organizers can assign, not facilitators** (R5). |
-| 6 | When the row is ready Sam publishes it, and it appears on the public map feed with its point rounded to about 1 km and only public fields. | Built and checked. |
-| 7 | Priya hears back. | Not built (T4). Today the facilitator contacts her by the route she chose on the form. |
+| 1 | Priya submits the form. Nextcloud Forms stores her answers (and her account, unless the form is anonymous). | Forms app. |
+| 2 | Within five minutes NextTime's background job (or someone pressing **Check now**) finds the new submission. It becomes a row in the `needs_offers` layer with `source = form`, **unpublished**, and the ID `NO-F3-17` (submission 17 of form 3). Hand-typed rows are `NO-M...`, so the ID alone tells where a row came from. Each submission is imported once. | Built and checked (`intake-smoke.sh`). |
+| 3 | The row has to pass the same rules as a hand-typed one. If not (say an unknown category), it is logged on the **Form Intake** page as rejected, with the reason, and is retried only when an organizer presses **Look again at rejected**. | Built and checked. |
+| 4 | Her ZIP, 80202, decides the chapter: Colorado, because the group "Colorado Facilitators" exists. Worked out from the ZIP each time. | Built and checked. |
+| 5 | Dana (in "Colorado Facilitators") and Sam (organizer) see it on **Organizer Desk**. Dana sees public and chapter fields; the contact detail Priya gave is organizer-only, so only Sam sees it. If Dana leaves the facilitator group she stops seeing Colorado rows at once. | Built and checked. |
+| 6 | Dana presses **Assign to me**, moves it to `in_progress`, and when it is ready presses **Publish**; it joins the public map feed (public fields, point rounded to about 1 km). Sam can do the same anywhere and can release a row whose holder has lost access. | Built and checked. |
+| 7 | Priya hears back. | Not built (T4). |
 
 **Gap that matters:** a desk row is a *record for organizers*. It is not on the Request Board and nobody can volunteer
-against it (T3).
+against it (T3). And a facilitator working a row cannot see the contact detail (R5b).
 
 ## 2. A need, same route
 
-*Wen fills in the same form: "I need a ride to dialysis on Tuesdays, ZIP 80202, urgency this week."*
+*Wen submits the same form: "I need a ride to dialysis on Tuesdays, ZIP 80202, urgency this week."*
 
-Steps 1 to 7 are the same, with `need_or_offer = need`. What changes:
+Steps 1 to 7 are the same, with `need_or_offer = need`, and the ID is `NO-F3-18`. What changes:
 
 - The `urgency` field sorts it on Dana's desk.
 - The desk is where a facilitator **matches** a need with an offer. Today that is by eye and by phone; there is no
@@ -57,9 +57,9 @@ Steps 1 to 7 are the same, with `need_or_offer = need`. What changes:
 **Gaps that matter:**
 - **T2 Link claims to the job.** Today a volunteer can claim any hours in any category, with no tie to a request or to
   the co-workers. The approver cannot see "Wen, Max and Pat all said 2 hours".
-- **T6 Where do the hours come from?** Approving a claim *creates* hours for the volunteer. Ola, who got the help, is
-  never charged. That suits a "recognize contributions" model. If NextTime should be a closed time bank
-  (hours move from the person helped to the helper), the requester must be debited and spending limits applied.
+- **T6 Where do the hours come from?** *Decided for now:* approving a claim creates hours, and Ola, who got the help,
+  is not charged. How hours are spent comes later, and the end system is expected to sit between a fully closed 1:1
+  exchange and purely counted earnings.
 - **T7 Per-category progress** on the personal dashboard (hours by category, claims waiting, rejected with reason) is not
   shown. The page shows the balance and ledger only; claims are listed on Submit Earnings.
 

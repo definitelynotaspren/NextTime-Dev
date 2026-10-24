@@ -74,7 +74,8 @@ echo "- Manual entry"
 SUMMARY="Groceries this week $$"
 NEED="{\"need_or_offer\":\"need\",\"category\":\"food\",\"summary\":\"$SUMMARY\",\"zip\":\"97055\",\"lat\":\"45.40731\",\"lon\":\"-122.20149\",\"urgency\":\"this_week\",\"posted\":\"2026-10-23\",\"expires\":\"2099-01-01\",\"contact_route\":\"chapter_organizer\",\"status\":\"open\",\"requester_contact\":\"555-0100 Jane Doe\",\"publish\":\"yes\"}"
 call carol POST /layers/needs_offers/rows "$NEED"; eq "member cannot create rows" 403
-call bob POST /layers/needs_offers/rows "$NEED"; eq "facilitator cannot create rows" 403
+call bob POST /layers/needs_offers/rows "${NEED/97055/10001}"; eq "a facilitator cannot create a row outside their chapter" 403
+call bob POST /layers/needs_offers/rows "$NEED"; eq "a facilitator can create a row in their own chapter" 201
 call alice POST /layers/needs_offers/rows "$NEED"; eq "organizer creates a row" 201
 ID="$(jq -r '.id' "$TMP/body")"
 UID_="$(jq -r '.fields.uid' "$TMP/body")"
@@ -115,7 +116,8 @@ call carol GET /layers/resources/feed; eq "resources (exact points) has no feed"
 call carol GET /layers/survey/feed; eq "survey feed is refused" 403
 
 echo "- Assignment tracking"
-call bob POST "/layers/needs_offers/rows/$ID/assign"; eq "facilitator cannot assign" 403
+call bob POST "/layers/needs_offers/rows/$ID/assign"; eq "a facilitator assigns a row in their own chapter" 200
+call bob DELETE "/layers/needs_offers/rows/$ID/assign"; eq "and releases it" 200
 call alice POST "/layers/needs_offers/rows/$ID/assign"; eq "organizer assigns to self" 200
 has "row is assigned to alice" '.assignedTo=="alice" and .assignmentStatus=="assigned"'
 call alice POST "/layers/needs_offers/rows/$ID/status" '{"status":"in_progress"}'; eq "assignee updates the status" 200

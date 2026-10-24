@@ -258,6 +258,28 @@ needed no second person.
 
 #### Organizer desk (organizer or facilitator roles)
 
+#### Form intake (Nextcloud Forms)
+
+NextTime checks the Nextcloud Forms you choose every five minutes (a background job; also **Check now** on the
+Form Intake page, admins and organizers only). Each new submission becomes one **unpublished** desk row with
+`source = form`. Every row has a unique ID that shows its origin: `NO-F3-17` is submission 17 of form 3 (Nextcloud
+form), `NO-M1A2B3C` was typed in on the desk by hand. A submission is looked at once; one that fails the desk's rules is
+logged as rejected, with the reason, and is retried only when someone presses **Look again at rejected**.
+
+A question feeds the desk field whose key matches its internal name or its text, ignoring case and punctuation
+("Need or offer" feeds `need_or_offer`). Choice answers are matched to the field's allowed values ("Transportation"
+becomes `transport`). `posted`, `expires` (30 days) and `status` (`open`) are filled in when the form does not ask.
+Answers to questions that match no field are not kept. Needed on the form: Need or offer, Category, Summary, ZIP, Urgency,
+Contact route; optional: Area hint, Requester contact (organizer-only), and others in the layer. The page's
+**Check how it maps** shows what a form would do before you switch it on.
+
+- `GET /api/intake`, `PUT /api/intake/forms`, `GET /api/intake/forms/{id}/preview`, `POST /api/intake/run`,
+  `POST /api/intake/retry` *(admins and organizers)*
+
+It reads the Forms app's own tables (it writes nothing to Forms) and needs Forms enabled. Forms keeps the original
+answers, including who submitted them unless the form is anonymous, in its own tables; NextTime does not copy the
+submitter's account into the row.
+
 #### Roles
 
 Roles come from Nextcloud groups, so an admin creates nothing beyond the groups the organization already has:
@@ -267,7 +289,7 @@ Roles come from Nextcloud groups, so an admin creates nothing beyond the groups 
 | `<State>` (for example "Colorado") | Who belongs to that state or chapter. Gives no powers. |
 | `<State> Facilitator` or `<State> Facilitators` | The facilitators of that chapter. **This group alone gives the power**; they need not also be in `<State>`. |
 | `GSUS` | Fallback approvers, for members whose chapter has no facilitator (and members with no chapter). Another group id can be set with the app setting `fallback_approver_group`. |
-| `timebank-organizer` | Organizer desk (assign, publish); also moderates comments. |
+| `timebank-organizer` | Organizer desk everywhere; also moderates comments. |
 | `timebank-facilitator` | Desk access without chapter rows. Does not let anyone approve claims. |
 
 NextTime finds chapters by pairing group names: a facilitator group pairs with the group of the same name minus
@@ -276,6 +298,10 @@ id when it has none; every role check uses the group id. A pair, or a lone facil
 (or city chapter), is a chapter. A facilitator group that matches nothing (such as "Chapter Facilitators") is
 ignored. The **Chapters** page (admins and organizers) lists what was found, who facilitates each, states that have no
 facilitator group, and groups it ignored, so a spelling mistake shows up.
+
+A chapter's facilitators work its desk rows: they can add rows for ZIPs in their chapter, assign them to themselves, set
+progress, publish and unpublish. Organizers can do the same anywhere. The desk's privacy rules do not change: a
+facilitator sees public and chapter fields, not organizer-only ones such as the requester's contact details.
 
 Which chapter reviews an organizer-desk row is worked out from its ZIP code each time: the chapter named after the ZIP's
 state, or a city chapter's own prefixes (New York City is built in; others go in the JSON app setting
@@ -296,9 +322,10 @@ is enabled on a normal install.
 
 - `GET /api/schema` - layers, fields, visibility levels, lookups, chapters (organizer or facilitator)
 - `GET /api/layers/{layer}/rows` - rows you may see; filters `assigned=me|unassigned`, `source=form|manual`
-- `POST /api/layers/{layer}/rows` - add a row by hand (organizer); starts unpublished unless `publish=yes`
-- `POST /api/layers/{layer}/rows/{id}/assign` - claim a row (organizer; optional `status`)
-- `DELETE /api/layers/{layer}/rows/{id}/assign` - release a row you hold
+- `POST /api/layers/{layer}/rows` - add a row by hand (organizer anywhere; a facilitator only for ZIPs in a chapter they facilitate); starts unpublished unless `publish=yes`
+- `POST /api/layers/{layer}/rows/{id}/assign` - claim a row (an organizer, or the facilitator of the row's chapter; optional `status`)
+- `POST /api/layers/{layer}/rows/{id}/publish` - `publish=yes|no`: put the row in the public feed or take it down (same people as assign)
+- `DELETE /api/layers/{layer}/rows/{id}/assign` - release a row you hold (an organizer can release any, so a row is never stuck)
 - `POST /api/layers/{layer}/rows/{id}/status` - set `assigned`, `in_progress` or `done` on a row you hold
 - `GET /api/assignments` - rows assigned to you; filters `layer`, `source`
 

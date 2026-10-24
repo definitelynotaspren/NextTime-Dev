@@ -24,6 +24,7 @@ workbook yet.
 | `oc_timebank_comments` | comments on requests | Members, except flagged-hidden or removed ones: the server withholds their text, moderators still see it |
 | `oc_timebank_adjustments` | manual balance adjustments: member, hours, reason, proposer, approver | Admins and facilitators; the result is public in the ledger and governance log |
 | `oc_timebank_governance_log` | who changed what, with old and new values and reasons | **Public to every member by design.** Never put personal details in a reason |
+| `oc_timebank_intake_log` | which Nextcloud Forms submissions were imported or rejected, and why | Admins and organizers; holds IDs and reasons, no answers |
 | `oc_timebank_comment_flags` | who flagged which comment, and why | Names and reasons: moderators only. Counts are public |
 | `oc_timebank_withdrawals` | log of withdrawn help, with reasons | The volunteer, and the requester of that request |
 | `oc_timebank_earnings`, `oc_timebank_votes` | hour claims, approvals, community votes | Your own claims; admins see pending ones; claims in a vote are visible so members can vote |
@@ -57,6 +58,10 @@ workbook yet.
   the form wording and organizer review are the defence.
 - **Any logged-in member can read all requests,** including their `location` text, volunteer user
   names, messages and comments. That is how the board works today.
+- **Nextcloud Forms keeps its own copy.** Answers submitted through a form stay in the Forms app's tables
+  (`oc_forms_v2_*`), with the submitter's account unless the form is anonymous. NextTime imports only the answers that
+  match a desk field and not the submitter. Treat the Forms tables like the desk table, and delete old submissions in
+  Forms when you no longer need them.
 - **There is no access log** of who read what, and no per-field encryption.
 - `earnings.evidence_file_id` exists for attached evidence, but nothing uploads or reads evidence yet.
 

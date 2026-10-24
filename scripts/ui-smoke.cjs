@@ -325,6 +325,12 @@ const pickFirstOption = async (page, placeholder) => {
 	await go(bob, '/governance')
 	check('members can read the governance log', await bob.getByText(/applied an adjustment for/).count() > 0)
 
+	await go(admin, '/intake')
+	check('admins and organizers get a Form intake page', await admin.getByRole('heading', { name: 'Form intake' }).count() > 0)
+	await go(carol, '/intake')
+	check('members cannot use the intake page', await carol.getByText('Admin or organizer role required').count() > 0)
+	await go(bob, '/desk')
+	check('a facilitator can publish rows in their chapter from the desk', await bob.getByRole('button', { name: /^(Publish|Unpublish)$/ }).count() > 0)
 	await go(admin, '/chapters')
 	check('the chapter check lists Oregon, found from the group names', await admin.locator('tr', { hasText: 'Oregon' }).count() === 1 && await admin.getByText('every ZIP in OR').count() > 0)
 	occ('group:removeuser', 'Oregon', 'alice')

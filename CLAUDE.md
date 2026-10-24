@@ -107,6 +107,9 @@ then `make docker-install-app`. Run the smoke test with
 - **Comments are moderated, not author-deleted.** 3 distinct flags hide a comment from members;
   moderators (NC admins and `timebank-organizer`) remove or dismiss. Removal is soft (`removed_at`/`removed_by`).
   `RequestController::show` swaps in `CommentService::getForViewer` so hidden text never leaves the server.
+- **Forms intake** (`lib/Intake/`): reads Nextcloud Forms' own `forms_v2_*` tables (nothing is written to Forms), maps
+  questions to desk fields by name or text, imports each submission once as an unpublished row `NO-F<form>-<id>`
+  (hand-typed rows are `NO-M...`). `scripts/intake-smoke.sh` needs the Forms app enabled (dev server: `occ app:enable forms`).
 - **Chapters come from group names** (`lib/Chapter/ChapterDirectory.php`): "<Name>" plus "<Name> Facilitator(s)".
   The facilitator group alone gives the power. Membership and roles are checked by group id, never cached across
   requests. `ApproverPolicy` decides who may act for a member (admin, chapter facilitator, or the `GSUS` fallback when
