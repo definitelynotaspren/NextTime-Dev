@@ -35,19 +35,6 @@ class UserStatsMapper extends QBMapper {
 		}
 	}
 
-	/**
-	 * @return UserStats[]
-	 */
-	public function findByUser(string $userId): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)))
-			->orderBy('completed_requests', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
 	public function incrementStats(string $userId, int $categoryId, float $hours): void {
 		$stats = $this->findByUserAndCategory($userId, $categoryId);
 

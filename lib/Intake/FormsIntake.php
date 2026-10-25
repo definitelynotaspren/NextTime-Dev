@@ -13,7 +13,7 @@ use OCA\TimeBank\Service\GovernanceLog;
 use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\LayerService;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IDBConnection;
 use Psr\Log\LoggerInterface;
 
@@ -25,16 +25,18 @@ use Psr\Log\LoggerInterface;
  *
  * It reads Forms' own tables, which have kept their layout across versions. Nothing is
  * written to Forms.
+ *
+ * @psalm-import-type Layer from SchemaSpec
  */
 class FormsIntake {
 
-	public const CONFIG_KEY = 'forms_intake';
+	public const string CONFIG_KEY = 'forms_intake';
 	/** Submissions taken per form per run, so one big backlog cannot stall the job. */
-	private const BATCH = 100;
+	private const int BATCH = 100;
 
 	public function __construct(
 		private IDBConnection $db,
-		private IConfig $config,
+		private IAppConfig $config,
 		private IntakeLogMapper $log,
 		private LayerService $layers,
 		private GovernanceLog $governance,
@@ -58,7 +60,7 @@ class FormsIntake {
 	 * @return list<array{formId: int, layer: string}>
 	 */
 	public function enabled(): array {
-		$decoded = json_decode($this->config->getAppValue(Application::APP_ID, self::CONFIG_KEY, '[]'), true);
+		$decoded = json_decode($this->config->getValueString(Application::APP_ID, self::CONFIG_KEY, '[]'), true);
 		$out = [];
 		foreach (is_array($decoded) ? $decoded : [] as $entry) {
 			if (is_array($entry) && isset($entry['formId'], $entry['layer']) && $this->layerAccepts((string)$entry['layer'])) {
@@ -70,14 +72,16 @@ class FormsIntake {
 	}
 
 	/**
-	 * @param list<array{formId: int, layer: string}> $forms
+	 * @param list<mixed> $forms entries of {formId, layer}, straight from the request
 	 * @throws InvalidStateException
 	 */
 	public function setEnabled(string $actorId, array $forms): void {
 		$clean = [];
 		foreach ($forms as $entry) {
-			$layer = (string)($entry['layer'] ?? '');
-			$formId = (int)($entry['formId'] ?? 0);
+			$layer = is_array($entry) ? ($entry['layer'] ?? null) : null;
+			$layer = is_string($layer) ? $layer : '';
+			$formId = is_array($entry) ? ($entry['formId'] ?? null) : null;
+			$formId = is_numeric($formId) ? (int)$formId : 0;
 			if (!$this->layerAccepts($layer)) {
 				throw new InvalidStateException("The layer $layer does not take form submissions");
 			}
@@ -88,7 +92,7 @@ class FormsIntake {
 		}
 
 		$before = $this->enabled();
-		$this->config->setAppValue(Application::APP_ID, self::CONFIG_KEY, json_encode(array_values($clean), JSON_THROW_ON_ERROR));
+		$this->config->setValueString(Application::APP_ID, self::CONFIG_KEY, json_encode(array_values($clean), JSON_THROW_ON_ERROR));
 		$this->governance->record($actorId, 'setting.forms_intake', null, [
 			'from' => array_column($before, 'formId'),
 			'to' => array_keys($clean),
@@ -135,6 +139,7 @@ class FormsIntake {
 			->from('forms_v2_forms')
 			->where($qb->expr()->eq('hash', $qb->createNamedParameter($hash)));
 		$result = $qb->executeQuery();
+		/** @var array<string, mixed>|false $row */
 		$row = $result->fetch();
 		$result->closeCursor();
 
@@ -168,12 +173,15 @@ class FormsIntake {
 		}
 
 		$parts = parse_url($link);
-		$host = strtolower((string)($parts['host'] ?? ''));
-		$expected = strtolower(preg_replace('/:\d+$/', '', $serverHost) ?? $serverHost);
-		if ($host === '' || $host !== $expected) {
+		if ($parts === false) {
+			throw new InvalidStateException('That link could not be read. Copy it again from the Forms app.');
+		}
+		$host = $parts['host'] ?? '';
+		$expected = preg_replace('/:\d+$/', '', $serverHost) ?? $serverHost;
+		if ($host === '' || strcasecmp($host, $expected) !== 0) {
 			throw new InvalidStateException("That link is on $host, not on this server ($expected). Only forms in this Nextcloud's Forms app can be added.");
 		}
-		if (!preg_match('#/apps/forms/(?:s/)?([A-Za-z0-9]{8,64})(?:/|$)#', (string)($parts['path'] ?? ''), $m)) {
+		if (!preg_match('#/apps/forms/(?:s/)?([A-Za-z0-9]{8,64})(?:/|$)#', $parts['path'] ?? '', $m)) {
 			throw new InvalidStateException('That link is not to a form. Use the Forms share link (.../apps/forms/s/<code>) or the address of the form while it is open in the Forms app.');
 		}
 
@@ -192,6 +200,7 @@ class FormsIntake {
 			->from('forms_v2_forms')
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($formId, IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
+		/** @var array<string, mixed>|false $row */
 		$row = $result->fetch();
 		$result->closeCursor();
 
@@ -213,7 +222,7 @@ class FormsIntake {
 			throw new InvalidStateException("Form $formId was not found or has no questions");
 		}
 
-		$fields = SchemaSpec::layer($layer)['fields'];
+		$fields = $this->spec($layer)['fields'];
 		$mapping = FormsMapper::mapQuestions($questions, $fields);
 		$text = array_column($questions, 'text', 'id');
 		$mapped = [];
@@ -257,9 +266,10 @@ class FormsIntake {
 	 */
 	public function syncForm(int $formId, string $layer): array {
 		$questions = $this->questions($formId);
-		$fields = SchemaSpec::layer($layer)['fields'];
+		$spec = $this->spec($layer);
+		$fields = $spec['fields'];
 		$mapping = FormsMapper::mapQuestions($questions, $fields);
-		$prefix = SchemaSpec::layer($layer)['uid_prefix'];
+		$prefix = $spec['uid_prefix'];
 
 		$done = array_flip($this->log->processedIds($formId));
 		$imported = 0;
@@ -286,6 +296,19 @@ class FormsIntake {
 		}
 
 		return ['imported' => $imported, 'rejected' => $rejected];
+	}
+
+	/**
+	 * @return Layer
+	 * @throws InvalidStateException
+	 */
+	private function spec(string $layer): array {
+		$spec = SchemaSpec::layer($layer);
+		if ($spec === null) {
+			throw new InvalidStateException("Unknown layer $layer");
+		}
+
+		return $spec;
 	}
 
 	private function layerAccepts(string $layer): bool {
@@ -319,6 +342,7 @@ class FormsIntake {
 			->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId, IQueryBuilder::PARAM_INT)))
 			->orderBy('order', 'ASC');
 		$result = $qb->executeQuery();
+		/** @var list<array<string, mixed>> $rows */
 		$rows = $result->fetchAll();
 		$result->closeCursor();
 
@@ -336,6 +360,7 @@ class FormsIntake {
 			->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId, IQueryBuilder::PARAM_INT)))
 			->orderBy('id', 'ASC');
 		$result = $qb->executeQuery();
+		/** @var list<array<string, mixed>> $rows */
 		$rows = $result->fetchAll();
 		$result->closeCursor();
 
@@ -363,6 +388,7 @@ class FormsIntake {
 			->where($qb->expr()->eq('submission_id', $qb->createNamedParameter($submissionId, IQueryBuilder::PARAM_INT)))
 			->orderBy('id', 'ASC');
 		$result = $qb->executeQuery();
+		/** @var list<array<string, mixed>> $rows */
 		$rows = $result->fetchAll();
 		$result->closeCursor();
 

@@ -21,7 +21,11 @@ final class Viewer {
 	) {
 	}
 
-	/** A logged-in member with no organizer or facilitator role. */
+	/**
+	 * A logged-in member with no organizer or facilitator role.
+	 *
+	 * @psalm-api
+	 */
 	public static function member(string $userId): self {
 		return new self($userId, false, false, []);
 	}

@@ -15,6 +15,8 @@ use OCP\IRequest;
 
 class CommentController extends Controller {
 	use ServiceErrors;
+	use CurrentUser;
+	use RequestParams;
 
 	public function __construct(
 		string $appName,
@@ -35,7 +37,7 @@ class CommentController extends Controller {
 		];
 
 		try {
-			$comment = $this->commentService->create($requestId, $this->userId, $data);
+			$comment = $this->commentService->create($requestId, $this->uid(), $data);
 			return new DataResponse($comment->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -47,7 +49,7 @@ class CommentController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/comments/{id}/flag', requirements: ['id' => '\\d+'])]
 	public function flag(int $id): DataResponse {
 		try {
-			$flag = $this->commentService->flag($id, $this->userId, $this->request->getParam('reason'));
+			$flag = $this->commentService->flag($id, $this->uid(), $this->optionalTextParam('reason'));
 			return new DataResponse(['flagged' => true, 'id' => $flag->getId()], Http::STATUS_CREATED);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -60,7 +62,7 @@ class CommentController extends Controller {
 	#[FrontpageRoute(verb: 'GET', url: '/api/comments/flagged')]
 	public function flagged(): DataResponse {
 		try {
-			return new DataResponse($this->commentService->getFlagged($this->userId));
+			return new DataResponse($this->commentService->getFlagged($this->uid()));
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -71,7 +73,7 @@ class CommentController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/comments/{id}/dismiss', requirements: ['id' => '\\d+'])]
 	public function dismiss(int $id): DataResponse {
 		try {
-			$this->commentService->dismissFlags($id, $this->userId);
+			$this->commentService->dismissFlags($id, $this->uid());
 			return new DataResponse(['success' => true]);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -83,7 +85,7 @@ class CommentController extends Controller {
 	#[FrontpageRoute(verb: 'DELETE', url: '/api/comments/{id}', requirements: ['id' => '\\d+'])]
 	public function delete(int $id): DataResponse {
 		try {
-			$this->commentService->remove($id, $this->userId);
+			$this->commentService->remove($id, $this->uid());
 			return new DataResponse(['success' => true]);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);

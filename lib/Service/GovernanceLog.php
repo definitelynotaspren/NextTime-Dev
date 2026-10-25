@@ -40,7 +40,7 @@ class GovernanceLog {
 		$offset = max(0, $offset);
 
 		return [
-			'entries' => array_map(fn (GovernanceEntry $e) => $e->jsonSerialize(), $this->mapper->findRecent($limit, $offset)),
+			'entries' => array_values(array_map(fn (GovernanceEntry $e) => $e->jsonSerialize(), $this->mapper->findRecent($limit, $offset))),
 			'total' => $this->mapper->countAll(),
 			'limit' => $limit,
 			'offset' => $offset,

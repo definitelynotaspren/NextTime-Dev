@@ -25,6 +25,7 @@ class Balance extends Entity implements JsonSerializable {
 		$this->addType('updatedAt', 'datetime');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'userId' => $this->userId,

@@ -17,7 +17,7 @@ use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\NotAuthorizedException;
 use OCA\TimeBank\Service\TransactionService;
 use OCA\TimeBank\Service\ViewerResolver;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -52,12 +52,11 @@ final class AdjustmentServiceTest extends TestCase {
 		$groups->method('isAdmin')->willReturnCallback(fn (string $u) => str_starts_with($u, 'admin'));
 		$viewers = $this->createMock(ViewerResolver::class);
 		$viewers->method('forUser')->willReturnCallback(fn (string $u) => new Viewer($u, false, ($this->facilitates[$u] ?? []) !== [], $this->facilitates[$u] ?? []));
-		$viewers->method('memberChapters')->willReturnCallback(fn (string $u) => $this->chapters[$u] ?? []);
 		$viewers->method('facilitatedChapters')->willReturnCallback(fn (string $u) => $this->facilitates[$u] ?? []);
 		$users = $this->createMock(IUserManager::class);
 		$users->method('userExists')->willReturnCallback(fn (string $u) => $u !== 'ghost');
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnArgument(2);
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturnArgument(2);
 
 		$directory = $this->createMock(ChapterDirectory::class);
 		$directory->method('memberChapters')->willReturnCallback(fn (string $u) => $this->chapters[$u] ?? []);
@@ -180,7 +179,7 @@ final class AdjustmentServiceTest extends TestCase {
 		$service = new AdjustmentService(
 			$this->mapper, $balances, $this->transactions, $this->log,
 			$this->createMock(ViewerResolver::class), $this->createMock(ApproverPolicy::class), $this->createMock(IGroupManager::class),
-			$this->createMock(IUserManager::class), $this->createMock(IConfig::class), $this->db,
+			$this->createMock(IUserManager::class), $this->createMock(IAppConfig::class), $this->db,
 		);
 		$a = $this->pending('admin1', 'bob', '-10.00');
 

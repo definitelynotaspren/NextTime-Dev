@@ -12,6 +12,9 @@ namespace OCA\TimeBank\Schema;
  *
  * Field shape: name, type, required, visibility, choices, description.
  * Visibility, widest to narrowest: public, facilitator, chapter, organizer.
+ *
+ * @psalm-type Field = array{name: string, type: string, required: bool, visibility: string, choices: ?string, description: string}
+ * @psalm-type Layer = array{group: string, uid_prefix: string, title: string, geometry: string, form: bool, fields: list<Field>, snap_res?: int, min_count?: int, aggregate_only?: bool}
  */
 final class SchemaSpec {
 
@@ -81,7 +84,7 @@ final class SchemaSpec {
 		];
 	}
 
-	/** @return array<string, array<string, mixed>> */
+	/** @return array<string, Layer> */
 	public static function layers(): array {
 		$districtFields = [];
 		foreach (self::ISSUE_DOMAINS as $domain) {
@@ -213,7 +216,7 @@ final class SchemaSpec {
 		];
 	}
 
-	/** @return array<string, mixed>|null */
+	/** @return Layer|null */
 	public static function layer(string $name): ?array {
 		return self::layers()[$name] ?? null;
 	}
@@ -221,7 +224,7 @@ final class SchemaSpec {
 	/**
 	 * System fields every layer gets first. publish gates the public feed.
 	 *
-	 * @return list<array<string, mixed>>
+	 * @return list<Field>
 	 */
 	public static function systemFields(): array {
 		return [
@@ -230,14 +233,14 @@ final class SchemaSpec {
 		];
 	}
 
-	/** @return list<array<string, mixed>> system fields followed by the layer's own fields */
+	/** @return list<Field> system fields followed by the layer's own fields */
 	public static function allFields(string $layer): array {
 		$spec = self::layer($layer);
 		return $spec === null ? [] : array_merge(self::systemFields(), $spec['fields']);
 	}
 
 	/**
-	 * @return array<string, mixed>
+	 * @return Field
 	 */
 	private static function field(
 		string $name,

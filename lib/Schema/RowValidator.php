@@ -7,11 +7,13 @@ namespace OCA\TimeBank\Schema;
 /**
  * Checks organizer-entered row data against a layer's field definitions.
  * Pure: no database or Nextcloud calls.
+ *
+ * @psalm-import-type Field from SchemaSpec
  */
 final class RowValidator {
 
 	/**
-	 * @param list<array<string, mixed>> $fields the layer's own fields (no system fields)
+	 * @param list<Field> $fields the layer's own fields (no system fields)
 	 * @param array<string, mixed> $input
 	 * @return array{publish: bool, data: array<string, mixed>, errors: list<string>}
 	 */
@@ -52,7 +54,7 @@ final class RowValidator {
 	}
 
 	/**
-	 * @param array<string, mixed> $field
+	 * @param Field $field
 	 * @param array<string, list<string>> $lookups
 	 * @param list<string> $errors
 	 */

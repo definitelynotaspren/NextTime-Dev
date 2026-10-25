@@ -6,7 +6,7 @@ namespace OCA\TimeBank\Tests\Unit\Service;
 
 use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Service\ApproverPolicy;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -53,8 +53,8 @@ final class ApproverPolicyTest extends TestCase {
 		$manager->method('search')->willReturnCallback(fn () => array_map($make, array_keys($this->groups)));
 		$manager->method('get')->willReturnCallback(fn (string $g) => isset($this->groups[$g]) ? $make($g) : null);
 
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnArgument(2);
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturnArgument(2);
 
 		return new ApproverPolicy(new ChapterDirectory($manager, $config), $manager, $config);
 	}

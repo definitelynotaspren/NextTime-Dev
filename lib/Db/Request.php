@@ -61,6 +61,7 @@ class Request extends Entity implements JsonSerializable {
 		$this->addType('longitude', 'float');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

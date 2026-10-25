@@ -11,7 +11,7 @@
 # Usage:  scripts/smoke-test.sh [BASE_URL]
 #   BASE_URL defaults to http://127.0.0.1:8081 (scripts/dev-native.sh).
 #   For the Docker stack use http://localhost:8080.
-# Expects users admin/admin, alice, bob, carol (created by dev-native.sh setup;
+# Expects users admin (password admin, or set ADMIN_PASS), alice, bob, carol (created by dev-native.sh setup;
 # for Docker run: make docker-seed-users, or create them with occ user:add).
 #
 # Exit code is the number of failed checks (0 = all good).
@@ -33,7 +33,7 @@ fail() { printf '  \033[31mFAIL\033[0m %s\n' "$1"; FAILS=$((FAILS + 1)); }
 call() {
 	local user="$1" method="$2" path="$3" body="${4:-}"
 	local pass
-	case "$user" in admin) pass="admin" ;; *) pass="${user}-pass-123" ;; esac
+	case "$user" in admin) pass="${ADMIN_PASS:-admin}" ;; *) pass="${user}-pass-123" ;; esac
 	# Nextcloud < 30 ignores the OCS-APIRequest header for CSRF, so keep a cookie session
 	# per user and send its request token. Newer versions accept it too.
 	local jar="$TMP/jar-$user"

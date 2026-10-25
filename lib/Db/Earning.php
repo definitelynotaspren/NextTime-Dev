@@ -57,6 +57,7 @@ class Earning extends Entity implements JsonSerializable {
 		$this->addType('notifiedStage', 'integer');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

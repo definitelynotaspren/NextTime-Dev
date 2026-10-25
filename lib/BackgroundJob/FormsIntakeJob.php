@@ -21,7 +21,7 @@ class FormsIntakeJob extends TimedJob {
 		$this->setInterval(300);
 	}
 
-	protected function run($argument): void {
+	protected function run(mixed $argument): void {
 		$this->intake->sync();
 	}
 }

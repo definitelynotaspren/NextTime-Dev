@@ -8,11 +8,13 @@ namespace OCA\TimeBank\Schema;
  * Strips every field the viewer may not see. Hidden fields are removed, not
  * nulled, so their names do not leak either. Keys the spec does not declare
  * are treated as organizer-only.
+ *
+ * @psalm-import-type Field from SchemaSpec
  */
 final class FieldPolicy {
 
 	/**
-	 * @param list<array<string, mixed>> $fields field definitions from SchemaSpec
+	 * @param list<Field> $fields field definitions from SchemaSpec
 	 * @param array<string, mixed> $payload field values to filter
 	 * @return array<string, mixed>
 	 */

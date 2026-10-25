@@ -30,19 +30,6 @@ class VoteMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
-	public function countByEarning(int $earningId): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->func()->count('*'))
-			->from($this->getTableName())
-			->where($qb->expr()->eq('earning_id', $qb->createNamedParameter($earningId, IQueryBuilder::PARAM_INT)));
-
-		$result = $qb->executeQuery();
-		$count = (int)$result->fetchOne();
-		$result->closeCursor();
-
-		return $count;
-	}
-
 	public function hasVoted(int $earningId, string $voterId): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))

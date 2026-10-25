@@ -21,7 +21,7 @@ class PageController extends Controller {
 	 * default policy only allows connections to itself, so without this the
 	 * map style fetch is refused and no map or markers ever appear.
 	 */
-	private const MAP_HOST = 'https://tiles.openfreemap.org';
+	private const string MAP_HOST = 'https://tiles.openfreemap.org';
 
 	#[NoCSRFRequired]
 	#[NoAdminRequired]

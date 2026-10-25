@@ -14,6 +14,8 @@ use OCA\TimeBank\Schema\SchemaSpec;
  * case, spaces and punctuation are ignored ("Need or offer" feeds need_or_offer). Questions that
  * match no field are ignored and their answers are never stored, so a form can ask for things
  * NextTime has no place for without them landing anywhere.
+ *
+ * @psalm-import-type Field from SchemaSpec
  */
 final class FormsMapper {
 
@@ -27,7 +29,7 @@ final class FormsMapper {
 
 	/**
 	 * @param list<array{id: int, text: string, name: ?string}> $questions
-	 * @param list<array<string, mixed>> $fields the layer's own fields
+	 * @param list<Field> $fields the layer's own fields
 	 * @return array{map: array<int, string>, ignored: list<string>}
 	 */
 	public static function mapQuestions(array $questions, array $fields): array {
@@ -37,7 +39,7 @@ final class FormsMapper {
 		foreach ($questions as $question) {
 			$field = null;
 			foreach ([$question['name'] ?? '', $question['text']] as $candidate) {
-				$key = self::key((string)$candidate);
+				$key = self::key($candidate);
 				if ($key !== '' && in_array($key, $known, true) && !in_array($key, $map, true)) {
 					$field = $key;
 					break;
@@ -56,7 +58,7 @@ final class FormsMapper {
 	/**
 	 * Fields a required answer would be missing for, which no default covers.
 	 *
-	 * @param list<array<string, mixed>> $fields
+	 * @param list<Field> $fields
 	 * @param array<int, string> $map question id => field
 	 * @return list<string>
 	 */
@@ -72,7 +74,7 @@ final class FormsMapper {
 	}
 
 	/**
-	 * @param list<array<string, mixed>> $fields the layer's own fields
+	 * @param list<Field> $fields the layer's own fields
 	 * @param array<int, string> $map question id => field
 	 * @param array<int, list<string>> $answers question id => answers (several for multiple choice)
 	 * @return array<string, mixed> input for RowValidator::validate

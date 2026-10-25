@@ -38,6 +38,7 @@ class Category extends Entity implements JsonSerializable {
 		$this->addType('earnRate', 'string');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

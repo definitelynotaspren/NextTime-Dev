@@ -71,6 +71,7 @@ class VolunteerMapper extends QBMapper {
 
 	/**
 	 * @throws DoesNotExistException
+	 * @psalm-suppress PossiblyUnusedReturnValue callers only ask whether the offer exists, for now
 	 */
 	public function findByRequestAndVolunteer(int $requestId, string $volunteerId): Volunteer {
 		$qb = $this->db->getQueryBuilder();

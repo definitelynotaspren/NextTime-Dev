@@ -22,6 +22,8 @@ use OCP\IRequest;
  * Every response is built by LayerService, which filters fields by visibility.
  */
 class LayerController extends Controller {
+	use CurrentUser;
+	use RequestParams;
 
 	private LayerService $layerService;
 	private ViewerResolver $viewers;
@@ -45,18 +47,21 @@ class LayerController extends Controller {
 	#[FrontpageRoute(verb: 'GET', url: '/api/layers/{layer}/rows', requirements: ['layer' => '[a-z_]+'])]
 	public function rows(string $layer): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->listRows($viewer, $layer, [
-			'assigned' => $this->request->getParam('assigned'),
-			'source' => $this->request->getParam('source'),
+			'assigned' => $this->textParam('assigned'),
+			'source' => $this->textParam('source'),
 		]));
 	}
 
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows', requirements: ['layer' => '[a-z_]+'])]
 	public function create(string $layer): DataResponse {
-		$input = $this->request->getParams();
-		unset($input['layer'], $input['id']);
-		// Drop framework-internal parameters such as _route.
-		$input = array_filter($input, fn ($key) => !str_starts_with((string)$key, '_'), ARRAY_FILTER_USE_KEY);
+		// Field values only: not the route's layer and id, nor framework-internal parameters such as _route.
+		$input = [];
+		foreach ($this->request->getParams() as $key => $value) {
+			if (is_string($key) && $key !== 'layer' && $key !== 'id' && !str_starts_with($key, '_')) {
+				$input[$key] = $value;
+			}
+		}
 
 		return $this->run(
 			fn (Viewer $viewer) => $this->layerService->create($viewer, $layer, $input),
@@ -71,7 +76,7 @@ class LayerController extends Controller {
 			$viewer,
 			$layer,
 			$id,
-			$this->request->getParam('status'),
+			$this->optionalTextParam('status'),
 		));
 	}
 
@@ -110,8 +115,8 @@ class LayerController extends Controller {
 	public function assignments(): DataResponse {
 		return $this->run(fn (Viewer $viewer) => $this->layerService->myAssignments(
 			$viewer,
-			$this->request->getParam('layer'),
-			$this->request->getParam('source'),
+			$this->optionalTextParam('layer'),
+			$this->optionalTextParam('source'),
 		));
 	}
 
@@ -123,7 +128,8 @@ class LayerController extends Controller {
 	}
 
 	/**
-	 * @param callable(Viewer): mixed $action
+	 * @param callable(Viewer): array $action
+	 * @param Http::STATUS_* $status
 	 */
 	private function run(callable $action, int $status = Http::STATUS_OK): DataResponse {
 		if ($this->userId === null) {
@@ -131,10 +137,10 @@ class LayerController extends Controller {
 		}
 
 		try {
-			$viewer = $this->viewers->forUser($this->userId);
+			$viewer = $this->viewers->forUser($this->uid());
 			return new DataResponse($action($viewer), $status);
 		} catch (LayerException $e) {
-			return new DataResponse(['error' => $e->getMessage()], $e->getCode());
+			return new DataResponse(['error' => $e->getMessage()], $e->status());
 		}
 	}
 }

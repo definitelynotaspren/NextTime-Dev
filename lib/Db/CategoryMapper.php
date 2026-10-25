@@ -6,6 +6,7 @@ namespace OCA\TimeBank\Db;
 
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
+use OCP\DB\QueryBuilder\IParameter;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -43,25 +44,13 @@ class CategoryMapper extends QBMapper {
 	}
 
 	/**
-	 * @throws DoesNotExistException
-	 */
-	public function findByName(string $name): Category {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('name', $qb->createNamedParameter($name)));
-
-		return $this->findEntity($qb);
-	}
-
-	/**
 	 * How the category is being used right now. Unfilled open requests (no offers) and
 	 * cancelled ones do not count as use.
 	 *
 	 * @return array{inProgress: int, openWithOffers: int, claimsInFlight: int}
 	 */
 	public function activeUse(int $id): array {
-		$param = fn (IQueryBuilder $qb) => $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT);
+		$param = fn (IQueryBuilder $qb): IParameter => $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT);
 
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))

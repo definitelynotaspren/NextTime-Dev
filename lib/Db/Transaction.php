@@ -42,6 +42,7 @@ class Transaction extends Entity implements JsonSerializable {
 		$this->addType('referenceId', 'integer');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

@@ -14,6 +14,7 @@ use OCP\IGroupManager;
 use OCP\IRequest;
 
 class BalanceController extends Controller {
+	use CurrentUser;
 
 	private BalanceService $balanceService;
 	private IGroupManager $groupManager;
@@ -36,7 +37,7 @@ class BalanceController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/balance/my')]
 	public function my(): DataResponse {
-		$balance = $this->balanceService->getBalance($this->userId);
+		$balance = $this->balanceService->getBalance($this->uid());
 		return new DataResponse($balance->jsonSerialize());
 	}
 

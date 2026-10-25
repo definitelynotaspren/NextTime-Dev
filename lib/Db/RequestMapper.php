@@ -84,19 +84,6 @@ class RequestMapper extends QBMapper {
 	}
 
 	/**
-	 * @return Request[]
-	 */
-	public function findByUser(string $userId): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('requester_id', $qb->createNamedParameter($userId)))
-			->orderBy('created_at', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * @param array<string, mixed> $filters
 	 */
 	public function count(array $filters = []): int {

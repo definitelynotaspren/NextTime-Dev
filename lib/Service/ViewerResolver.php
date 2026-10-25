@@ -37,15 +37,6 @@ class ViewerResolver {
 	}
 
 	/**
-	 * Chapters this person belongs to. Belonging gives no powers.
-	 *
-	 * @return list<string>
-	 */
-	public function memberChapters(string $userId): array {
-		return $this->chapters->memberChapters($userId);
-	}
-
-	/**
 	 * Chapters this person facilitates: they are in the chapter's facilitator group.
 	 *
 	 * @return list<string>

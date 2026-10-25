@@ -34,7 +34,7 @@ docs/                   data-and-access.md (where data lives, who can read it); 
 
 ## Commands
 
-Toolchain: PHP 8.3 (declared in info.xml; the only version run. `composer.json` and `psalm.xml` still pin 8.1 for tooling), Composer 2, Node >= 20 (`.nvmrc`), npm >= 10.
+Toolchain: PHP 8.3 (info.xml allows 8.3–8.5; 8.5 run via the `nextcloud:35-apache` image with the API smoke test. `composer.json` still pins 8.1 for tooling), Composer 2, Node >= 20 (`.nvmrc`), npm >= 10.
 
 ```bash
 composer install && npm ci      # deps (as root: export COMPOSER_ALLOW_SUPERUSER=1)
@@ -65,9 +65,12 @@ Logins on the dev server: `admin/admin`, `alice/alice-pass-123`,
 `../nc-server/data/nextcloud.log` (JSON lines; debug + loglevel 0 are on).
 
 Docker alternative: `make dev` / `make docker-up` (Postgres 15 + Redis 7 +
-custom `nextcloud:29-apache` image, port 8080, auto-installs from `.env`),
-then `make docker-install-app`. Run the smoke test with
-`scripts/smoke-test.sh http://localhost:8080` after creating the same users.
+`nextcloud:31-apache`, PHP 8.3, port 8080, auto-installs from `.env`), then
+`make docker-install-app` and `make docker-seed-users`. The image's password
+policy rejects `admin`, so scripts read the admin password from `ADMIN_PASS`:
+`ADMIN_PASS=... scripts/smoke-test.sh http://localhost:8080` (passes on this stack).
+Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
+`scripts/demo-data.sh [BASE_URL]` (`make demo`), idempotent.
 
 ## Definition of done for a change
 
@@ -122,13 +125,17 @@ then `make docker-install-app`. Run the smoke test with
 - Schema changes go in a NEW migration class (`VersionXXXXXXDateYYYYMMDDHHMMSS`)
   and a version bump in info.xml - never edit the shipped migration.
 - The app folder must be named `timebank` (matches the app id).
-- Composer pins `nextcloud/ocp: dev-stable31` while Docker uses NC 29: avoid OCP
-  APIs newer than 29.
+- Composer pins `nextcloud/ocp: dev-stable31` but the app supports NC 29: avoid OCP
+  APIs newer than 29 (psalm in CI checks against the stable29 API).
 - `vendor-bin/*` holds isolated tool installs (phpunit, psalm, cs-fixer,
   rector); `composer install` populates them via bamarni/composer-bin-plugin.
-- Psalm (`composer psalm`) has ~220 pre-existing findings (mostly
-  `UndefinedDocblockClass` from missing stubs). Don't treat it as a gate; just
-  don't add new ones in files you touch.
+- Psalm (`composer psalm`, level 1) is a CI gate with zero findings and no baseline; keep it that way.
+  CI runs it once per Nextcloud API from 29 on, and older APIs type less, so check a change against
+  the oldest too (`composer require --dev nextcloud/ocp:dev-stable29 --ignore-platform-reqs`, then
+  restore composer.json/lock). Request values are untyped: read text with the controllers'
+  `textParam()`/`optionalTextParam()` and `Service\Input`, never pass `getParam()` straight on.
+  Layer and field shapes are the `Layer`/`Field` psalm types in `SchemaSpec`. The suppressions in
+  psalm.xml are for things Nextcloud calls itself; each says why.
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
 

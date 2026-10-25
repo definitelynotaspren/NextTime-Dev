@@ -29,7 +29,10 @@ class IntakeLogMapper extends QBMapper {
 			->where($qb->expr()->eq('form_id', $qb->createNamedParameter($formId, IQueryBuilder::PARAM_INT)));
 
 		$result = $qb->executeQuery();
-		$ids = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$ids = [];
+		foreach ($result->fetchAll(\PDO::FETCH_COLUMN) as $id) {
+			$ids[] = (int)$id;
+		}
 		$result->closeCursor();
 
 		return $ids;

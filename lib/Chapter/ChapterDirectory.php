@@ -6,7 +6,7 @@ namespace OCA\TimeBank\Chapter;
 
 use OCA\TimeBank\AppInfo\Application;
 use OCA\TimeBank\Geo\ZipStates;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
 
@@ -25,10 +25,10 @@ use OCP\IGroupManager;
 class ChapterDirectory {
 
 	/** Where the ZIP prefixes of city chapters that are not states are kept, as JSON. */
-	public const CONFIG_ZIP_PREFIXES = 'chapter_zip_prefixes';
+	public const string CONFIG_ZIP_PREFIXES = 'chapter_zip_prefixes';
 
 	/** Used when the setting is empty. Lowercase chapter name => ZIP prefixes. */
-	private const DEFAULT_ZIP_PREFIXES = [
+	private const array DEFAULT_ZIP_PREFIXES = [
 		'new york city' => ['100', '101', '102', '103', '104', '111', '112', '113', '114', '116'],
 	];
 
@@ -41,7 +41,7 @@ class ChapterDirectory {
 
 	public function __construct(
 		private IGroupManager $groups,
-		private IConfig $config,
+		private IAppConfig $config,
 	) {
 	}
 
@@ -167,7 +167,7 @@ class ChapterDirectory {
 			return [];
 		}
 
-		return array_values(array_map(fn ($user) => (string)$user->getUID(), $group->getUsers()));
+		return array_values(array_map(fn ($user) => $user->getUID(), $group->getUsers()));
 	}
 
 	private function discover(): void {
@@ -249,13 +249,13 @@ class ChapterDirectory {
 	 */
 	private function zipPrefixSetting(): array {
 		$map = self::DEFAULT_ZIP_PREFIXES;
-		$json = $this->config->getAppValue(Application::APP_ID, self::CONFIG_ZIP_PREFIXES, '');
+		$json = $this->config->getValueString(Application::APP_ID, self::CONFIG_ZIP_PREFIXES, '');
 		$custom = $json === '' ? null : json_decode($json, true);
 		if (is_array($custom)) {
 			$map = [];
 			foreach ($custom as $name => $list) {
 				if (is_string($name) && is_array($list)) {
-					$map[self::key($name)] = array_values(array_filter(array_map('strval', $list), fn (string $p) => preg_match('/^\d{1,5}$/', $p) === 1));
+					$map[self::key($name)] = array_values(array_filter(array_map(fn (mixed $p): string => is_scalar($p) ? (string)$p : '', $list), fn (string $p) => preg_match('/^\d{1,5}$/', $p) === 1));
 				}
 			}
 		}

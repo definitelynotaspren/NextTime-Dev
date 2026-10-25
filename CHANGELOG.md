@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **NextTime could not be installed on the official Nextcloud 33, 34 or 35 Docker images**, which ship PHP 8.4
+  and 8.5: info.xml allowed PHP 8.3 only, so Nextcloud refused with "PHP with a version lower than 8.3 is
+  required". It now allows 8.3 to 8.5. On `nextcloud:35-apache` (PHP 8.5.12) the API smoke test passes and the
+  log shows no NextTime warnings; 8.4 is not run yet. CI lints the code on 8.3, 8.4 and 8.5.
+- **The Docker development stack could not run NextTime.** Its `nextcloud:29-apache` base image ships PHP 8.2,
+  and NextTime needs 8.3. It now uses `nextcloud:31-apache` (PHP 8.3), drops build steps that failed and were
+  not needed (the base image already has the PHP extensions), and the Makefile uses `docker compose`
+  instead of the retired `docker-compose`. The API smoke test passes on it, the first run on PostgreSQL.
+- **On Nextcloud 29, NextTime could break every user's notification list.** Its notifier refused other
+  apps' notifications with `UnknownNotificationException`, a class Nextcloud 29 does not have; the
+  resulting error was not caught. It now falls back to `\InvalidArgumentException` there.
+- A request body with a list where text was expected could cause a server error: for example a
+  `deadline` sent as a list made posting a request fail with HTTP 500. Values of the wrong type are now
+  ignored or refused with a plain message.
+- CI: static analysis (psalm) runs on PHP 8.3 and passes with no findings against every Nextcloud API
+  from 29 to the current one. The ~500 earlier findings were fixed, or, where Nextcloud calls the code
+  itself (controllers, migrations, jobs), configured with a stated reason. Nine unused methods were removed.
 - Missing spaces in two places: the Governance Log ran the action into the name ("an adjustment foralice",
   "created categoryGardening") and Withdrawn help on a request ran the volunteer into the hours ("carol3 h").
 - The README is rewritten to match the app: working curl examples (they need `/index.php` and the `OCS-APIRequest`
@@ -60,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- App settings are read and written through `IAppConfig` instead of the deprecated `IConfig` app-value
+  calls. Stored values and `occ config:app:set` work as before.
 - Basemap: Carto → [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key).
   Viewers' browsers contact `tiles.openfreemap.org`; see README → Map to change it.
 - Nextcloud support is now 29–35 (`max-version` 33 → 35), and only versions that were run
@@ -87,6 +106,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `scripts/demo-data.sh` (`make demo`) fills a dev server with a small community to click through: requests with
+  map pins, offers, a job in progress, a claim waiting for an admin and one in a community vote.
+- The smoke test and the demo script take the admin password from `ADMIN_PASS` (default `admin`), for the
+  Docker stack, whose password policy rejects `admin`.
 - **Add a form by its link** on the Form Intake page: paste the Forms share link (or the form's address) and the page
   looks the form up, says plainly which links work (a form on this server; not Google Forms or another Nextcloud), shows how
   each question maps, and adds it on a click. Only forms added this way are listed, so organizers no longer see the
