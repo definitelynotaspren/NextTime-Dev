@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **NextTime could not be installed on the official Nextcloud 33, 34 or 35 Docker images**, which ship PHP 8.4
+  and 8.5: info.xml allowed PHP 8.3 only, so Nextcloud refused with "PHP with a version lower than 8.3 is
+  required". It now allows 8.3 to 8.5. On `nextcloud:35-apache` (PHP 8.5.12) the API smoke test passes and the
+  log shows no NextTime warnings; 8.4 is not run yet. CI lints the code on 8.3, 8.4 and 8.5.
 - **The Docker development stack could not run NextTime.** Its `nextcloud:29-apache` base image ships PHP 8.2,
   and NextTime needs 8.3. It now uses `nextcloud:31-apache` (PHP 8.3), drops build steps that failed and were
   not needed (the base image already has the PHP extensions), and the Makefile uses `docker compose`

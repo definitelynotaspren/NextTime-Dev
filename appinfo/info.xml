@@ -28,7 +28,7 @@ services using hours as currency, with map-based coordination of requests and of
     <repository type="git">https://github.com/definitelynotaspren/NextTime-Dev.git</repository>
 
     <dependencies>
-        <php min-version="8.3" max-version="8.3"/>
+        <php min-version="8.3" max-version="8.5"/>
         <database min-version="12">pgsql</database>
         <database min-version="8.0">mysql</database>
         <database>sqlite</database>

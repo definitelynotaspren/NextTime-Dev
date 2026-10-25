@@ -23,8 +23,8 @@ jobs:
     strategy:
       matrix:
         # Not the version matrix: it starts at PHP 8.0 (the Nextcloud 29 minimum), which cannot
-        # parse readonly properties. info.xml declares PHP 8.3 as the only supported version.
-        php-versions: ['8.3']
+        # parse readonly properties. info.xml declares PHP 8.3 to 8.5.
+        php-versions: ['8.3', '8.4', '8.5']
 
     name: php-lint
 

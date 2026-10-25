@@ -27,7 +27,8 @@ which can arrive from Nextcloud Forms.
 
 - **Nextcloud** 29 to 35. Each of 29.0.16, 30.0.17, 31.0.14, 32.0.15, 33.0.10, 34.0.5 and 35.0.2 was run through the
   unit, API, desk, approver and browser tests (see [CHANGELOG.md](CHANGELOG.md)).
-- **PHP** 8.3 (the only version run; Nextcloud 35 itself requires it).
+- **PHP** 8.3 to 8.5. Run on 8.3 (all tests) and 8.5 (the official `nextcloud:35-apache` image: API smoke test and a
+  browser check); 8.4 is untested.
 - **Database**: the app declares PostgreSQL 12+, MySQL 8.0+ and SQLite, but **only SQLite has been run**. Test the
   others before relying on them.
 - **Nextcloud Notifications app** (shipped and enabled on a normal install): needed for "a claim is waiting" notices.
@@ -435,7 +436,8 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **A facilitator working a row cannot see the requester's contact details** (organizer-only).
 - **A member can flag a comment once, ever**: after a moderator keeps it, those members cannot flag it again.
 - **Evidence files** for claims are not uploaded or read yet.
-- **Only SQLite has been run.** PostgreSQL, MySQL and PHP versions other than 8.3 are untested.
+- **SQLite (all tests) and PostgreSQL (the API smoke test, on the Docker stack) have been run.** MySQL/MariaDB and
+  PHP 8.4 are untested.
 
 ## Roadmap
 

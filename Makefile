@@ -87,6 +87,8 @@ appstore: build
 	@rm -rf build/timebank
 	@rsync -a \
 		--exclude='.git' \
+		--exclude='.claude' \
+		--exclude='screenshots-*' \
 		--exclude='.github' \
 		--exclude='.idea' \
 		--exclude='build' \

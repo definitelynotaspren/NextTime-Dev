@@ -34,7 +34,7 @@ docs/                   data-and-access.md (where data lives, who can read it); 
 
 ## Commands
 
-Toolchain: PHP 8.3 (declared in info.xml; the only version run. `composer.json` and `psalm.xml` still pin 8.1 for tooling), Composer 2, Node >= 20 (`.nvmrc`), npm >= 10.
+Toolchain: PHP 8.3 (info.xml allows 8.3–8.5; 8.5 run via the `nextcloud:35-apache` image with the API smoke test. `composer.json` still pins 8.1 for tooling), Composer 2, Node >= 20 (`.nvmrc`), npm >= 10.
 
 ```bash
 composer install && npm ci      # deps (as root: export COMPOSER_ALLOW_SUPERUSER=1)

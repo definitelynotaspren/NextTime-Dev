@@ -91,7 +91,7 @@ ADMIN_PASS='your-admin-password' make demo BASE_URL=http://localhost:8080   # op
 | Component  | Version                          |
 |------------|----------------------------------|
 | Nextcloud  | 29 – 35                          |
-| PHP        | 8.3                              |
+| PHP        | 8.3 – 8.5                        |
 | Database   | PostgreSQL 12+, MySQL 8+, or SQLite (small installs only) |
 
 ## Building the tarball yourself
