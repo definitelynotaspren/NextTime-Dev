@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Move a request or desk row to another state** (Phase 2 of the security plan, Decision 5). Normally the ZIP
+  decides; a facilitator of the old or new state, a national organizer or an admin can move it, or send it back to
+  its ZIP's state. Every move is in the public governance log. The request page and the organizer desk show the
+  control only to people who may use it.
+- **Pin-first posting.** Drop a pin on the posting form and the ZIP fills in, worked out in the browser from the
+  bundled ZIP table (each area's center and size), so the pin never leaves the device unless "Also save this
+  exact location" is ticked. It is off by default. A pin with no US ZIP near it asks for one to be typed.
+
+### Fixed
+
+- Editing a request to remove its location left the map point behind. The point now goes with the text.
+
 ### Security
 
 - **Exact request locations are private** (Phase 2 of the security and permission plan). Every in-person

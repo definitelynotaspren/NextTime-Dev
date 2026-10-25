@@ -235,6 +235,8 @@ them unless the form is anonymous; NextTime does not copy the submitter's accoun
 
 ## Map
 
+- **Posting starts with a pin or a ZIP.** Drop a pin on the form's map and the ZIP fills in; the lookup runs in your
+  browser against the bundled table, so the pin is not sent unless you tick "Also save this exact location".
 - Every request has a ZIP code. **Who sees the exact location** (the address text and the point picked on the map):
   the person who posted it, the facilitators of its state, and volunteers whose offer is accepted, for as long as it
   stays accepted. Everyone else, national organizers and Nextcloud admins included, sees the ZIP, and the map puts the
@@ -265,7 +267,11 @@ too often. Lists return at most 100 rows a page (`limit` 1 to 100, `offset` 0 or
   `priority`, `zip` (5 digits or ZIP+4, of a US state), optional `deadline`, `location`, `latitude`, `longitude`).
   Archived categories are refused. Every endpoint returns a request with `zip`, `chapter`, `zipCenter` and
   `exactLocation`; `location`, `latitude` and `longitude` are `null` unless `exactLocation` is true
-- `PUT /api/requests/{id}` - update *(owner only, while open; the same limits apply)*
+- `PUT /api/requests/{id}` - update *(owner only, while open; the same limits apply)*. `location: ""` removes the
+  saved exact location and point
+- `POST /api/requests/{id}/state` - move to another state (`chapter`: a chapter slug; empty goes back to the ZIP's
+  state). *(facilitators of the old or new state, national organizers, admins; logged in the governance log)*. The
+  detail response's `stateChoices` lists the states, empty for people who may not move it
 - `POST /api/requests/{id}/complete` - every accepted volunteer is completed. Credits no hours *(owner only)*
 - `POST /api/requests/{id}/cancel` - cancel an open or in-progress request *(owner only)*
 
@@ -326,6 +332,8 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 ### Map and public feeds
 
 - `GET /api/map/requests` - GeoJSON of open requests, each at its ZIP's center (no exact points, no contact fields)
+- `GET /api/geo/zip-centers` - the bundled ZIP-center table as text, so the posting form can turn a pin into a ZIP in
+  the browser
 - `GET /api/layers/{layer}/feed` - GeoJSON of published rows for `point_snapped` layers (`needs_offers`, `issue_reports`)
 
 ### Organizer desk (organizers and facilitators)
@@ -335,6 +343,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 - `POST /api/layers/{layer}/rows` - add a row (organizer anywhere; a facilitator for ZIPs in their chapter); unpublished unless `publish=yes`
 - `POST /api/layers/{layer}/rows/{id}/assign` - take a row (organizer, or the facilitator of its chapter); `DELETE` the same path releases it (an organizer can release any)
 - `POST /api/layers/{layer}/rows/{id}/status` - `assigned`, `in_progress` or `done`, on a row you hold
+- `POST /api/layers/{layer}/rows/{id}/state` - move the row to another state, same rules as for requests
 - `POST /api/layers/{layer}/rows/{id}/publish` - `publish=yes|no`
 - `GET /api/assignments` - rows assigned to you; filters `layer`, `source`
 
@@ -450,8 +459,10 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **Evidence files** for claims are not uploaded from the app yet; the API checks the claimant can read a given file id.
 - **Requests posted before version 0.9 have no ZIP**, so they belong to no state and are not on the map for anyone
   but their poster, until the poster edits them (an edit asks for the ZIP). The **Chapters** page counts them.
-- **A request cannot yet be moved to another state** by hand; its ZIP decides. The reassign endpoint and the
-  pin-first posting form (drop a pin, the ZIP fills in) are the rest of Phase 2.
+- **A dropped pin's ZIP is a best guess.** The posting form picks the ZIP area the pin most likely falls in from
+  each area's center and size, not its borders, so near a ZIP border it can be the neighbouring ZIP, and near the
+  Canadian or Mexican border it may suggest a US ZIP. The field stays editable; check it. Puerto Rico, Guam and
+  military ZIPs are refused when posting.
 - **Rate limits are fixed** (see Security) and count every call, including refused ones; a burst of data entry by one
   person can hit them, and they then wait up to 10 minutes.
 - **SQLite (all tests) and PostgreSQL (the API smoke test, on the Docker stack) have been run.** MySQL/MariaDB and

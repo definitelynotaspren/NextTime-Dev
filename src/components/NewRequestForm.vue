@@ -7,6 +7,7 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
 import LocationPicker from './LocationPicker.vue'
+import { nearestZip } from '../geo/nearestZip'
 
 const props = defineProps({
 	/** When given, the form edits this request instead of posting a new one. */
@@ -36,6 +37,32 @@ const deadline = ref(props.request?.deadline ? props.request.deadline.slice(0, 1
 const zip = ref(props.request?.zip ?? '')
 const location = ref(props.request?.location ?? '')
 const zipValid = computed(() => /^\d{5}(-\d{4})?$/.test(zip.value.trim()))
+// The exact location (address text or pin) is sent only when this is ticked. Unticked, a dropped
+// pin is used in the browser to fill in the ZIP and never leaves the device.
+const saveExact = ref(!!props.request?.location)
+const zipHint = ref<string | null>(null)
+let zipFromPin = false
+
+const onPin = async ({ lat, lng }: { lat: number, lng: number }) => {
+	// Fill the ZIP from the pin unless the requester typed one themselves.
+	if (zip.value.trim() !== '' && !zipFromPin) return
+	try {
+		const found = await nearestZip(lat, lng)
+		if (found) {
+			zip.value = found.zip
+			zipFromPin = true
+			zipHint.value = `Filled in from your pin: ${found.zip}. Near a ZIP border this can be wrong, so check it.`
+		} else {
+			zipHint.value = 'No US ZIP code near that pin. Please type the ZIP code.'
+		}
+	} catch {
+		zipHint.value = 'Could not look up a ZIP for that pin. Please type the ZIP code.'
+	}
+}
+const onZipTyped = () => {
+	zipFromPin = false
+	zipHint.value = null
+}
 const submitting = ref(false)
 const error = ref<string | null>(null)
 
@@ -80,7 +107,8 @@ const submit = async () => {
 		priority: priority.value,
 		deadline: deadline.value || undefined,
 		zip: zip.value.trim(),
-		location: location.value || undefined,
+		// Unticked: nothing exact is sent; an edit sends '' so a saved location is removed.
+		location: saveExact.value ? (location.value || undefined) : (editing.value ? '' : undefined),
 	}
 
 	try {
@@ -177,20 +205,35 @@ const submit = async () => {
 			<NcTextField
 				id="zip"
 				v-model="zip"
-				placeholder="For example 97055"
+				placeholder="For example 97055, or drop a pin below"
 				inputmode="numeric"
 				autocomplete="postal-code"
-				:disabled="submitting" />
+				:disabled="submitting"
+				@update:model-value="onZipTyped" />
+			<p v-if="zipHint" class="hint zip-hint" role="status">
+				{{ zipHint }}
+			</p>
 			<p class="hint">
 				Everyone sees the ZIP, and the map shows the request at the middle of the ZIP area.
-				The exact location below is optional: only you, your state's facilitators and volunteers you accept see it.
 			</p>
 		</div>
 
 		<div class="form-group">
 			<LocationPicker
 				v-model="location"
-				:show-map="true" />
+				:show-map="true"
+				@pin="onPin" />
+			<label class="save-exact">
+				<input
+					id="save-exact"
+					v-model="saveExact"
+					type="checkbox"
+					:disabled="submitting">
+				Also save this exact location. Only you, your state's facilitators and volunteers you accept will see it.
+			</label>
+			<p v-if="!saveExact && location" class="hint">
+				Not saved: only the ZIP is sent. Your pin stays on this device.
+			</p>
 		</div>
 
 		<div class="form-actions">
@@ -211,6 +254,17 @@ const submit = async () => {
 .new-request-form {
 	padding: 20px;
 	max-width: 600px;
+}
+
+.save-exact {
+	display: flex;
+	gap: 8px;
+	align-items: flex-start;
+	margin-top: 8px;
+}
+
+.zip-hint {
+	color: var(--color-main-text);
 }
 
 .hint {

@@ -23,6 +23,7 @@ interface Schema {
 	systemFields: Field[]
 	layers: Record<string, { title: string, uid_prefix: string, fields: Field[], aggregate_only?: boolean }>
 	lookups: Record<string, string[]>
+	chapters: { slug: string, name: string }[]
 }
 
 interface Row {
@@ -111,6 +112,9 @@ const setPublished = (row: Row, publish: boolean) =>
 const release = (row: Row) => act(row, () => axios.delete(generateUrl(`${base(row)}/assign`)))
 const setStatus = (row: Row, status: string) =>
 	act(row, () => axios.post(generateUrl(`${base(row)}/status`), { status }))
+// '' sends the row back to the state of its ZIP. Logged in the governance log.
+const moveState = (row: Row, chapter: string) =>
+	act(row, () => axios.post(generateUrl(`${base(row)}/state`), { chapter }))
 
 const fieldInputType = (field: Field) => {
 	switch (field.type) {
@@ -257,7 +261,23 @@ onMounted(async () => {
 							Assign to me
 						</NcButton>
 					</template>
-					<template v-else-if="tab === 'mine'">
+					<select
+						:value="''"
+						:disabled="busyId === row.id"
+						aria-label="Move to another state"
+						title="Moves are written to the public Governance Log"
+						@change="moveState(row, ($event.target as HTMLSelectElement).value === '-' ? '' : ($event.target as HTMLSelectElement).value)">
+						<option value="" disabled>
+							Move to state…
+						</option>
+						<option v-for="c in (schema?.chapters ?? []).filter((c) => c.slug !== row.chapter)" :key="c.slug" :value="c.slug">
+							{{ c.name }}
+						</option>
+						<option value="-">
+							Back to its ZIP's state
+						</option>
+					</select>
+					<template v-if="row.assignedTo && tab === 'mine'">
 						<select
 							v-if="row.assignedTo"
 							:value="row.assignmentStatus ?? 'assigned'"

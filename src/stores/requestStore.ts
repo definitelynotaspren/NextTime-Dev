@@ -106,6 +106,8 @@ interface RequestState {
 		/** Only sent to the requester: why people withdrew their help. */
 		withdrawals?: Withdrawal[]
 		canModerate?: boolean
+		/** States you may move this request to; empty when you may not move it. */
+		stateChoices?: { slug: string, name: string }[]
 	} | null
 	filters: RequestFilters
 	pagination: Pagination
@@ -232,6 +234,12 @@ export const useRequestStore = defineStore('requests', {
 		// Only while the request is open; the server refuses anything else.
 		async updateRequest(requestId: number, fields: Partial<Request>) {
 			await axios.put(generateUrl(`/apps/timebank/api/requests/${requestId}`), fields)
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// chapter null sends the request back to the state of its ZIP.
+		async moveRequestState(requestId: number, chapter: string | null) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/state`), { chapter: chapter ?? '' })
 			await this.fetchRequestDetails(requestId, true)
 		},
 

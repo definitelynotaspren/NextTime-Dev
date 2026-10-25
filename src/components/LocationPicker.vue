@@ -76,6 +76,8 @@ const props = defineProps({
 
 const emit = defineEmits<{
 	(e: 'update:modelValue', value: string): void
+	/** A point was picked (map click, drag, or typed "lat, lng"); stays in the browser. */
+	(e: 'pin', value: LocationCoordinates): void
 }>()
 
 const locationText = ref(props.modelValue || '')
@@ -129,6 +131,7 @@ function validateLocation() {
 		showValidationMessage.value = true
 		selectedLocation.value = coords
 		updateMapMarker(coords)
+		emit('pin', coords)
 	} else {
 		isValid.value = false
 		validationMessage.value = 'Please enter coordinates in format: latitude, longitude (e.g., 45.4215, -122.7528)'
@@ -191,6 +194,7 @@ function updateSelectedLocation(lat: number, lng: number) {
 	showValidationMessage.value = true
 
 	updateMapMarker({ lat, lng })
+	emit('pin', { lat, lng })
 }
 
 function toggleMapVisibility() {

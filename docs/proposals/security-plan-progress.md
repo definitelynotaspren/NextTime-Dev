@@ -8,12 +8,12 @@ so the next session can pick up from here.
 
 | Phase | State | Branch / PR |
 | --- | --- | --- |
-| 1. One role model | Done | `claude/youthful-davinci-6pmld6` |
-| 2. Request geography and location privacy | Server side and ZIP field done; reassign endpoint and pin-first form left | `claude/youthful-davinci-6pmld6` |
+| 1. One role model | Done | PR #49 |
+| 2. Request geography and location privacy | Done | PR #49 (part 1), `claude/youthful-davinci-6pmld6` (part 2) |
 | 3. Posting, voting and moderation gates | Not started (needs 2) | |
 | 4. Adjustments by facilitators | Not started (needs 1) | |
 | 5. Remote requests with Nextcloud files | Not started (needs 2) | |
-| 6. Hardening carried over | Done | `claude/youthful-davinci-6pmld6` |
+| 6. Hardening carried over | Done | PR #49 |
 
 ## Phase 1: what landed
 
@@ -66,20 +66,26 @@ admin settings page stays display-only.
   `desk-smoke.sh` (Oregon facilitator exact, Washington facilitator ZIP only), `ui-smoke.cjs` (form ZIP, another
   member gets no point).
 
-### Phase 2, still to do
+## Phase 2: what landed (part 2)
 
-1. `POST /api/requests/{id}/state` and `POST /api/layers/{layer}/rows/{uid}/state`: set `chapter_override`, allowed for
-   facilitators of the old or new state, national organizers and admins; `GovernanceLog::record()`;
-   `LayerService::chapterOf()` honours the override. `RequestPresenter::chapterOf()` already does.
-2. Pin-first posting: `src/geo/nearestZip.ts` over the same `zip-centers.txt` (serve it from `lib/Geo/data` through a
-   small controller or copy it into `js/` at build), fill the ZIP field from a dropped pin, keep it editable, and a
-   "save exact spot" checkbox (off by default) so an unsaved pin never reaches the server.
-3. Plan test section 2 items not yet automated: notifications never carry the address (claims have none today).
+- `Service\StateReassignment`: `moveRequest()` / `moveDeskRow()` set `chapter_override` (null clears it), for
+  facilitators of the old or new state, national organizers and admins; refused moves change nothing; every move is
+  `request.state_changed` / `desk_row.state_changed` in the governance log. Routes `POST /api/requests/{id}/state`
+  and `POST /api/layers/{layer}/rows/{id}/state`; the request detail carries `stateChoices`. `LayerService::chapterOf()`
+  honours the override. Tests: `StateReassignmentTest`, `desk-smoke.sh` "Moving a request or desk row".
+- Pin-first posting: `GET /api/geo/zip-centers` serves the table; `src/geo/nearestZip.ts` picks the ZIP whose
+  center is nearest in units of that area's radius (the table now has a radius column, 31-byte lines), within
+  1.5 radii + 10 km, else none. `NewRequestForm` fills the ZIP from a pin unless one was typed; "Also save this exact
+  location" is off by default and gates `location`. `ui-smoke.cjs` checks the ZIP fills and nothing sent holds the pin.
+- Fixed on the way: emptying `location` on edit now clears the point too.
+
+Not automated: notifications never carry the address (claim notices have no request data today; re-check when
+request notifications are added).
 
 ## Next run: suggested order
 
 1. ~~Phase 6~~ done.
-2. **Finish Phase 2**: the two items under "Phase 2, still to do".
+2. ~~Finish Phase 2~~ done.
 3. **Phase 4** can run in parallel with 2 (it only needs Phase 1): `AdjustmentService::propose()` scope, a `voting`
    status, an adjustment-vote table with a unique (adjustment, voter) index, and `listFor()` scoped to the viewer's
    states.

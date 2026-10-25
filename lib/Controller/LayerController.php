@@ -7,6 +7,7 @@ namespace OCA\TimeBank\Controller;
 use OCA\TimeBank\Schema\LayerException;
 use OCA\TimeBank\Schema\Viewer;
 use OCA\TimeBank\Service\LayerService;
+use OCA\TimeBank\Service\StateReassignment;
 use OCA\TimeBank\Service\ViewerResolver;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -24,6 +25,7 @@ use OCP\IRequest;
 class LayerController extends Controller {
 	use CurrentUser;
 	use RequestParams;
+	use ServiceErrors;
 
 	private LayerService $layerService;
 	private ViewerResolver $viewers;
@@ -34,6 +36,7 @@ class LayerController extends Controller {
 		IRequest $request,
 		LayerService $layerService,
 		ViewerResolver $viewers,
+		private StateReassignment $reassignment,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -96,6 +99,20 @@ class LayerController extends Controller {
 			$id,
 			$this->request->getParam('publish') === 'yes',
 		));
+	}
+
+	/**
+	 * Moves the row to another state (`chapter`: a chapter slug), or back to its ZIP's state when
+	 * `chapter` is empty. Facilitators of the old or new state, national organizers, admins; logged.
+	 */
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/state', requirements: ['layer' => '[a-z_]+', 'id' => '\\d+'])]
+	public function state(string $layer, int $id): DataResponse {
+		try {
+			return new DataResponse($this->reassignment->moveDeskRow($layer, $id, $this->uid(), $this->optionalTextParam('chapter')));
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
 	}
 
 	#[NoAdminRequired]

@@ -309,7 +309,11 @@ class LayerService {
 	 * from what was stored when it was written. If a chapter's group is added, renamed or
 	 * removed, rows follow it, and a facilitator who loses the role loses the rows with it.
 	 */
+	/** The row's state: the override someone set (StateReassignment), else its ZIP's. */
 	private function chapterOf(LayerRow $row): ?string {
+		if ($row->getChapterOverride() !== null) {
+			return $row->getChapterOverride();
+		}
 		$data = $this->decode($row->getData());
 		$zip = isset($data['zip']) ? (string)$data['zip'] : null;
 

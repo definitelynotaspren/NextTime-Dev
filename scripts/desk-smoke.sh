@@ -147,12 +147,36 @@ CAT_ID="$(jq -r '.[0].id' "$TMP/body")"
 call alice POST /requests "{\"title\":\"Garden help\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\",\"location\":\"45.4215, -122.7528\"}"; eq "create a request with lat,lng text" 201
 has "coordinates are derived from the text" '.latitude==45.4215 and .longitude==-122.7528'
 GARDEN_ID="$(jq -r '.id' "$TMP/body")"
+call carol POST "/requests/$GARDEN_ID/state" '{"chapter":"washington"}'; eq "a plain member cannot move a request to another state" 403
+call carol GET "/requests/$GARDEN_ID"
+has "and is offered no states to move it to" '.stateChoices==[]'
 call bob GET "/requests/$GARDEN_ID"
 has "the Oregon facilitator sees an Oregon request's exact point" '.request.exactLocation==true and .request.latitude==45.4215'
 occ group:add "Washington Facilitators"
 occ group:adduser "Washington Facilitators" carol
 call carol GET "/requests/$GARDEN_ID"
 has "a Washington facilitator gets the ZIP only" '.request.exactLocation==false and .request.latitude==null and .request.zip=="97055"'
+
+echo "- Moving a request or desk row to another state"
+call carol POST "/requests/$GARDEN_ID/state" '{"chapter":"atlantis"}'; eq "an unknown state is refused" 400
+call bob GET "/requests/$GARDEN_ID"
+has "the Oregon facilitator is offered the states to move it to" '.stateChoices | map(.slug) | index("washington") != null'
+call bob POST "/requests/$GARDEN_ID/state" '{"chapter":"washington"}'; eq "the Oregon facilitator moves it to Washington" 200
+has "it is now in Washington" '.chapter=="washington"'
+call carol GET "/requests/$GARDEN_ID"
+has "so the Washington facilitator now sees the exact point" '.request.exactLocation==true and .request.latitude==45.4215'
+call bob GET "/requests/$GARDEN_ID"
+has "and the Oregon facilitator no longer does" '.request.exactLocation==false and .request.latitude==null'
+call alice GET "/governance?limit=20"
+has "the move is in the public governance log" 'any(.entries[]; .action=="request.state_changed" and .actorId=="bob")'
+call carol POST "/requests/$GARDEN_ID/state" '{"chapter":""}'; eq "the Washington facilitator sends it back to its ZIP's state" 200
+has "it is in Oregon again" '.chapter=="oregon"'
+call carol POST "/layers/needs_offers/rows/$ID/state" '{"chapter":"washington"}'; eq "a Washington facilitator pulls an Oregon desk row in" 200
+call carol GET /layers/needs_offers/rows
+has "and now works it" 'any(.[]; .id==$id and .chapter=="washington")' --argjson id "$ID"
+call bob GET /layers/needs_offers/rows
+has "the Oregon facilitator no longer sees it" 'any(.[]; .id==$id)|not' --argjson id "$ID"
+call carol POST "/layers/needs_offers/rows/$ID/state" '{"chapter":""}'; eq "and moves it back" 200
 occ group:removeuser "Washington Facilitators" carol
 call alice POST /requests "{\"title\":\"Address only\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\",\"location\":\"123 Main Street\"}"; eq "an address-only request is accepted" 201
 has "an address-only request has no coordinates" '.latitude==null'

@@ -11,12 +11,13 @@ namespace OCA\TimeBank\Geo;
  *
  * Requests shown "zip only" are placed on the map here, so the pin says no more than the ZIP does.
  *
- * The file is sorted, fixed-width lines ("ZZZZZ LLLLLLLL GGGGGGGGG\n"), searched on disk by halving,
- * so a lookup reads about 16 lines and never loads the whole table.
+ * The file is sorted, fixed-width lines ("ZZZZZ LLLLLLLL GGGGGGGGG RRRRR\n": zip, latitude, longitude,
+ * radius in km), searched on disk by halving, so a lookup reads about 16 lines and never loads the
+ * whole table.
  */
 final class ZipCenters {
 
-	private const int LINE = 25;
+	private const int LINE = 31;
 
 	/** @var array<string, array{0: float, 1: float}|null> */
 	private static array $cache = [];
@@ -54,11 +55,16 @@ final class ZipCenters {
 		return self::$cache[$zip] = self::search($zip);
 	}
 
+	/** Path of the bundled table; GeoController serves it to the posting form. */
+	public static function dataFile(): string {
+		return __DIR__ . '/data/zip-centers.txt';
+	}
+
 	/**
 	 * @return array{0: float, 1: float}|null
 	 */
 	private static function search(string $zip): ?array {
-		$path = __DIR__ . '/data/zip-centers.txt';
+		$path = self::dataFile();
 		$size = @filesize($path);
 		$handle = @fopen($path, 'rb');
 		if ($size === false || $handle === false) {

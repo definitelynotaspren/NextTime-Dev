@@ -8,6 +8,7 @@ use OCA\TimeBank\Service\CategoryService;
 use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\Input;
 use OCA\TimeBank\Service\RequestService;
+use OCA\TimeBank\Service\StateReassignment;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
@@ -31,6 +32,7 @@ class RequestController extends Controller {
 		RequestService $requestService,
 		private CommentService $commentService,
 		private CategoryService $categoryService,
+		private StateReassignment $reassignment,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -67,6 +69,8 @@ class RequestController extends Controller {
 			// Comments go through moderation: hidden and removed ones lose their text.
 			$data['comments'] = $this->commentService->getForViewer($id, $this->uid());
 			$data['canModerate'] = $this->commentService->isModerator($this->uid());
+			// States it could be moved to; empty for people who may never move a request.
+			$data['stateChoices'] = $this->reassignment->choicesFor($this->uid());
 			return new DataResponse($data);
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
@@ -162,6 +166,22 @@ class RequestController extends Controller {
 				}
 			}
 			$request = $this->requestService->updateRequest($id, $this->uid(), $data);
+			return new DataResponse($this->requestService->present($request, $this->uid()));
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	/**
+	 * Moves the request to another state (`chapter`: a chapter slug), or back to its ZIP's state
+	 * when `chapter` is empty. Facilitators of the old or new state, national organizers, admins;
+	 * logged in the governance log.
+	 */
+	#[NoAdminRequired]
+	#[FrontpageRoute(verb: 'POST', url: '/api/requests/{id}/state', requirements: ['id' => '\\d+'])]
+	public function state(int $id): DataResponse {
+		try {
+			$request = $this->reassignment->moveRequest($id, $this->uid(), $this->optionalTextParam('chapter'));
 			return new DataResponse($this->requestService->present($request, $this->uid()));
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
