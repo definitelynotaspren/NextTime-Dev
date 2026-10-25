@@ -20,6 +20,7 @@ const isModerator = ref(false)
 const isAdmin = ref(false)
 const isOrganizer = ref(false)
 const isFacilitator = ref(false)
+const isChapterMember = ref(false)
 
 const fetchRoles = async () => {
 	try {
@@ -29,12 +30,14 @@ const fetchRoles = async () => {
 		isAdmin.value = data.admin
 		isOrganizer.value = data.nationalOrganizer
 		isFacilitator.value = data.facilitator
+		isChapterMember.value = data.chapterMember
 	} catch {
 		isStaff.value = false
 		isModerator.value = false
 		isAdmin.value = false
 		isOrganizer.value = false
 		isFacilitator.value = false
+		isChapterMember.value = false
 	}
 }
 
@@ -90,7 +93,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:name="isAdmin || isFacilitator || isOrganizer ? 'Approvals & Votes' : 'Votes on Claims'"
+					:name="'Approvals & Votes'"
 					:to="{ name: 'AdminApprovals' }"
 					:active="route.name === 'AdminApprovals'">
 					<template #icon>
@@ -115,7 +118,6 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					v-if="isAdmin || isOrganizer"
 					:name="'Chapters'"
 					:to="{ name: 'ChapterCheck' }"
 					:active="route.name === 'ChapterCheck'">
@@ -133,7 +135,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					v-if="isAdmin || isFacilitator || isOrganizer"
+					v-if="isAdmin || isFacilitator || isOrganizer || isChapterMember"
 					:name="'Adjustments'"
 					:to="{ name: 'AdminAdjustments' }"
 					:active="route.name === 'AdminAdjustments'">

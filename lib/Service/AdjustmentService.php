@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Service;
 
 use OCA\TimeBank\AppInfo\Application;
+use OCA\TimeBank\Chapter\ChapterDirectory;
+use OCA\TimeBank\Chapter\Electorate;
 use OCA\TimeBank\Db\Adjustment;
 use OCA\TimeBank\Db\AdjustmentMapper;
+use OCA\TimeBank\Db\AdjustmentVote;
+use OCA\TimeBank\Db\AdjustmentVoteMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IAppConfig;
 use OCP\IDBConnection;
@@ -14,12 +18,23 @@ use OCP\IGroupManager;
 use OCP\IUserManager;
 
 /**
- * Manual balance adjustments.
+ * Manual balance adjustments (Decision 3 of the security plan).
  *
- * One admin can make a small adjustment. A larger one is a proposal that needs a second
- * person: another admin, or a facilitator of a chapter the member belongs to. Nobody ever
- * adjusts their own balance, and nobody approves their own proposal. Each step is written
- * to the public governance log, and the ledger entry names both people.
+ * Who proposes: a facilitator for members of their own state, a national organizer for anyone, a
+ * Nextcloud admin for anyone. Nobody ever adjusts their own balance, and nobody approves or votes on
+ * their own proposal or on an adjustment to their own balance.
+ *
+ * - Facilitators and national organizers: at or under the threshold, a second facilitator of the
+ *   member's state or a national organizer approves or rejects it. Over the threshold it goes to a
+ *   vote of the state's chapter members (see Electorate: national organizers for members with no
+ *   state, or whose state has fewer than three people who could vote). The vote
+ *   closes after 14 days, or earlier once everyone eligible has voted: at least 3 votes and more
+ *   approvals than rejections apply it; 3 or more votes otherwise reject it; fewer than 3 expire it.
+ * - Admins (break-glass, unchanged): at or under the threshold it applies at once; over it, a second
+ *   person approves.
+ *
+ * Every step is written to the public governance log, and the ledger entry names who proposed and
+ * who decided.
  */
 class AdjustmentService {
 
@@ -29,14 +44,21 @@ class AdjustmentService {
 	public const float MAX_ADJUSTMENT = 100.0;
 	public const int EXPIRY_DAYS = 14;
 	public const int MIN_REASON_LENGTH = 10;
+	public const int MIN_VOTES = 3;
+
+	/** Stored as the approver of an adjustment that a vote applied. */
+	public const string BY_VOTE = 'community-vote';
 
 	public function __construct(
 		private AdjustmentMapper $mapper,
+		private AdjustmentVoteMapper $votes,
 		private BalanceService $balances,
 		private TransactionService $transactions,
 		private GovernanceLog $log,
 		private ViewerResolver $viewers,
 		private ApproverPolicy $policy,
+		private ChapterDirectory $chapters,
+		private Electorate $electorate,
 		private IGroupManager $groups,
 		private IUserManager $users,
 		private IAppConfig $config,
@@ -57,7 +79,9 @@ class AdjustmentService {
 	 * @throws NotAuthorizedException
 	 */
 	public function setThreshold(string $adminId, float $hours, string $reason): float {
-		$this->requireAdmin($adminId);
+		if (!$this->groups->isAdmin($adminId)) {
+			throw new NotAuthorizedException('Only administrators can change the threshold');
+		}
 		if ($hours < self::MIN_THRESHOLD || $hours > self::MAX_THRESHOLD) {
 			throw new InvalidStateException(sprintf('The threshold must be between %g and %g hours', self::MIN_THRESHOLD, self::MAX_THRESHOLD));
 		}
@@ -74,17 +98,24 @@ class AdjustmentService {
 		return $hours;
 	}
 
+	/** Whether this person may propose adjustments at all (for whom is checked per proposal). */
+	public function mayPropose(string $userId): bool {
+		$viewer = $this->viewers->forUser($userId);
+
+		return $this->groups->isAdmin($userId) || $viewer->nationalOrganizer || $viewer->facilitatorOf !== [];
+	}
+
 	/**
-	 * Small adjustments are applied at once; larger ones wait for a second person.
-	 *
 	 * @throws InvalidStateException
 	 * @throws NotAuthorizedException
 	 */
 	public function propose(string $proposerId, string $userId, float $hours, string $reason): Adjustment {
-		$this->requireAdmin($proposerId);
-
 		if ($proposerId === $userId) {
-			throw new NotAuthorizedException('You cannot adjust your own balance. Ask another admin or facilitator.');
+			throw new NotAuthorizedException('You cannot adjust your own balance. Ask another facilitator or a national organizer.');
+		}
+		$capacity = $this->policy->capacity($proposerId, $userId);
+		if ($capacity === null) {
+			throw new NotAuthorizedException('Only a facilitator of this member\'s state, a national organizer or an admin can propose an adjustment for them');
 		}
 		if (!$this->users->userExists($userId)) {
 			throw new InvalidStateException('There is no member with that name');
@@ -93,6 +124,8 @@ class AdjustmentService {
 			throw new InvalidStateException(sprintf('Hours must not be zero and at most %g either way', self::MAX_ADJUSTMENT));
 		}
 		$reason = $this->validReason($reason);
+		$small = abs($hours) <= $this->getThreshold();
+		$byAdmin = $capacity['as'] === ApproverPolicy::AS_ADMIN;
 
 		$now = new \DateTime();
 		$adjustment = new Adjustment();
@@ -100,20 +133,29 @@ class AdjustmentService {
 		$adjustment->setHours(number_format($hours, 2, '.', ''));
 		$adjustment->setReason($reason);
 		$adjustment->setProposerId($proposerId);
-		$adjustment->setStatus('pending');
+		$adjustment->setStatus($small || $byAdmin ? 'pending' : 'voting');
 		$adjustment->setCreatedAt($now);
 		$adjustment->setExpiresAt((clone $now)->modify('+' . self::EXPIRY_DAYS . ' days'));
 
-		if (abs($hours) <= $this->getThreshold()) {
+		if ($small && $byAdmin) {
 			return $this->apply($adjustment, null);
 		}
 
 		$adjustment = $this->mapper->insert($adjustment);
-		$this->log->record($proposerId, 'adjustment.proposed', $userId, [
-			'hours' => $hours,
-			'reason' => $reason,
-			'needsSecondPerson' => true,
-		]);
+		if ($adjustment->getStatus() === 'voting') {
+			$this->log->record($proposerId, 'adjustment.vote_opened', $userId, [
+				'hours' => $hours,
+				'reason' => $reason,
+				'eligibleVoters' => count($this->electorate($adjustment)),
+				'closes' => $adjustment->getExpiresAt()->format('Y-m-d H:i'),
+			]);
+		} else {
+			$this->log->record($proposerId, 'adjustment.proposed', $userId, [
+				'hours' => $hours,
+				'reason' => $reason,
+				'needsSecondPerson' => true,
+			]);
+		}
 
 		return $adjustment;
 	}
@@ -124,7 +166,7 @@ class AdjustmentService {
 	 * @throws NotAuthorizedException
 	 */
 	public function approve(int $id, string $approverId): Adjustment {
-		$adjustment = $this->requireOpen($id);
+		$adjustment = $this->requirePending($id);
 		$this->requireMayDecide($adjustment, $approverId);
 
 		return $this->apply($adjustment, $approverId);
@@ -136,21 +178,73 @@ class AdjustmentService {
 	 * @throws NotAuthorizedException
 	 */
 	public function reject(int $id, string $deciderId, string $note): Adjustment {
-		$adjustment = $this->requireOpen($id);
+		$adjustment = $this->requirePending($id);
 		$this->requireMayDecide($adjustment, $deciderId);
 
 		return $this->close($adjustment, 'rejected', $deciderId, $this->validReason($note));
 	}
 
 	/**
-	 * The proposer can take their own proposal back.
+	 * A vote on an adjustment that is being decided by its state's members. Public, one per person.
+	 *
+	 * @throws DoesNotExistException
+	 * @throws InvalidStateException
+	 * @throws NotAuthorizedException
+	 */
+	public function vote(int $id, string $voterId, bool $approve): Adjustment {
+		$adjustment = $this->mapper->find($id);
+		$this->settleIfDue($adjustment);
+		if ($adjustment->getStatus() !== 'voting') {
+			throw new InvalidStateException('This adjustment is not open for votes; it is ' . $adjustment->getStatus());
+		}
+		if ($voterId === $adjustment->getProposerId()) {
+			throw new NotAuthorizedException('You proposed this, so you cannot vote on it');
+		}
+		if ($voterId === $adjustment->getUserId()) {
+			throw new NotAuthorizedException('You cannot vote on an adjustment to your own balance');
+		}
+		if (!in_array($voterId, $this->electorate($adjustment), true)) {
+			throw new NotAuthorizedException('Only chapter members of this member\'s state can vote on this');
+		}
+		foreach ($this->votes->findByAdjustment($id) as $existing) {
+			if ($existing->getVoterId() === $voterId) {
+				throw new InvalidStateException('You have already voted on this adjustment');
+			}
+		}
+
+		$vote = new AdjustmentVote();
+		$vote->setAdjustmentId($id);
+		$vote->setVoterId($voterId);
+		$vote->setVote($approve ? 'approve' : 'reject');
+		$vote->setCreatedAt(new \DateTime());
+		$this->votes->insert($vote);
+		$this->log->record($voterId, 'adjustment.vote', $adjustment->getUserId(), [
+			'adjustment' => $id,
+			'vote' => $vote->getVote(),
+		]);
+
+		// Close early once nobody else can vote.
+		$tally = $this->tally($adjustment);
+		if ($tally['votes'] >= $tally['eligible']) {
+			return $this->settle($adjustment);
+		}
+
+		return $adjustment;
+	}
+
+	/**
+	 * The proposer can take their own proposal back while it is open.
 	 *
 	 * @throws DoesNotExistException
 	 * @throws InvalidStateException
 	 * @throws NotAuthorizedException
 	 */
 	public function withdraw(int $id, string $userId): Adjustment {
-		$adjustment = $this->requireOpen($id);
+		$adjustment = $this->mapper->find($id);
+		$this->settleIfDue($adjustment);
+		if (!in_array($adjustment->getStatus(), ['pending', 'voting'], true)) {
+			throw new InvalidStateException('This adjustment is already ' . $adjustment->getStatus());
+		}
 		if ($adjustment->getProposerId() !== $userId) {
 			throw new NotAuthorizedException('Only the person who proposed it can withdraw it');
 		}
@@ -159,23 +253,36 @@ class AdjustmentService {
 	}
 
 	/**
-	 * Recent adjustments for the screen, with what this person may do to each.
+	 * Recent adjustments this person may see, with what they may do to each. Admins and national
+	 * organizers see all; a facilitator sees their states' members and their own proposals; a
+	 * chapter member sees the votes open to them.
 	 *
 	 * @return list<array<string, mixed>>
-	 * @throws NotAuthorizedException
 	 */
 	public function listFor(string $viewerId): array {
 		$viewer = $this->viewers->forUser($viewerId);
-		if (!$this->groups->isAdmin($viewerId) && !$viewer->isStaff()) {
-			throw new NotAuthorizedException('Only admins, facilitators and national organizers can see adjustments');
-		}
+		$seesAll = $viewer->nationalOrganizer || $this->groups->isAdmin($viewerId);
 
 		$rows = [];
 		foreach ($this->mapper->findRecent() as $adjustment) {
-			$this->expireIfDue($adjustment);
+			$this->settleIfDue($adjustment);
+			$voting = $adjustment->getStatus() === 'voting';
+			$electorate = $voting ? $this->electorate($adjustment) : [];
+			$canVote = $voting && in_array($viewerId, $electorate, true) && !$this->hasVoted($adjustment, $viewerId);
+			$inMyState = array_intersect($viewer->facilitatorOf, $this->chapters->memberChapters($adjustment->getUserId())) !== [];
+			$visible = $seesAll || $inMyState || $adjustment->getProposerId() === $viewerId
+				|| ($voting && in_array($viewerId, $electorate, true));
+			if (!$visible) {
+				continue;
+			}
+
 			$row = $adjustment->jsonSerialize();
 			$row['canDecide'] = $adjustment->getStatus() === 'pending' && $this->mayDecide($adjustment, $viewerId);
-			$row['canWithdraw'] = $adjustment->getStatus() === 'pending' && $adjustment->getProposerId() === $viewerId;
+			$row['canWithdraw'] = in_array($adjustment->getStatus(), ['pending', 'voting'], true) && $adjustment->getProposerId() === $viewerId;
+			$row['canVote'] = $canVote;
+			if ($voting || $adjustment->getApproverId() === self::BY_VOTE || $this->votes->findByAdjustment($adjustment->getId()) !== []) {
+				$row['vote'] = $this->tally($adjustment) + ['myVote' => $this->myVote($adjustment, $viewerId)];
+			}
 			$rows[] = $row;
 		}
 
@@ -183,7 +290,7 @@ class AdjustmentService {
 	}
 
 	/**
-	 * Whether this person could be the second pair of eyes on the adjustment.
+	 * Whether this person could be the second pair of eyes on a pending adjustment.
 	 */
 	public function mayDecide(Adjustment $adjustment, string $userId): bool {
 		if ($userId === $adjustment->getProposerId() || $userId === $adjustment->getUserId()) {
@@ -194,29 +301,118 @@ class AdjustmentService {
 	}
 
 	/**
+	 * Who may vote on it: see Electorate. Never the proposer or the member.
+	 *
+	 * @return list<string>
+	 */
+	private function electorate(Adjustment $adjustment): array {
+		return $this->electorate->forMember($adjustment->getUserId(), [$adjustment->getProposerId()]);
+	}
+
+	/**
+	 * @return array{approve: list<string>, reject: list<string>, votes: int, eligible: int, needed: int, closes: string}
+	 */
+	private function tally(Adjustment $adjustment): array {
+		$approve = [];
+		$reject = [];
+		foreach ($this->votes->findByAdjustment($adjustment->getId()) as $vote) {
+			if ($vote->getVote() === 'approve') {
+				$approve[] = $vote->getVoterId();
+			} else {
+				$reject[] = $vote->getVoterId();
+			}
+		}
+
+		return [
+			'approve' => $approve,
+			'reject' => $reject,
+			'votes' => count($approve) + count($reject),
+			'eligible' => count($this->electorate($adjustment)),
+			'needed' => self::MIN_VOTES,
+			'closes' => $adjustment->getExpiresAt()->format('Y-m-d H:i:s'),
+		];
+	}
+
+	private function hasVoted(Adjustment $adjustment, string $userId): bool {
+		return $this->myVote($adjustment, $userId) !== null;
+	}
+
+	private function myVote(Adjustment $adjustment, string $userId): ?string {
+		foreach ($this->votes->findByAdjustment($adjustment->getId()) as $vote) {
+			if ($vote->getVoterId() === $userId) {
+				return $vote->getVote();
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Closes a vote: applied with at least MIN_VOTES votes and more approvals than rejections,
+	 * rejected with MIN_VOTES or more otherwise, expired with fewer.
+	 *
+	 * @throws InvalidStateException
+	 */
+	private function settle(Adjustment $adjustment): Adjustment {
+		$tally = $this->tally($adjustment);
+		if ($tally['votes'] < self::MIN_VOTES) {
+			return $this->expire($adjustment);
+		}
+		if (count($tally['approve']) > count($tally['reject'])) {
+			$label = sprintf('community vote (for: %s; against: %s)', implode(', ', $tally['approve']), $tally['reject'] === [] ? 'nobody' : implode(', ', $tally['reject']));
+
+			return $this->apply($adjustment, self::BY_VOTE, $label);
+		}
+
+		return $this->close($adjustment, 'rejected', null, sprintf('Rejected by vote: %d for, %d against', count($tally['approve']), count($tally['reject'])));
+	}
+
+	/**
+	 * On day 14 a vote is settled and a pending proposal expires.
+	 */
+	private function settleIfDue(Adjustment $adjustment): void {
+		if ($adjustment->getExpiresAt() >= new \DateTime()) {
+			return;
+		}
+		if ($adjustment->getStatus() === 'pending') {
+			$this->expire($adjustment);
+		} elseif ($adjustment->getStatus() === 'voting') {
+			try {
+				$this->settle($adjustment);
+			} catch (InvalidStateException) {
+				// Applying would take the balance below zero: it cannot pass.
+				$this->close($adjustment, 'rejected', null, 'Passed by vote, but the balance is too low to deduct it');
+			}
+		}
+	}
+
+	private function expire(Adjustment $adjustment): Adjustment {
+		$adjustment->setStatus('expired');
+		$adjustment->setDecidedAt(new \DateTime());
+		$adjustment = $this->mapper->update($adjustment);
+		$this->log->record('system', 'adjustment.expired', $adjustment->getUserId(), [
+			'hours' => (float)$adjustment->getHours(),
+			'proposedBy' => $adjustment->getProposerId(),
+		]);
+
+		return $adjustment;
+	}
+
+	/**
 	 * @throws DoesNotExistException
 	 * @throws InvalidStateException
 	 */
-	private function requireOpen(int $id): Adjustment {
+	private function requirePending(int $id): Adjustment {
 		$adjustment = $this->mapper->find($id);
-		$this->expireIfDue($adjustment);
+		$this->settleIfDue($adjustment);
+		if ($adjustment->getStatus() === 'voting') {
+			throw new InvalidStateException('This adjustment is decided by a vote of the member\'s state, not by one person');
+		}
 		if ($adjustment->getStatus() !== 'pending') {
 			throw new InvalidStateException('This adjustment is already ' . $adjustment->getStatus());
 		}
 
 		return $adjustment;
-	}
-
-	private function expireIfDue(Adjustment $adjustment): void {
-		if ($adjustment->getStatus() === 'pending' && $adjustment->getExpiresAt() < new \DateTime()) {
-			$adjustment->setStatus('expired');
-			$adjustment->setDecidedAt(new \DateTime());
-			$this->mapper->update($adjustment);
-			$this->log->record('system', 'adjustment.expired', $adjustment->getUserId(), [
-				'hours' => (float)$adjustment->getHours(),
-				'proposedBy' => $adjustment->getProposerId(),
-			]);
-		}
 	}
 
 	/**
@@ -238,9 +434,10 @@ class AdjustmentService {
 	 * Moves the hours and writes the ledger entry in one database transaction, so a failure
 	 * leaves neither half behind.
 	 *
+	 * @param string|null $approverLabel who decided, as the ledger shows it; defaults to $approverId
 	 * @throws InvalidStateException
 	 */
-	private function apply(Adjustment $adjustment, ?string $approverId): Adjustment {
+	private function apply(Adjustment $adjustment, ?string $approverId, ?string $approverLabel = null): Adjustment {
 		$hours = (float)$adjustment->getHours();
 
 		$this->db->beginTransaction();
@@ -257,7 +454,7 @@ class AdjustmentService {
 				$hours,
 				$adjustment->getReason(),
 				$adjustment->getProposerId(),
-				$approverId,
+				$approverLabel ?? $approverId,
 			);
 
 			$adjustment->setStatus('approved');
@@ -273,11 +470,11 @@ class AdjustmentService {
 			throw $e;
 		}
 
-		$this->log->record($approverId ?? $adjustment->getProposerId(), 'adjustment.applied', $adjustment->getUserId(), [
+		$this->log->record($approverId === self::BY_VOTE ? 'system' : ($approverId ?? $adjustment->getProposerId()), 'adjustment.applied', $adjustment->getUserId(), [
 			'hours' => $hours,
 			'reason' => $adjustment->getReason(),
 			'proposedBy' => $adjustment->getProposerId(),
-			'approvedBy' => $approverId,
+			'approvedBy' => $approverLabel ?? $approverId,
 		]);
 
 		return $adjustment;
@@ -290,7 +487,7 @@ class AdjustmentService {
 		$adjustment->setDecidedAt(new \DateTime());
 		$adjustment = $this->mapper->update($adjustment);
 
-		$this->log->record($deciderId ?? $adjustment->getProposerId(), 'adjustment.' . $status, $adjustment->getUserId(), [
+		$this->log->record($deciderId ?? ($status === 'withdrawn' ? $adjustment->getProposerId() : 'system'), 'adjustment.' . $status, $adjustment->getUserId(), [
 			'hours' => (float)$adjustment->getHours(),
 			'proposedBy' => $adjustment->getProposerId(),
 			'note' => $note,
@@ -312,14 +509,5 @@ class AdjustmentService {
 		}
 
 		return $reason;
-	}
-
-	/**
-	 * @throws NotAuthorizedException
-	 */
-	private function requireAdmin(string $userId): void {
-		if (!$this->groups->isAdmin($userId)) {
-			throw new NotAuthorizedException('Only administrators can propose adjustments');
-		}
 	}
 }

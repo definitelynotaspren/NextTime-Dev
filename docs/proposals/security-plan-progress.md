@@ -8,12 +8,12 @@ so the next session can pick up from here.
 
 | Phase | State | Branch / PR |
 | --- | --- | --- |
-| 1. One role model | Done | `claude/youthful-davinci-6pmld6` |
-| 2. Request geography and location privacy | Server side and ZIP field done; reassign endpoint and pin-first form left | `claude/youthful-davinci-6pmld6` |
+| 1. One role model | Done | PR #49 |
+| 2. Request geography and location privacy | Done | PR #49 (part 1), `claude/youthful-davinci-6pmld6` (part 2) |
 | 3. Posting, voting and moderation gates | Not started (needs 2) | |
-| 4. Adjustments by facilitators | Not started (needs 1) | |
+| 4. Adjustments by facilitators | Done | `phase-4-adjustments` |
 | 5. Remote requests with Nextcloud files | Not started (needs 2) | |
-| 6. Hardening carried over | Done | `claude/youthful-davinci-6pmld6` |
+| 6. Hardening carried over | Done | PR #49 |
 
 ## Phase 1: what landed
 
@@ -66,24 +66,60 @@ admin settings page stays display-only.
   `desk-smoke.sh` (Oregon facilitator exact, Washington facilitator ZIP only), `ui-smoke.cjs` (form ZIP, another
   member gets no point).
 
-### Phase 2, still to do
+## Phase 2: what landed (part 2)
 
-1. `POST /api/requests/{id}/state` and `POST /api/layers/{layer}/rows/{uid}/state`: set `chapter_override`, allowed for
-   facilitators of the old or new state, national organizers and admins; `GovernanceLog::record()`;
-   `LayerService::chapterOf()` honours the override. `RequestPresenter::chapterOf()` already does.
-2. Pin-first posting: `src/geo/nearestZip.ts` over the same `zip-centers.txt` (serve it from `lib/Geo/data` through a
-   small controller or copy it into `js/` at build), fill the ZIP field from a dropped pin, keep it editable, and a
-   "save exact spot" checkbox (off by default) so an unsaved pin never reaches the server.
-3. Plan test section 2 items not yet automated: notifications never carry the address (claims have none today).
+- `Service\StateReassignment`: `moveRequest()` / `moveDeskRow()` set `chapter_override` (null clears it), for
+  facilitators of the old or new state, national organizers and admins; refused moves change nothing; every move is
+  `request.state_changed` / `desk_row.state_changed` in the governance log. Routes `POST /api/requests/{id}/state`
+  and `POST /api/layers/{layer}/rows/{id}/state`; the request detail carries `stateChoices`. `LayerService::chapterOf()`
+  honours the override. Tests: `StateReassignmentTest`, `desk-smoke.sh` "Moving a request or desk row".
+- Pin-first posting: `GET /api/geo/zip-centers` serves the table; `src/geo/nearestZip.ts` picks the ZIP whose
+  center is nearest in units of that area's radius (the table now has a radius column, 31-byte lines), within
+  1.5 radii + 10 km, else none. `NewRequestForm` fills the ZIP from a pin unless one was typed; "Also save this exact
+  location" is off by default and gates `location`. `ui-smoke.cjs` checks the ZIP fills and nothing sent holds the pin.
+- Fixed on the way: emptying `location` on edit now clears the point too.
+
+Not automated: notifications never carry the address (claim notices have no request data today; re-check when
+request notifications are added).
+
+## Phase 4: what landed
+
+- `AdjustmentService::propose()`: `ApproverPolicy::capacity()` decides who may propose for whom (admin, facilitator of
+  a chapter the member is in, national organizer). From a facilitator or national organizer: `pending` up to the
+  threshold (a second person, via `mayDecide()`), `voting` above it. From an admin: unchanged (applied up to the
+  threshold, `pending` above).
+- `AdjustmentService::vote()` and `POST /api/adjustments/{id}/vote`: electorate = the member and facilitator groups of
+  the member's chapters, or the national organizers when the member has none, minus proposer and member. `settle()`
+  at 14 days or when all eligible have voted: 3+ votes and more for than against applies (approver `community-vote`,
+  ledger text names every voter), 3+ otherwise rejects, fewer expires. Migration `Version000009` (app 0.10.0):
+  `timebank_adjustment_votes` with a unique (adjustment_id, voter_id) index.
+- `listFor()` is scoped: admins and national organizers all; facilitators their states' members and their own
+  proposals; chapter members the votes open to them. Members no longer get 403 on `GET /api/adjustments`.
+- Frontend: the Adjustments page explains the rules, shows each vote's tally, voters and days left, with vote buttons;
+  the nav link shows for chapter members; the threshold form is admins only.
+- Tests: 14 new cases in `AdjustmentServiceTest`; `approver-smoke.sh` "Adjustments by facilitators and votes" (21 checks,
+  makes and deletes three voters).
+
+## After Phase 4: what members see (asked for 2026-10-25)
+
+- `Chapter\Electorate`: who votes about a member, for claims and adjustments alike. The chapter members of their
+  states; the national organizers when they have none or the state has fewer than 3 possible voters (Decision 2, and
+  D7 in outstanding-work.md). `EarningService::validateVoterEligibility()` checks it, which completes Phase 3's voting item.
+- `GET /api/earnings/pending` and `/voting` return every claim to every member, with `canDecide` / `canVote`;
+  Approvals & Votes shows buttons only where they are true.
+- `GET /api/chapters/check` is open to every member, with `canManage` for admins and national organizers, who alone
+  see the set-up fixes. `smoke-test.sh` sets up the Oregon voters through Nextcloud's provisioning API, so it still
+  runs on the Docker stack without occ.
+
+The plan's remaining phases (3, 4, 5), its testing checklist and its policy steps are restated in full in
+[outstanding-work.md](outstanding-work.md), since the plan document itself is not in the repository.
 
 ## Next run: suggested order
 
 1. ~~Phase 6~~ done.
-2. **Finish Phase 2**: the two items under "Phase 2, still to do".
-3. **Phase 4** can run in parallel with 2 (it only needs Phase 1): `AdjustmentService::propose()` scope, a `voting`
-   status, an adjustment-vote table with a unique (adjustment, voter) index, and `listFor()` scoped to the viewer's
-   states.
-4. Phases 3 and 5 after 2.
+2. ~~Finish Phase 2~~ done.
+3. ~~Phase 4~~ done.
+4. Phase 3, then Phase 5.
 
 Every phase: tests before the change, then `composer lint && composer cs:check && composer psalm`,
 `composer test:unit`, `npm run lint`, `npm run build`, and against `scripts/dev-native.sh start`:

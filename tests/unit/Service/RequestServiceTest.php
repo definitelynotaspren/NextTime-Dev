@@ -303,4 +303,18 @@ final class RequestServiceTest extends TestCase {
 
 		$this->assertSame('97055', $this->service->updateRequest(1, 'alice', ['title' => 'New title'])->getZip());
 	}
+
+	public function testClearingTheLocationAlsoClearsThePoint(): void {
+		$request = $this->request('open');
+		$request->setLocation('45.3975, -122.2612');
+		$request->setLatitude(45.3975);
+		$request->setLongitude(-122.2612);
+		$this->requests->method('find')->willReturn($request);
+
+		$edited = $this->service->updateRequest(1, 'alice', ['location' => '']);
+
+		$this->assertNull($edited->getLocation());
+		$this->assertNull($edited->getLatitude(), 'unticking "save exact location" must remove the point too');
+		$this->assertNull($edited->getLongitude());
+	}
 }

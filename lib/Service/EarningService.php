@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Service;
 
+use OCA\TimeBank\Chapter\Electorate;
 use OCA\TimeBank\Db\CategoryMapper;
 use OCA\TimeBank\Db\Earning;
 use OCA\TimeBank\Db\EarningMapper;
@@ -32,6 +33,7 @@ class EarningService {
 		ApproverPolicy $policy,
 		ClaimNotifier $notifier,
 		private IRootFolder $rootFolder,
+		private Electorate $electorate,
 	) {
 		$this->earningMapper = $earningMapper;
 		$this->categoryMapper = $categoryMapper;
@@ -75,21 +77,20 @@ class EarningService {
 	}
 
 	/**
-	 * Pending claims this person may decide on, each with the capacity they would act in:
-	 * admin, facilitator of a chapter, or national organizer. Never their own claims.
+	 * Every pending claim, for everyone to see. canDecide says whether this person may approve,
+	 * reject or send it to a vote, with the capacity they would act in (admin, facilitator of a
+	 * chapter, national organizer). Never on their own claims.
 	 *
 	 * @return list<array<string, mixed>>
 	 */
-	public function getDecidableClaims(string $deciderId): array {
+	public function getPendingClaims(string $viewerId): array {
 		$rows = [];
 		foreach ($this->earningMapper->findByStatus('pending') as $claim) {
-			$capacity = $this->policy->capacity($deciderId, $claim->getUserId());
-			if ($capacity === null) {
-				continue;
-			}
+			$capacity = $this->policy->capacity($viewerId, $claim->getUserId());
 			$row = $claim->jsonSerialize();
-			$row['decidingAs'] = $capacity['as'];
-			$row['decidingChapter'] = $capacity['chapter'];
+			$row['canDecide'] = $capacity !== null;
+			$row['decidingAs'] = $capacity['as'] ?? null;
+			$row['decidingChapter'] = $capacity['chapter'] ?? null;
 			$rows[] = $row;
 		}
 
@@ -97,19 +98,30 @@ class EarningService {
 	}
 
 	/**
-	 * @return array<array-key, mixed>
+	 * Every claim in a vote, with its votes, for everyone to see. canVote says whether this person
+	 * may still vote: they are in the claimant's electorate (see Electorate) and have not voted.
+	 *
+	 * @return list<array<string, mixed>>
 	 */
-	public function getVotingClaims(): array {
-		$claims = $this->earningMapper->findByStatus('voting');
-
-		return array_map(function ($claim) {
+	public function getVotingClaims(string $viewerId): array {
+		$rows = [];
+		foreach ($this->earningMapper->findByStatus('voting') as $claim) {
 			$votes = $this->voteMapper->findByEarning($claim->getId());
+			$voted = in_array($viewerId, array_map(fn ($v) => $v->getVoterId(), $votes), true);
 			$data = $claim->jsonSerialize();
 			$data['votes'] = array_map(fn ($v) => $v->jsonSerialize(), $votes);
 			$data['approveCount'] = count(array_filter($votes, fn ($v) => $v->getVote() === 'approve'));
 			$data['rejectCount'] = count(array_filter($votes, fn ($v) => $v->getVote() === 'reject'));
-			return $data;
-		}, $claims);
+			$data['canVote'] = !$voted && $this->mayVote($claim, $viewerId);
+			$rows[] = $data;
+		}
+
+		return $rows;
+	}
+
+	/** Decision 2: chapter members of the claimant's state vote (see Electorate), never the claimant. */
+	private function mayVote(Earning $claim, string $voterId): bool {
+		return in_array($voterId, $this->electorate->forMember($claim->getUserId()), true);
 	}
 
 	/**
@@ -219,6 +231,9 @@ class EarningService {
 	private function validateVoterEligibility(int $earningId, string $voterId): void {
 		$earning = $this->earningMapper->find($earningId);
 		$this->requireDecidable($earning, $voterId, 'voting', false);
+		if (!$this->mayVote($earning, $voterId)) {
+			throw new NotAuthorizedException('Only chapter members of this member\'s state can vote on this claim');
+		}
 
 		if ($this->voteMapper->hasVoted($earningId, $voterId)) {
 			throw new \Exception('You have already voted on this claim');
@@ -298,7 +313,8 @@ class EarningService {
 	/**
 	 * The claim must be in the expected state, and the person deciding must not be the one
 	 * who made the claim, whoever they are. Approving, rejecting and sending to a vote also
-	 * need to be an approver for the claimant (see ApproverPolicy); voting is open to members.
+	 * need to be an approver for the claimant (see ApproverPolicy). Who may vote is checked
+	 * separately, in validateVoterEligibility().
 	 *
 	 * @throws InvalidStateException
 	 * @throws NotAuthorizedException

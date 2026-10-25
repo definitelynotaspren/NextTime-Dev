@@ -78,8 +78,10 @@ class SchemaController extends Controller {
 	}
 
 	/**
-	 * The states and chapters found from the Nextcloud groups, with who facilitates each, and the
-	 * groups that look like they were meant to pair but did not. For admins and organizers.
+	 * The states and chapters found from the Nextcloud groups, with who facilitates each, who the
+	 * national organizers are, and the groups that look like they were meant to pair but did not.
+	 * Open to every member: who holds which role is public, like the ledger. canManage marks the
+	 * people who can fix what it reports (admins and national organizers).
 	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
@@ -88,11 +90,10 @@ class SchemaController extends Controller {
 		if ($this->userId === null) {
 			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);
 		}
-		if (!$this->groups->isAdmin($this->uid()) && !$this->viewers->forUser($this->uid())->nationalOrganizer) {
-			return new DataResponse(['error' => 'Admin or national organizer role required'], Http::STATUS_FORBIDDEN);
-		}
+		$canManage = $this->groups->isAdmin($this->uid()) || $this->viewers->forUser($this->uid())->nationalOrganizer;
 
 		return new DataResponse($this->chapterDirectory->report() + [
+			'canManage' => $canManage,
 			'nationalOrganizers' => $this->nationalOrganizers->report(),
 			'requestsWithoutZip' => $this->requests->countActiveWithoutZip(),
 		]);

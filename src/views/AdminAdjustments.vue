@@ -26,11 +26,27 @@ interface Adjustment {
 	expiresAt: string
 	canDecide: boolean
 	canWithdraw: boolean
+	canVote: boolean
+	/** Present when the adjustment is or was decided by a vote. Votes are public. */
+	vote?: {
+		approve: string[]
+		reject: string[]
+		votes: number
+		eligible: number
+		needed: number
+		closes: string
+		myVote: 'approve' | 'reject' | null
+	}
 }
+
+// Days left, rounded up, for "closes in N days".
+const daysLeft = (when: string) => Math.max(0, Math.ceil((new Date(when.replace(' ', 'T')).getTime() - Date.now()) / 86400000))
 
 const adjustments = ref<Adjustment[]>([])
 const threshold = ref(5)
 const canPropose = ref(false)
+const isAdmin = ref(false)
+const minVotes = ref(3)
 const expiryDays = ref(14)
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -51,6 +67,8 @@ const load = async () => {
 		adjustments.value = data.adjustments
 		threshold.value = data.threshold
 		canPropose.value = data.canPropose
+		isAdmin.value = data.isAdmin
+		minVotes.value = data.minVotes
 		expiryDays.value = data.expiryDays
 		newThreshold.value = String(data.threshold)
 	} catch (e) {
@@ -87,7 +105,9 @@ const propose = async () => {
 		})
 		notice.value = data.status === 'approved'
 			? 'Applied. It is in the ledger and the public log.'
-			: `Proposed. It needs a second person (another admin, or a facilitator of ${data.userId}'s chapter) and expires in ${expiryDays.value} days.`
+			: data.status === 'voting'
+				? `Proposed. It is now a vote of ${data.userId}'s state, open for ${expiryDays.value} days.`
+				: `Proposed. It needs a second person (another facilitator of ${data.userId}'s state, a national organizer or an admin) and expires in ${expiryDays.value} days.`
 	})
 	if (ok) {
 		memberId.value = ''
@@ -97,6 +117,8 @@ const propose = async () => {
 }
 
 const approve = (a: Adjustment) => run(() => axios.post(generateUrl(`/apps/timebank/api/adjustments/${a.id}/approve`)), 'Approved and applied.')
+const castVote = (a: Adjustment, vote: 'approve' | 'reject') =>
+	run(() => axios.post(generateUrl(`/apps/timebank/api/adjustments/${a.id}/vote`), { vote }), 'Your vote is counted. Votes are public.')
 const withdraw = (a: Adjustment) => run(() => axios.post(generateUrl(`/apps/timebank/api/adjustments/${a.id}/withdraw`)), 'Withdrawn.')
 const reject = async (a: Adjustment) => {
 	const ok = await run(() => axios.post(generateUrl(`/apps/timebank/api/adjustments/${a.id}/reject`), { note: rejectNote.value }), 'Rejected.')
@@ -120,12 +142,18 @@ onMounted(load)
 	<div class="adjustments">
 		<h1>Balance adjustments</h1>
 		<p class="subtitle">
-			Up to {{ threshold }} hours one admin can adjust a balance. Anything larger needs a second person:
-			another admin, or a facilitator of a chapter the member belongs to. Nobody adjusts or approves their own.
+			A facilitator proposes adjustments for members of their own state; a national organizer for anyone.
+			Up to {{ threshold }} hours, a second facilitator of that state or a national organizer approves it.
+			Anything larger goes to a {{ expiryDays }}-day vote of the state's chapter members: it passes with at least
+			{{ minVotes }} votes and more for than against. Nobody adjusts, approves or votes on their own.
 			Every step is public in the
 			<RouterLink :to="{ name: 'GovernanceLog' }">
 				governance log
 			</RouterLink>.
+		</p>
+		<p v-if="isAdmin" class="subtitle">
+			As an admin you can still adjust up to {{ threshold }} hours alone, and larger amounts with a second person.
+			Use it as a last resort; it is logged like everything else.
 		</p>
 
 		<p v-if="error" class="error" role="alert">
@@ -150,8 +178,8 @@ onMounted(load)
 				</NcButton>
 			</section>
 
-			<section v-if="canPropose" class="card">
-				<h2>Threshold for needing a second person</h2>
+			<section v-if="isAdmin" class="card">
+				<h2>Threshold for a vote</h2>
 				<NcTextField v-model="newThreshold"
 					label="Hours (1 to 20)"
 					type="number"
@@ -185,10 +213,40 @@ onMounted(load)
 						<template v-if="a.status === 'pending'">
 							; expires {{ new Date(a.expiresAt).toLocaleDateString() }}
 						</template>
+						<template v-if="a.approverId === 'community-vote'">
+							; applied by vote
+						</template>
 						<template v-if="a.decisionNote">
 							. Note: {{ a.decisionNote }}
 						</template>
 					</p>
+					<div v-if="a.vote" class="vote">
+						<p class="meta">
+							<template v-if="a.status === 'voting'">
+								Vote open: {{ a.vote.votes }} of {{ a.vote.eligible }} eligible voted
+								(at least {{ a.vote.needed }} needed); closes in {{ daysLeft(a.vote.closes) }}
+								{{ daysLeft(a.vote.closes) === 1 ? 'day' : 'days' }}, sooner if everyone votes.
+							</template>
+							<template v-else>
+								Vote closed: {{ a.vote.votes }} of {{ a.vote.eligible }} voted.
+							</template>
+						</p>
+						<p class="meta">
+							For: {{ a.vote.approve.length ? a.vote.approve.join(', ') : 'nobody yet' }}.
+							Against: {{ a.vote.reject.length ? a.vote.reject.join(', ') : 'nobody yet' }}.
+						</p>
+						<p v-if="a.vote.myVote" class="meta">
+							You voted {{ a.vote.myVote === 'approve' ? 'for' : 'against' }}.
+						</p>
+						<div v-if="a.canVote" class="actions">
+							<NcButton variant="primary" :disabled="busy" @click="castVote(a, 'approve')">
+								Vote for
+							</NcButton>
+							<NcButton variant="error" :disabled="busy" @click="castVote(a, 'reject')">
+								Vote against
+							</NcButton>
+						</div>
+					</div>
 					<div v-if="a.canDecide || a.canWithdraw" class="actions">
 						<NcButton v-if="a.canDecide"
 							variant="primary"
@@ -252,6 +310,14 @@ onMounted(load)
 	margin-bottom: 10px;
 	border: 1px solid var(--color-border);
 	border-radius: 8px;
+}
+
+.item[data-status="voting"] {
+	border-inline-start: 4px solid var(--color-primary-element);
+}
+
+.vote {
+	margin-bottom: 8px;
 }
 
 .item[data-status="pending"] {

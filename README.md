@@ -21,7 +21,8 @@ which can arrive from Nextcloud Forms.
   where they came from.
 - **Community moderation**: three flags from different members hide a comment; moderators keep or remove it.
 - **Admin tools with a paper trail**: categories (archive instead of deleting what is in use), balance adjustments that
-  need a second person above a threshold, and a **Governance Log** every member can read.
+  facilitators propose and a second person or a vote of the member's state decides, and a **Governance Log** every
+  member can read.
 
 ## Requirements
 
@@ -102,7 +103,8 @@ ADMIN_PASS='your-admin-password' make demo BASE_URL=http://localhost:8080   # Do
 
 Then log in as `alice`, `bob` or `carol` (password `<name>-pass-123`) or as `admin`, each in their own browser
 or private window, and try: carol accepts an offer on the garden request; alice votes on bob's claim under
-**Votes on Claims**; admin approves carol's claim under **Approvals & Votes**; anyone offers help on the meals
+**Approvals & Votes** (the demo puts everyone in an "Oregon" chapter, so they vote on each other's claims); admin
+approves carol's claim there; anyone offers help on the meals
 request. Running `make demo` again does nothing. The first login shows Nextcloud's welcome dialog; close it.
 
 ### Manual install from source
@@ -147,7 +149,7 @@ Set with `occ config:app:set timebank <key> --value=<value>`:
 | `national_organizer_group` | `National Organizers` | Id or name of the national organizer group |
 | `fallback_approver_group` | `GSUS` | Legacy: its members still count as national organizers until moved (see Roles) |
 | `chapter_zip_prefixes` | built-in for New York City | JSON for city chapters, for example `{"Chicago": ["606"]}`. Replaces the default when set |
-| `adjustment_threshold` | `5` | Hours up to which one admin can adjust a balance alone (1 to 20). Change it under **Adjustments**, which records a reason publicly |
+| `adjustment_threshold` | `5` | Hours (1 to 20) up to which a second person decides an adjustment (or an admin applies it alone); above it, facilitators' proposals go to a vote. Change it under **Adjustments**, which records a reason publicly |
 | `forms_intake` | none | Which forms feed the desk. Add and remove them on the **Form Intake** page |
 
 ### Category earn rates
@@ -159,12 +161,15 @@ are seeded at 1.0 to 1.5, and admins can set any rate above 0 and up to 5 under 
 
 - **Members**: browse the **Request Board** (list or map) and offer help; post a request; after a job, **Submit
   Earnings** (claim hours); watch **My Balance**, **My Activity** (your requests, offers and withdrawn help) and the
-  **Public Ledger**; vote on claims in **Approvals & Votes**; flag a comment that does not belong.
+  **Public Ledger**; see every claim in **Approvals & Votes** and vote on the ones from your own state's members;
+  see who facilitates each state on **Chapters**; flag a comment that does not belong.
 - **Requesters**: accept or decline offers, **Mark complete** (this does *not* credit hours; each volunteer claims
   theirs), edit while the request is open, or cancel.
-- **Facilitators and approvers**: **Approvals & Votes** shows only the claims you may decide, and why. You can approve,
-  reject (with a reason) or send to a community vote. Facilitators also work their chapter's rows on the **Organizer Desk**.
-- **National organizers**: claims and adjustments for any member, the desk everywhere, the **Form Intake** and **Chapters** pages, and comment moderation.
+- **Facilitators and approvers**: **Approvals & Votes** shows every claim and marks the ones you may decide, and why. You can approve,
+  reject (with a reason) or send to a community vote. Facilitators also work their chapter's rows on the **Organizer Desk**
+  and propose balance **Adjustments** for members of their state; chapter members vote on the large ones there.
+- **National organizers**: claims and adjustments for any member, votes for members of states too small to vote (or with
+  no state), the desk everywhere, the **Form Intake** page, the set-up fixes on **Chapters**, and comment moderation.
 - **Admins**: **Categories**, **Adjustments**, the **Governance Log**, and approval of claims.
 
 Walk-throughs of an offer, a need and a three-person job are in [docs/flows.md](docs/flows.md). What is not built yet is
@@ -235,6 +240,8 @@ them unless the form is anonymous; NextTime does not copy the submitter's accoun
 
 ## Map
 
+- **Posting starts with a pin or a ZIP.** Drop a pin on the form's map and the ZIP fills in; the lookup runs in your
+  browser against the bundled table, so the pin is not sent unless you tick "Also save this exact location".
 - Every request has a ZIP code. **Who sees the exact location** (the address text and the point picked on the map):
   the person who posted it, the facilitators of its state, and volunteers whose offer is accepted, for as long as it
   stays accepted. Everyone else, national organizers and Nextcloud admins included, sees the ZIP, and the map puts the
@@ -265,7 +272,11 @@ too often. Lists return at most 100 rows a page (`limit` 1 to 100, `offset` 0 or
   `priority`, `zip` (5 digits or ZIP+4, of a US state), optional `deadline`, `location`, `latitude`, `longitude`).
   Archived categories are refused. Every endpoint returns a request with `zip`, `chapter`, `zipCenter` and
   `exactLocation`; `location`, `latitude` and `longitude` are `null` unless `exactLocation` is true
-- `PUT /api/requests/{id}` - update *(owner only, while open; the same limits apply)*
+- `PUT /api/requests/{id}` - update *(owner only, while open; the same limits apply)*. `location: ""` removes the
+  saved exact location and point
+- `POST /api/requests/{id}/state` - move to another state (`chapter`: a chapter slug; empty goes back to the ZIP's
+  state). *(facilitators of the old or new state, national organizers, admins; logged in the governance log)*. The
+  detail response's `stateChoices` lists the states, empty for people who may not move it
 - `POST /api/requests/{id}/complete` - every accepted volunteer is completed. Credits no hours *(owner only)*
 - `POST /api/requests/{id}/cancel` - cancel an open or in-progress request *(owner only)*
 
@@ -296,21 +307,33 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 - `POST /api/earnings/claim` - claim hours (`categoryId`, `hoursClaimed` up to 1000, `description` 10+ characters)
 - `GET /api/earnings/my` - your claims
-- `GET /api/earnings/pending` - pending claims you may decide, each with `decidingAs` (`admin`, `facilitator`, `national`)
-- `GET /api/earnings/voting` - claims in a community vote
+- `GET /api/earnings/pending` - every pending claim, for every member; `canDecide` marks those you may decide, with
+  `decidingAs` (`admin`, `facilitator`, `national`) and `decidingChapter`
+- `GET /api/earnings/voting` - every claim in a community vote, with its votes; `canVote` marks those you may still vote on
 - `POST /api/earnings/{id}/approve`, `/reject` (`reason` 10+ characters), `/send-to-vote` *(an approver for the claimant;
   never the claimant; a claim is decided once)*
-- `POST /api/earnings/{id}/vote` - `approve`, `reject` or `abstain` (any member but the claimant, once). Three votes settle it
+- `POST /api/earnings/{id}/vote` - `approve`, `reject` or `abstain`, once, by a chapter member of the claimant's state
+  (member or facilitator group); national organizers vote instead when the claimant has no state or the state has fewer
+  than three people who could vote. Never the claimant. Three votes settle it
 
 ### Balance, ledger, adjustments, governance
 
 - `GET /api/balance/my`, `GET /api/balance/all`
 - `GET /api/ledger`, `GET /api/ledger/my`, `GET /api/ledger/user/{userId}` - the public ledger
-- `GET /api/adjustments` - recent adjustments, what you may do to each, the threshold *(admins, facilitators, national organizers)*
-- `POST /api/adjustments` - `userId`, `hours` (negative to deduct), `reason` (10+ characters, public). Up to the threshold it
-  applies at once; larger ones wait for a second person *(admins; nobody adjusts their own balance)*
-- `POST /api/adjustments/{id}/approve`, `/reject` (`note`), `/withdraw` - a second approver (never the proposer or the
-  member), or the proposer withdrawing. Pending ones expire after 14 days
+- `GET /api/adjustments` - the adjustments you may see, what you may do to each (`canDecide`, `canVote`,
+  `canWithdraw`), each vote's tally and voters, the threshold and `canPropose`. Admins and national organizers see all;
+  a facilitator their states' members and their own proposals; a chapter member the votes open to them
+- `POST /api/adjustments` - `userId`, `hours` (negative to deduct, at most 100), `reason` (10+ characters, public).
+  A facilitator for members of their state, a national organizer for anyone, an admin for anyone; never yourself.
+  From a facilitator or national organizer: up to the threshold `pending` (a second person decides), above it `voting`.
+  From an admin: up to the threshold applied at once, above it `pending`
+- `POST /api/adjustments/{id}/approve`, `/reject` (`note`) - on a `pending` one: a facilitator of the member's state, a
+  national organizer or an admin, never the proposer or the member. Pending ones expire after 14 days
+- `POST /api/adjustments/{id}/vote` - `vote`: `approve` or `reject`, on a `voting` one: chapter members of the member's
+  state (national organizers when the member has no state), never the proposer or the member, once each, public. The
+  vote closes after 14 days, or once everyone eligible has voted: 3+ votes with more for than against applies it, 3+
+  otherwise rejects it, fewer expires it
+- `POST /api/adjustments/{id}/withdraw` - the proposer, while `pending` or `voting`
 - `PUT /api/settings/adjustment-threshold` - `hours` (1 to 20) and `reason` *(admins)*
 - `GET /api/governance` - the public log of admin decisions *(every member)*
 
@@ -326,6 +349,8 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 ### Map and public feeds
 
 - `GET /api/map/requests` - GeoJSON of open requests, each at its ZIP's center (no exact points, no contact fields)
+- `GET /api/geo/zip-centers` - the bundled ZIP-center table as text, so the posting form can turn a pin into a ZIP in
+  the browser
 - `GET /api/layers/{layer}/feed` - GeoJSON of published rows for `point_snapped` layers (`needs_offers`, `issue_reports`)
 
 ### Organizer desk (organizers and facilitators)
@@ -335,6 +360,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 - `POST /api/layers/{layer}/rows` - add a row (organizer anywhere; a facilitator for ZIPs in their chapter); unpublished unless `publish=yes`
 - `POST /api/layers/{layer}/rows/{id}/assign` - take a row (organizer, or the facilitator of its chapter); `DELETE` the same path releases it (an organizer can release any)
 - `POST /api/layers/{layer}/rows/{id}/status` - `assigned`, `in_progress` or `done`, on a row you hold
+- `POST /api/layers/{layer}/rows/{id}/state` - move the row to another state, same rules as for requests
 - `POST /api/layers/{layer}/rows/{id}/publish` - `publish=yes|no`
 - `GET /api/assignments` - rows assigned to you; filters `layer`, `source`
 
@@ -345,7 +371,8 @@ is aggregate-only and has no row endpoints.
 ### Roles, chapters and intake (admins and organizers)
 
 - `GET /api/roles` - your own flags (`member`, `chapterMember`, `facilitatorOf`, `nationalOrganizer`, `facilitator`, `moderator`, `admin`; `organizer` is an alias of `nationalOrganizer`)
-- `GET /api/chapters/check` - chapters found from your groups, their facilitators, and groups that did not pair
+- `GET /api/chapters/check` - chapters found from your groups, their facilitators, the national organizers, and groups
+  that did not pair *(every member; `canManage` is true for admins and national organizers, who are shown the fixes)*
 - `GET /api/intake` (the added forms and recent submissions), `POST /api/intake/forms/lookup` (`link`: finds a form and
   shows its mapping, adds nothing), `PUT /api/intake/forms` (the full list of added forms), `GET /api/intake/forms/{id}/preview?layer=needs_offers`,
   `POST /api/intake/run`, `POST /api/intake/retry`
@@ -380,7 +407,8 @@ Tables created by the migrations (prefix `oc_` in a default install):
 - `timebank_earnings`, `timebank_votes` - claims and community votes
 - `timebank_balances`, `timebank_transactions` - balances and the public ledger
 - `timebank_user_stats` - hours and jobs per category
-- `timebank_adjustments` - manual balance adjustments and who proposed and approved them
+- `timebank_adjustments` - manual balance adjustments and who proposed and approved them (`community-vote` when a vote did)
+- `timebank_adjustment_votes` - public votes on adjustments, one per person (unique index)
 - `timebank_governance_log` - the public, append-only log of admin decisions
 - `timebank_layer_rows` - organizer-desk rows (one JSON column holds the fields; the most sensitive table)
 - `timebank_intake_log` - which Forms submissions were imported or rejected, and why
@@ -450,8 +478,10 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **Evidence files** for claims are not uploaded from the app yet; the API checks the claimant can read a given file id.
 - **Requests posted before version 0.9 have no ZIP**, so they belong to no state and are not on the map for anyone
   but their poster, until the poster edits them (an edit asks for the ZIP). The **Chapters** page counts them.
-- **A request cannot yet be moved to another state** by hand; its ZIP decides. The reassign endpoint and the
-  pin-first posting form (drop a pin, the ZIP fills in) are the rest of Phase 2.
+- **A dropped pin's ZIP is a best guess.** The posting form picks the ZIP area the pin most likely falls in from
+  each area's center and size, not its borders, so near a ZIP border it can be the neighbouring ZIP, and near the
+  Canadian or Mexican border it may suggest a US ZIP. The field stays editable; check it. Puerto Rico, Guam and
+  military ZIPs are refused when posting.
 - **Rate limits are fixed** (see Security) and count every call, including refused ones; a burst of data entry by one
   person can hit them, and they then wait up to 10 minutes.
 - **SQLite (all tests) and PostgreSQL (the API smoke test, on the Docker stack) have been run.** MySQL/MariaDB and
@@ -459,7 +489,10 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 
 ## Roadmap
 
-See [docs/proposals/next-steps.md](docs/proposals/next-steps.md) for the maintained list. Not planned yet: mobile app,
+Everything planned but not built yet, including the remaining phases of the security plan, open decisions and the
+checklist for moving the repository to the InputLoop organization, is indexed in
+[docs/proposals/outstanding-work.md](docs/proposals/outstanding-work.md). The product backlog itself is
+[docs/proposals/next-steps.md](docs/proposals/next-steps.md). Not planned yet: mobile app,
 calendar integration, CSV/PDF export, a NextTime-hosted public form, translations.
 
 ## Contributing

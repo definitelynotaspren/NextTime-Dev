@@ -17,9 +17,12 @@ declare(strict_types=1);
 		<li><strong>Approving hours.</strong> An admin approves a claim, or sends it to a community vote. Three votes
 			from other members decide a vote. Nobody can approve, reject, send or vote on their own claim.</li>
 		<li><strong>Balances.</strong> A balance can never go below zero.</li>
-		<li><strong>Manual adjustments.</strong> Up to <?php p($_['adjustment_threshold']); ?> hours one admin can adjust a
-			balance. Larger ones need a second person: another admin, or a facilitator of the member's chapter.
-			Nobody adjusts their own balance. Change the threshold, with a reason, under Adjustments in NextTime.</li>
+		<li><strong>Manual adjustments.</strong> A facilitator proposes them for members of their state, a national
+			organizer for anyone. Up to <?php p($_['adjustment_threshold']); ?> hours a second facilitator of that state or a
+			national organizer approves; larger ones go to a 14-day vote of the state's chapter members (at least 3 votes,
+			more for than against). Admins can still adjust up to the threshold alone, and more with a second person.
+			Nobody adjusts, approves or votes on their own. Change the threshold, with a reason, under Adjustments in
+			NextTime.</li>
 		<li><strong>Categories.</strong> Admins manage them in NextTime. A category in use cannot be deleted; archive it
 			instead.</li>
 		<li><strong>Comments.</strong> Three flags from different members hide a comment. Admins and the

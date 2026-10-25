@@ -90,15 +90,15 @@ class EarningController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/earnings/pending')]
 	public function pending(): DataResponse {
-		// Each person sees only the claims they may decide on; admins may decide on all but their own.
-		return new DataResponse($this->earningService->getDecidableClaims($this->uid()));
+		// Everyone sees every pending claim; canDecide marks the ones this person may act on.
+		return new DataResponse($this->earningService->getPendingClaims($this->uid()));
 	}
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/earnings/voting')]
 	public function voting(): DataResponse {
-		$claims = $this->earningService->getVotingClaims();
+		$claims = $this->earningService->getVotingClaims($this->uid());
 		return new DataResponse($claims);
 	}
 

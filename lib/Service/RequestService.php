@@ -198,7 +198,13 @@ class RequestService {
 			$request->setDeadline(new \DateTime($deadline));
 		}
 		if (isset($data['location'])) {
-			$request->setLocation(Input::string($data['location']));
+			$location = trim(Input::string($data['location']) ?? '');
+			$request->setLocation($location === '' ? null : $location);
+			if ($location === '') {
+				// No exact location any more: the point goes with the text.
+				$request->setLatitude(null);
+				$request->setLongitude(null);
+			}
 		}
 		$this->applyCoordinates($request, $data);
 		if (array_key_exists('zip', $data) || $request->getZip() === null) {

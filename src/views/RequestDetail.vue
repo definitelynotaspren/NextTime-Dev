@@ -7,6 +7,7 @@ import { useCategoryStore } from '../stores/categoryStore'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcModal from '@nextcloud/vue/components/NcModal'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import MapComponent from '../components/MapComponent.vue'
@@ -45,6 +46,25 @@ const withdrawReason = ref('')
 const withdrawing = ref(false)
 
 const MIN_REASON_LENGTH = 3
+
+// Moving the request to another state: shown only to people the server lists choices for.
+const stateChoices = computed(() => requestStore.currentRequest?.stateChoices ?? [])
+const stateName = (slug: string | null) => stateChoices.value.find((c) => c.slug === slug)?.name ?? slug
+const moveTarget = ref<string | null>(null)
+const moving = ref(false)
+const moveState = async (chapter: string | null) => {
+	if (!request.value) return
+	moving.value = true
+	actionError.value = null
+	try {
+		await requestStore.moveRequestState(request.value.id, chapter)
+		moveTarget.value = null
+	} catch (e: unknown) {
+		actionError.value = errorMessage(e, 'Could not move the request')
+	} finally {
+		moving.value = false
+	}
+}
 
 const requestId = computed(() => parseInt(route.params.id as string))
 
@@ -247,6 +267,26 @@ watch(requestId, (id) => {
 				<div class="description">
 					<h3>Description</h3>
 					<p>{{ requestStore.currentRequest.request.description }}</p>
+				</div>
+
+				<div v-if="stateChoices.length" class="state-move">
+					<span>
+						State: <strong>{{ request?.chapter ? stateName(request.chapter) : 'none (no ZIP, or no chapter for it)' }}</strong>
+					</span>
+					<NcSelect
+						v-model="moveTarget"
+						:options="stateChoices.filter((c) => c.slug !== request?.chapter).map((c) => ({ id: c.slug, label: c.name }))"
+						:reduce="(option) => option.id"
+						input-label="Move to another state"
+						placeholder="Choose a state"
+						:disabled="moving" />
+					<NcButton :disabled="!moveTarget || moving" @click="moveState(moveTarget)">
+						Move
+					</NcButton>
+					<NcButton :disabled="moving" @click="moveState(null)">
+						Back to its ZIP's state
+					</NcButton>
+					<span class="hint">Moves are written to the public Governance Log.</span>
 				</div>
 
 				<div v-if="isRequester && isActive" class="requester-actions">
@@ -594,6 +634,14 @@ watch(requestId, (id) => {
 
 .status-banner.banner-cancelled {
 	border-inline-start-color: var(--color-error-text);
+}
+
+.state-move {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: flex-end;
+	margin: 16px 0;
 }
 
 .requester-actions {

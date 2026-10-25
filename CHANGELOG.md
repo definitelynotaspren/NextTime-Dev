@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Everyone sees every claim; only people who may act get buttons.** **Approvals & Votes** (one name for
+  everyone now) lists all pending claims and all claims in a vote for every member. Approve, reject and send to a
+  vote appear only for approvers; vote buttons only for people who may vote. The API marks each claim with
+  `canDecide` or `canVote`.
+- **Votes on claims belong to the claimant's state** (Decision 2 of the security plan, part of Phase 3): chapter
+  members (member or facilitator group) of the claimant's state vote. Before, any member could vote on any claim.
+- **Small states hand their votes to the national organizers.** When a member has no state, or their state has
+  fewer than three people who could vote, the national organizers vote instead, on claims and on adjustments. One
+  rule decides this for both (`Chapter\Electorate`).
+- **The Chapters page is open to every member**: who facilitates each state and who the national organizers are
+  is public. Set-up problems (unpaired groups, ZIP-less requests, people only in the old groups) are shown to admins
+  and national organizers only.
+
+- **Facilitators propose balance adjustments, and large ones go to a vote** (Phase 4 of the security plan,
+  Decision 3). A facilitator proposes for members of their own state, a national organizer for anyone. Up to the
+  threshold (5 hours by default) a second facilitator of that state or a national organizer approves or rejects it.
+  Above it, the state's chapter members vote for 14 days (national organizers vote for members with no state): at
+  least 3 votes and more for than against applies it, otherwise it is rejected, and fewer than 3 votes let it expire.
+  The vote closes early once everyone eligible has voted. Votes are public, one per person (enforced by the database),
+  and the ledger entry names the proposer and every voter. The proposer and the member never approve or vote.
+  Nextcloud admins keep their direct power as a break-glass, logged as before. Chapter members now see an
+  **Adjustments** page with the votes open to them; facilitators see their own states' adjustments, no longer every
+  state's. Migration `Version000009` (app 0.10.0) adds the vote table.
+
+- **Move a request or desk row to another state** (Phase 2 of the security plan, Decision 5). Normally the ZIP
+  decides; a facilitator of the old or new state, a national organizer or an admin can move it, or send it back to
+  its ZIP's state. Every move is in the public governance log. The request page and the organizer desk show the
+  control only to people who may use it.
+- **Pin-first posting.** Drop a pin on the posting form and the ZIP fills in, worked out in the browser from the
+  bundled ZIP table (each area's center and size), so the pin never leaves the device unless "Also save this
+  exact location" is ticked. It is off by default. A pin with no US ZIP near it asks for one to be typed.
+
+### Fixed
+
+- Editing a request to remove its location left the map point behind. The point now goes with the text.
+
 ### Security
 
 - **Exact request locations are private** (Phase 2 of the security and permission plan). Every in-person
