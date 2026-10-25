@@ -15,6 +15,7 @@ use OCP\IRequest;
 
 class VolunteerController extends Controller {
 	use ServiceErrors;
+	use CurrentUser;
 
 	private VolunteerService $volunteerService;
 	private ?string $userId;
@@ -39,7 +40,7 @@ class VolunteerController extends Controller {
 		];
 
 		try {
-			$volunteer = $this->volunteerService->offer($requestId, $this->userId, $data);
+			$volunteer = $this->volunteerService->offer($requestId, $this->uid(), $data);
 			return new DataResponse($volunteer->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -53,7 +54,7 @@ class VolunteerController extends Controller {
 		$reason = $this->request->getParam('reason');
 
 		try {
-			$this->volunteerService->withdraw($id, $this->userId, is_string($reason) ? $reason : null);
+			$this->volunteerService->withdraw($id, $this->uid(), is_string($reason) ? $reason : null);
 			return new DataResponse(['success' => true]);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -64,7 +65,7 @@ class VolunteerController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/volunteers/{id}/accept', requirements: ['id' => '\\d+'])]
 	public function accept(int $id): DataResponse {
 		try {
-			$volunteer = $this->volunteerService->accept($id, $this->userId);
+			$volunteer = $this->volunteerService->accept($id, $this->uid());
 			return new DataResponse($volunteer->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -75,7 +76,7 @@ class VolunteerController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/volunteers/{id}/decline', requirements: ['id' => '\\d+'])]
 	public function decline(int $id): DataResponse {
 		try {
-			$volunteer = $this->volunteerService->decline($id, $this->userId);
+			$volunteer = $this->volunteerService->decline($id, $this->uid());
 			return new DataResponse($volunteer->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -86,14 +87,14 @@ class VolunteerController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/volunteers/my')]
 	public function myOffers(): DataResponse {
-		return new DataResponse($this->volunteerService->getMyOffersWithRequests($this->userId));
+		return new DataResponse($this->volunteerService->getMyOffersWithRequests($this->uid()));
 	}
 
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/withdrawals/my')]
 	public function myWithdrawals(): DataResponse {
-		$entries = $this->volunteerService->getMyWithdrawals($this->userId);
+		$entries = $this->volunteerService->getMyWithdrawals($this->uid());
 		return new DataResponse(array_map(fn ($w) => $w->jsonSerialize(), $entries));
 	}
 }

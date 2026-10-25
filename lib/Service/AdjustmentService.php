@@ -8,7 +8,7 @@ use OCA\TimeBank\AppInfo\Application;
 use OCA\TimeBank\Db\Adjustment;
 use OCA\TimeBank\Db\AdjustmentMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -23,12 +23,12 @@ use OCP\IUserManager;
  */
 class AdjustmentService {
 
-	public const DEFAULT_THRESHOLD = 5.0;
-	public const MIN_THRESHOLD = 1.0;
-	public const MAX_THRESHOLD = 20.0;
-	public const MAX_ADJUSTMENT = 100.0;
-	public const EXPIRY_DAYS = 14;
-	public const MIN_REASON_LENGTH = 10;
+	public const float DEFAULT_THRESHOLD = 5.0;
+	public const float MIN_THRESHOLD = 1.0;
+	public const float MAX_THRESHOLD = 20.0;
+	public const float MAX_ADJUSTMENT = 100.0;
+	public const int EXPIRY_DAYS = 14;
+	public const int MIN_REASON_LENGTH = 10;
 
 	public function __construct(
 		private AdjustmentMapper $mapper,
@@ -39,13 +39,13 @@ class AdjustmentService {
 		private ApproverPolicy $policy,
 		private IGroupManager $groups,
 		private IUserManager $users,
-		private IConfig $config,
+		private IAppConfig $config,
 		private IDBConnection $db,
 	) {
 	}
 
 	public function getThreshold(): float {
-		$value = (float)$this->config->getAppValue(Application::APP_ID, 'adjustment_threshold', (string)self::DEFAULT_THRESHOLD);
+		$value = (float)$this->config->getValueString(Application::APP_ID, 'adjustment_threshold', (string)self::DEFAULT_THRESHOLD);
 
 		return $value >= self::MIN_THRESHOLD && $value <= self::MAX_THRESHOLD ? $value : self::DEFAULT_THRESHOLD;
 	}
@@ -64,7 +64,7 @@ class AdjustmentService {
 		$reason = $this->validReason($reason);
 
 		$old = $this->getThreshold();
-		$this->config->setAppValue(Application::APP_ID, 'adjustment_threshold', (string)$hours);
+		$this->config->setValueString(Application::APP_ID, 'adjustment_threshold', (string)$hours);
 		$this->log->record($adminId, 'setting.adjustment_threshold', null, [
 			'from' => $old,
 			'to' => $hours,
@@ -255,7 +255,7 @@ class AdjustmentService {
 			$this->transactions->recordAdjustment(
 				$adjustment->getUserId(),
 				$hours,
-				(string)$adjustment->getReason(),
+				$adjustment->getReason(),
 				$adjustment->getProposerId(),
 				$approverId,
 			);
@@ -263,6 +263,7 @@ class AdjustmentService {
 			$adjustment->setStatus('approved');
 			$adjustment->setApproverId($approverId);
 			$adjustment->setDecidedAt(new \DateTime());
+			/** @psalm-suppress DocblockTypeContradiction Entity::$id is documented as int but is null until inserted */
 			$adjustment = $adjustment->getId() === null
 				? $this->mapper->insert($adjustment)
 				: $this->mapper->update($adjustment);

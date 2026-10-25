@@ -35,6 +35,7 @@ class BackfillRequestCoordinates implements IRepairStep {
 			->andWhere($qb->expr()->isNull('latitude'));
 
 		$result = $qb->executeQuery();
+		/** @var list<array<string, mixed>> $rows */
 		$rows = $result->fetchAll();
 		$result->closeCursor();
 

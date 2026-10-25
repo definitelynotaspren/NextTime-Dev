@@ -126,10 +126,13 @@ then `make docker-install-app`. Run the smoke test with
   APIs newer than 29.
 - `vendor-bin/*` holds isolated tool installs (phpunit, psalm, cs-fixer,
   rector); `composer install` populates them via bamarni/composer-bin-plugin.
-- Psalm (`composer psalm`) is a CI gate. Older findings (~350, mostly unused-code false alarms and
-  strict typing) are recorded in `psalm-baseline.xml`, so only NEW findings fail. Don't add to the
-  baseline to get green; fix the code. Regenerate it only after fixing old findings
-  (`vendor/bin/psalm --set-baseline=psalm-baseline.xml`). CI runs psalm once per Nextcloud 29-35 API.
+- Psalm (`composer psalm`, level 1) is a CI gate with zero findings and no baseline; keep it that way.
+  CI runs it once per Nextcloud API from 29 on, and older APIs type less, so check a change against
+  the oldest too (`composer require --dev nextcloud/ocp:dev-stable29 --ignore-platform-reqs`, then
+  restore composer.json/lock). Request values are untyped: read text with the controllers'
+  `textParam()`/`optionalTextParam()` and `Service\Input`, never pass `getParam()` straight on.
+  Layer and field shapes are the `Layer`/`Field` psalm types in `SchemaSpec`. The suppressions in
+  psalm.xml are for things Nextcloud calls itself; each says why.
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
 

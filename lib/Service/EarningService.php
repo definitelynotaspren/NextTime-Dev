@@ -54,7 +54,7 @@ class EarningService {
 		$actualHours = (float)$data['hoursClaimed'] * (float)$category->getEarnRate();
 		$earning->setActualHoursEarned((string)$actualHours);
 
-		$earning->setDescription($data['description']);
+		$earning->setDescription(Input::string($data['description'] ?? null) ?? '');
 		$earning->setStatus('pending');
 
 		if (isset($data['evidenceFileId'])) {
@@ -66,13 +66,6 @@ class EarningService {
 		$this->notifier->submitted($earning);
 
 		return $earning;
-	}
-
-	/**
-	 * @return Earning[]
-	 */
-	public function getPendingClaims(): array {
-		return $this->earningMapper->findByStatus('pending');
 	}
 
 	/**
@@ -205,7 +198,7 @@ class EarningService {
 
 		$votingResult = $this->checkVotingComplete($earningId);
 
-		if ($votingResult['complete']) {
+		if ($votingResult['complete'] && $votingResult['result'] !== null) {
 			$this->resolveClaimByVote($earningId, $votingResult['result']);
 		}
 
@@ -235,7 +228,7 @@ class EarningService {
 		$voteRecord->setVoterId($voterId);
 		$voteRecord->setVote($vote);
 
-		if ($comment) {
+		if ($comment !== null && $comment !== '') {
 			$voteRecord->setComment($comment);
 		}
 

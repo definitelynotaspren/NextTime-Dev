@@ -15,8 +15,8 @@ use OCP\BackgroundJob\TimedJob;
  */
 class ClaimReminders extends TimedJob {
 
-	public const REMIND_AFTER = '-3 days';
-	public const ESCALATE_AFTER = '-7 days';
+	public const string REMIND_AFTER = '-3 days';
+	public const string ESCALATE_AFTER = '-7 days';
 
 	public function __construct(
 		ITimeFactory $time,
@@ -27,7 +27,7 @@ class ClaimReminders extends TimedJob {
 		$this->setInterval(3600);
 	}
 
-	protected function run($argument): void {
+	protected function run(mixed $argument): void {
 		foreach ($this->earnings->findPendingOlderThan(new \DateTime(self::ESCALATE_AFTER), 2) as $claim) {
 			$this->notifier->escalate($claim);
 			$claim->setNotifiedStage(2);

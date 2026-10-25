@@ -15,7 +15,7 @@ use OCP\AppFramework\Db\DoesNotExistException;
  */
 class CategoryService {
 
-	public const MAX_EARN_RATE = 5.0;
+	public const float MAX_EARN_RATE = 5.0;
 
 	public function __construct(
 		private CategoryMapper $categoryMapper,
@@ -69,9 +69,9 @@ class CategoryService {
 
 		$category = new Category();
 		$category->setName($name);
-		$category->setDescription($data['description'] ?? null);
+		$category->setDescription(Input::string($data['description'] ?? null));
 		$category->setEarnRate($this->validRate($data['earnRate'] ?? 1.0));
-		$category->setIcon($data['icon'] ?? null);
+		$category->setIcon(Input::string($data['icon'] ?? null));
 		$category->setCreatedAt(new \DateTime());
 		$category = $this->categoryMapper->insert($category);
 
@@ -101,7 +101,7 @@ class CategoryService {
 			$category->setName($name);
 		}
 		if (isset($data['description'])) {
-			$category->setDescription($data['description']);
+			$category->setDescription(Input::string($data['description']));
 		}
 		if (isset($data['earnRate'])) {
 			$rate = $this->validRate($data['earnRate']);
@@ -111,7 +111,7 @@ class CategoryService {
 			$category->setEarnRate($rate);
 		}
 		if (isset($data['icon'])) {
-			$category->setIcon($data['icon']);
+			$category->setIcon(Input::string($data['icon']));
 		}
 
 		$category = $this->categoryMapper->update($category);

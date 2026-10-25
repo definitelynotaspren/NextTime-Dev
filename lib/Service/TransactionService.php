@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Service;
 
 use OCA\TimeBank\Db\Earning;
-use OCA\TimeBank\Db\Request;
 use OCA\TimeBank\Db\Transaction;
 use OCA\TimeBank\Db\TransactionMapper;
 
@@ -17,7 +16,7 @@ class TransactionService {
 		$this->transactionMapper = $transactionMapper;
 	}
 
-	public function recordEarning(Earning $earning): Transaction {
+	public function recordEarning(Earning $earning): void {
 		$transaction = new Transaction();
 		$transaction->setFromUserId(null);
 		$transaction->setToUserId($earning->getUserId());
@@ -28,24 +27,10 @@ class TransactionService {
 		$transaction->setReferenceType('earning');
 		$transaction->setCreatedAt(new \DateTime());
 
-		return $this->transactionMapper->insert($transaction);
+		$this->transactionMapper->insert($transaction);
 	}
 
-	public function recordSpending(Request $request, string $spenderId, string $providerId, float $hours): Transaction {
-		$transaction = new Transaction();
-		$transaction->setFromUserId($spenderId);
-		$transaction->setToUserId($providerId);
-		$transaction->setHours((string)$hours);
-		$transaction->setDescription('Request: ' . substr($request->getTitle(), 0, 450));
-		$transaction->setTransactionType('spent');
-		$transaction->setReferenceId($request->getId());
-		$transaction->setReferenceType('request');
-		$transaction->setCreatedAt(new \DateTime());
-
-		return $this->transactionMapper->insert($transaction);
-	}
-
-	public function recordAdjustment(string $userId, float $hours, string $reason, string $adminUserId, ?string $approverId = null): Transaction {
+	public function recordAdjustment(string $userId, float $hours, string $reason, string $adminUserId, ?string $approverId = null): void {
 		$transaction = new Transaction();
 
 		if ($hours > 0) {
@@ -64,7 +49,7 @@ class TransactionService {
 		$transaction->setTransactionType('adjusted');
 		$transaction->setCreatedAt(new \DateTime());
 
-		return $this->transactionMapper->insert($transaction);
+		$this->transactionMapper->insert($transaction);
 	}
 
 	/**

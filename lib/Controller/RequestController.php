@@ -17,6 +17,8 @@ use OCP\IRequest;
 
 class RequestController extends Controller {
 	use ServiceErrors;
+	use CurrentUser;
+	use RequestParams;
 
 	private RequestService $requestService;
 	private ?string $userId;
@@ -59,10 +61,10 @@ class RequestController extends Controller {
 	#[FrontpageRoute(verb: 'GET', url: '/api/requests/{id}', requirements: ['id' => '\\d+'])]
 	public function show(int $id): DataResponse {
 		try {
-			$data = $this->requestService->getRequestDetails($id, $this->userId);
+			$data = $this->requestService->getRequestDetails($id, $this->uid());
 			// Comments go through moderation: hidden and removed ones lose their text.
-			$data['comments'] = $this->commentService->getForViewer($id, $this->userId);
-			$data['canModerate'] = $this->commentService->isModerator($this->userId);
+			$data['comments'] = $this->commentService->getForViewer($id, $this->uid());
+			$data['canModerate'] = $this->commentService->isModerator($this->uid());
 			return new DataResponse($data);
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
@@ -73,13 +75,13 @@ class RequestController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/requests')]
 	public function create(): DataResponse {
 		// Validate required fields
-		$title = $this->request->getParam('title');
-		$description = $this->request->getParam('description');
+		$title = $this->textParam('title');
+		$description = $this->textParam('description');
 		$categoryId = $this->request->getParam('categoryId');
 		$hoursBudget = $this->request->getParam('hoursBudget');
 		$priority = $this->request->getParam('priority', 'normal');
 
-		if (empty($title) || strlen(trim($title)) < 5) {
+		if (strlen($title) < 5) {
 			return new DataResponse(['error' => 'Title must be at least 5 characters'], Http::STATUS_BAD_REQUEST);
 		}
 
@@ -87,7 +89,7 @@ class RequestController extends Controller {
 			return new DataResponse(['error' => 'Title cannot exceed 200 characters'], Http::STATUS_BAD_REQUEST);
 		}
 
-		if (empty($description) || strlen(trim($description)) < 20) {
+		if (strlen($description) < 20) {
 			return new DataResponse(['error' => 'Description must be at least 20 characters'], Http::STATUS_BAD_REQUEST);
 		}
 
@@ -108,8 +110,8 @@ class RequestController extends Controller {
 		}
 
 		$data = [
-			'title' => trim($title),
-			'description' => trim($description),
+			'title' => $title,
+			'description' => $description,
 			'categoryId' => (int)$categoryId,
 			'hoursBudget' => (float)$hoursBudget,
 			'priority' => $priority,
@@ -122,7 +124,7 @@ class RequestController extends Controller {
 		try {
 			// Archived categories keep their history but cannot take new requests.
 			$this->categoryService->requireUsable((int)$categoryId);
-			$request = $this->requestService->createRequest($this->userId, $data);
+			$request = $this->requestService->createRequest($this->uid(), $data);
 			return new DataResponse($request->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
@@ -154,7 +156,7 @@ class RequestController extends Controller {
 					$this->categoryService->requireUsable((int)$data['categoryId']);
 				}
 			}
-			$request = $this->requestService->updateRequest($id, $this->userId, $data);
+			$request = $this->requestService->updateRequest($id, $this->uid(), $data);
 			return new DataResponse($request->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -169,7 +171,7 @@ class RequestController extends Controller {
 		$volunteerId = ($volunteerParam === null || $volunteerParam === '') ? null : (int)$volunteerParam;
 
 		try {
-			$request = $this->requestService->completeRequest($id, $this->userId, $volunteerId);
+			$request = $this->requestService->completeRequest($id, $this->uid(), $volunteerId);
 			return new DataResponse($request->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -180,7 +182,7 @@ class RequestController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/requests/{id}/cancel', requirements: ['id' => '\\d+'])]
 	public function cancel(int $id): DataResponse {
 		try {
-			$request = $this->requestService->cancelRequest($id, $this->userId);
+			$request = $this->requestService->cancelRequest($id, $this->uid());
 			return new DataResponse($request->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -191,7 +193,7 @@ class RequestController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/requests/my')]
 	public function myRequests(): DataResponse {
-		$filters = ['requesterId' => $this->userId];
+		$filters = ['requesterId' => $this->uid()];
 		$data = $this->requestService->getRequests($filters);
 
 		return new DataResponse($data);

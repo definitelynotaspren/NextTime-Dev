@@ -19,13 +19,15 @@ use OCA\TimeBank\Schema\Viewer;
  *
  * Every row leaves this service through present() or publicFeed(), and both
  * pass each field through FieldPolicy. Controllers never serialize rows.
+ *
+ * @psalm-import-type Layer from SchemaSpec
  */
 class LayerService {
 
-	private const ASSIGNMENT_STATUSES = ['assigned', 'in_progress', 'done'];
+	private const array ASSIGNMENT_STATUSES = ['assigned', 'in_progress', 'done'];
 
 	/** Statuses that take a row out of the public feed. */
-	private const CLOSED_STATUSES = ['closed', 'cancelled', 'done'];
+	private const array CLOSED_STATUSES = ['closed', 'cancelled', 'done'];
 
 	private LayerRowMapper $rowMapper;
 
@@ -43,7 +45,7 @@ class LayerService {
 	 * @return list<array<string, mixed>>
 	 */
 	public function listRows(Viewer $viewer, string $layer, array $filters = []): array {
-		$spec = $this->requireReadableLayer($layer);
+		$this->requireReadableLayer($layer);
 		$this->requireStaff($viewer);
 
 		$dbFilters = [];
@@ -52,7 +54,7 @@ class LayerService {
 		} elseif (($filters['assigned'] ?? null) === 'unassigned') {
 			$dbFilters['unassigned'] = true;
 		}
-		if (!empty($filters['source'])) {
+		if (isset($filters['source']) && $filters['source'] !== '') {
 			$dbFilters['source'] = $filters['source'];
 		}
 
@@ -84,7 +86,7 @@ class LayerService {
 			throw LayerException::invalid(implode('; ', $result['errors']));
 		}
 		// Organizers add rows anywhere; a facilitator only inside a chapter they facilitate.
-		if (!$viewer->canSeeChapter($this->chapters->chapterForZip($result['data']['zip'] ?? null))) {
+		if (!$viewer->canSeeChapter($this->chapters->chapterForZip(Input::string($result['data']['zip'] ?? null)))) {
 			throw LayerException::forbidden('You can add rows only for ZIP codes in a chapter you facilitate');
 		}
 
@@ -92,7 +94,7 @@ class LayerService {
 		$row = new LayerRow();
 		$row->setLayer($layer);
 		$row->setUid($this->newUid($layer, $spec['uid_prefix']));
-		$row->setChapter($this->chapters->chapterForZip($result['data']['zip'] ?? null));
+		$row->setChapter($this->chapters->chapterForZip(Input::string($result['data']['zip'] ?? null)));
 		$row->setPublish($result['publish']);
 		$row->setSource('manual');
 		$row->setData(json_encode($result['data'], JSON_THROW_ON_ERROR));
@@ -111,7 +113,7 @@ class LayerService {
 	 * @param array<string, mixed> $data already validated
 	 * @throws LayerException
 	 */
-	public function importFromForm(string $layer, string $uid, array $data): LayerRow {
+	public function importFromForm(string $layer, string $uid, array $data): void {
 		$this->requireReadableLayer($layer);
 		if ($this->rowMapper->findByUid($layer, $uid) !== null) {
 			throw LayerException::conflict("Row $uid already exists");
@@ -121,7 +123,7 @@ class LayerService {
 		$row = new LayerRow();
 		$row->setLayer($layer);
 		$row->setUid($uid);
-		$row->setChapter($this->chapters->chapterForZip($data['zip'] ?? null));
+		$row->setChapter($this->chapters->chapterForZip(Input::string($data['zip'] ?? null)));
 		$row->setPublish(false);
 		$row->setSource('form');
 		$row->setData(json_encode($data, JSON_THROW_ON_ERROR));
@@ -129,7 +131,7 @@ class LayerService {
 		$row->setCreatedAt($now);
 		$row->setUpdatedAt($now);
 
-		return $this->rowMapper->insert($row);
+		$this->rowMapper->insert($row);
 	}
 
 	/**
@@ -344,6 +346,10 @@ class LayerService {
 	 * @return array<string, mixed>
 	 * @throws LayerException if the layer is unknown or aggregate-only
 	 */
+	/**
+	 * @return Layer
+	 * @throws LayerException
+	 */
 	private function requireReadableLayer(string $layer): array {
 		$spec = SchemaSpec::layer($layer);
 		if ($spec === null) {
@@ -422,6 +428,10 @@ class LayerService {
 	 */
 	private function decode(string $json): array {
 		$decoded = json_decode($json, true);
-		return is_array($decoded) ? $decoded : [];
+		if (!is_array($decoded)) {
+			return [];
+		}
+		/** @var array<string, mixed> $decoded keys are the field names this service wrote */
+		return $decoded;
 	}
 }

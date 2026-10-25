@@ -13,6 +13,7 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
 class LedgerController extends Controller {
+	use CurrentUser;
 
 	private TransactionService $transactionService;
 	private ?string $userId;
@@ -47,7 +48,7 @@ class LedgerController extends Controller {
 		$limit = (int)($this->request->getParam('limit') ?? 50);
 		$offset = (int)($this->request->getParam('offset') ?? 0);
 
-		$data = $this->transactionService->getUserTransactions($this->userId, $limit, $offset);
+		$data = $this->transactionService->getUserTransactions($this->uid(), $limit, $offset);
 
 		return new DataResponse($data);
 	}

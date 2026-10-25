@@ -52,6 +52,7 @@ class Adjustment extends Entity implements JsonSerializable {
 		$this->addType('decidedAt', 'datetime');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

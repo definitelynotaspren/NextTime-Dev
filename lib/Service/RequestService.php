@@ -87,9 +87,7 @@ class RequestService {
 			return $data;
 		}, $volunteers);
 
-		usort($enrichedVolunteers, function ($a, $b) {
-			return $b['completedInCategory'] - $a['completedInCategory'];
-		});
+		usort($enrichedVolunteers, fn (array $a, array $b): int => (int)$b['completedInCategory'] - (int)$a['completedInCategory']);
 
 		$details = [
 			'request' => $request->jsonSerialize(),
@@ -113,18 +111,19 @@ class RequestService {
 	public function createRequest(string $userId, array $data): Request {
 		$request = new Request();
 		$request->setRequesterId($userId);
-		$request->setTitle($data['title']);
-		$request->setDescription($data['description']);
+		$request->setTitle(Input::string($data['title'] ?? null) ?? '');
+		$request->setDescription(Input::string($data['description'] ?? null) ?? '');
 		$request->setCategoryId((int)$data['categoryId']);
 		$request->setHoursBudget((string)$data['hoursBudget']);
 		$request->setStatus('open');
-		$request->setPriority($data['priority'] ?? 'normal');
+		$request->setPriority(Input::string($data['priority'] ?? null) ?? 'normal');
 
-		if (isset($data['deadline']) && $data['deadline']) {
-			$request->setDeadline(new \DateTime($data['deadline']));
+		$deadline = Input::string($data['deadline'] ?? null);
+		if ($deadline !== null && $deadline !== '') {
+			$request->setDeadline(new \DateTime($deadline));
 		}
 		if (isset($data['location'])) {
-			$request->setLocation($data['location']);
+			$request->setLocation(Input::string($data['location']));
 		}
 		$this->applyCoordinates($request, $data);
 
@@ -180,11 +179,12 @@ class RequestService {
 			}
 			$request->setPriority($data['priority']);
 		}
-		if (isset($data['deadline']) && $data['deadline'] !== '') {
-			$request->setDeadline(new \DateTime($data['deadline']));
+		$deadline = Input::string($data['deadline'] ?? null);
+		if ($deadline !== null && $deadline !== '') {
+			$request->setDeadline(new \DateTime($deadline));
 		}
 		if (isset($data['location'])) {
-			$request->setLocation($data['location']);
+			$request->setLocation(Input::string($data['location']));
 		}
 		$this->applyCoordinates($request, $data);
 

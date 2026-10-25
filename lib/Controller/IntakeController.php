@@ -23,6 +23,7 @@ use OCP\IRequest;
  */
 class IntakeController extends Controller {
 	use ServiceErrors;
+	use CurrentUser;
 
 	public function __construct(
 		string $appName,
@@ -87,7 +88,7 @@ class IntakeController extends Controller {
 		try {
 			$this->requireManager();
 			$forms = $this->request->getParam('forms');
-			$this->intake->setEnabled($this->userId, is_array($forms) ? array_values($forms) : []);
+			$this->intake->setEnabled($this->uid(), is_array($forms) ? array_values($forms) : []);
 
 			return new DataResponse(['enabled' => $this->intake->enabled()]);
 		} catch (\Exception $e) {
@@ -140,7 +141,7 @@ class IntakeController extends Controller {
 	 */
 	private function requireManager(): void {
 		if ($this->userId === null
-			|| (!$this->groups->isAdmin($this->userId) && !$this->viewers->forUser($this->userId)->organizer)) {
+			|| (!$this->groups->isAdmin($this->uid()) && !$this->viewers->forUser($this->uid())->organizer)) {
 			throw new NotAuthorizedException('Admin or organizer role required');
 		}
 	}

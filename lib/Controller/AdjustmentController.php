@@ -21,6 +21,7 @@ use OCP\IRequest;
  */
 class AdjustmentController extends Controller {
 	use ServiceErrors;
+	use CurrentUser;
 
 	public function __construct(
 		string $appName,
@@ -40,9 +41,9 @@ class AdjustmentController extends Controller {
 	public function index(): DataResponse {
 		try {
 			return new DataResponse([
-				'adjustments' => $this->adjustments->listFor($this->userId),
+				'adjustments' => $this->adjustments->listFor($this->uid()),
 				'threshold' => $this->adjustments->getThreshold(),
-				'canPropose' => $this->groups->isAdmin($this->userId),
+				'canPropose' => $this->groups->isAdmin($this->uid()),
 				'expiryDays' => AdjustmentService::EXPIRY_DAYS,
 			]);
 		} catch (\Exception $e) {
@@ -56,7 +57,7 @@ class AdjustmentController extends Controller {
 	public function propose(): DataResponse {
 		try {
 			$adjustment = $this->adjustments->propose(
-				$this->userId,
+				$this->uid(),
 				trim((string)$this->request->getParam('userId')),
 				(float)$this->request->getParam('hours'),
 				(string)$this->request->getParam('reason'),
@@ -71,7 +72,7 @@ class AdjustmentController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/adjustments/{id}/approve', requirements: ['id' => '\\d+'])]
 	public function approve(int $id): DataResponse {
 		try {
-			return new DataResponse($this->adjustments->approve($id, $this->userId)->jsonSerialize());
+			return new DataResponse($this->adjustments->approve($id, $this->uid())->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -81,7 +82,7 @@ class AdjustmentController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/adjustments/{id}/reject', requirements: ['id' => '\\d+'])]
 	public function reject(int $id): DataResponse {
 		try {
-			return new DataResponse($this->adjustments->reject($id, $this->userId, (string)$this->request->getParam('note'))->jsonSerialize());
+			return new DataResponse($this->adjustments->reject($id, $this->uid(), (string)$this->request->getParam('note'))->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -91,7 +92,7 @@ class AdjustmentController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/adjustments/{id}/withdraw', requirements: ['id' => '\\d+'])]
 	public function withdraw(int $id): DataResponse {
 		try {
-			return new DataResponse($this->adjustments->withdraw($id, $this->userId)->jsonSerialize());
+			return new DataResponse($this->adjustments->withdraw($id, $this->uid())->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -103,7 +104,7 @@ class AdjustmentController extends Controller {
 	public function setThreshold(): DataResponse {
 		try {
 			$hours = $this->adjustments->setThreshold(
-				$this->userId,
+				$this->uid(),
 				(float)$this->request->getParam('hours'),
 				(string)$this->request->getParam('reason'),
 			);

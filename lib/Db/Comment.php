@@ -41,6 +41,7 @@ class Comment extends Entity implements JsonSerializable {
 		$this->addType('parentId', 'integer');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

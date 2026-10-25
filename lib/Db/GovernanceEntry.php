@@ -34,6 +34,7 @@ class GovernanceEntry extends Entity implements JsonSerializable {
 		$this->addType('createdAt', 'datetime');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		$details = $this->details === null ? null : json_decode($this->details, true);
 

@@ -36,6 +36,7 @@ class Volunteer extends Entity implements JsonSerializable {
 		$this->addType('requestId', 'integer');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

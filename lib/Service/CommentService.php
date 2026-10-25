@@ -21,10 +21,10 @@ use OCP\IGroupManager;
 class CommentService {
 
 	/** The same number as the community votes needed to approve a claim. */
-	public const FLAG_LIMIT = 3;
+	public const int FLAG_LIMIT = 3;
 
-	public const MAX_LENGTH = 2000;
-	public const MAX_REASON_LENGTH = 500;
+	public const int MAX_LENGTH = 2000;
+	public const int MAX_REASON_LENGTH = 500;
 
 	public function __construct(
 		private CommentMapper $commentMapper,
@@ -50,7 +50,7 @@ class CommentService {
 		$comment->setRequestId($requestId);
 		$comment->setUserId($userId);
 		$comment->setComment($text);
-		$comment->setParentId($data['parentId'] ?? null);
+		$comment->setParentId(Input::int($data['parentId'] ?? null));
 		$comment->setCreatedAt(new \DateTime());
 
 		return $this->commentMapper->insert($comment);
@@ -71,10 +71,10 @@ class CommentService {
 		$moderator = $this->isModerator($viewerId);
 		$flags = $this->groupFlags($comments);
 
-		return array_map(
+		return array_values(array_map(
 			fn (Comment $c) => $this->view($c, $flags[$c->getId()] ?? [], $viewerId, $moderator),
 			$comments,
-		);
+		));
 	}
 
 	/**

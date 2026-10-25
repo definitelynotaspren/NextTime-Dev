@@ -12,8 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **On Nextcloud 29, NextTime could break every user's notification list.** Its notifier refused other
   apps' notifications with `UnknownNotificationException`, a class Nextcloud 29 does not have; the
   resulting error was not caught. It now falls back to `\InvalidArgumentException` there.
-- CI: static analysis (psalm) now runs on PHP 8.3 and checks only for new findings; existing ones are
-  recorded in `psalm-baseline.xml`. It passes against every Nextcloud API from 29 to the current one.
+- A request body with a list where text was expected could cause a server error: for example a
+  `deadline` sent as a list made posting a request fail with HTTP 500. Values of the wrong type are now
+  ignored or refused with a plain message.
+- CI: static analysis (psalm) runs on PHP 8.3 and passes with no findings against every Nextcloud API
+  from 29 to the current one. The ~500 earlier findings were fixed, or, where Nextcloud calls the code
+  itself (controllers, migrations, jobs), configured with a stated reason. Nine unused methods were removed.
 - Missing spaces in two places: the Governance Log ran the action into the name ("an adjustment foralice",
   "created categoryGardening") and Withdrawn help on a request ran the volunteer into the hours ("carol3 h").
 - The README is rewritten to match the app: working curl examples (they need `/index.php` and the `OCS-APIRequest`
@@ -65,6 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- App settings are read and written through `IAppConfig` instead of the deprecated `IConfig` app-value
+  calls. Stored values and `occ config:app:set` work as before.
 - Basemap: Carto → [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key).
   Viewers' browsers contact `tiles.openfreemap.org`; see README → Map to change it.
 - Nextcloud support is now 29–35 (`max-version` 33 → 35), and only versions that were run

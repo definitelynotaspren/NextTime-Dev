@@ -23,11 +23,11 @@ use OCP\AppFramework\Db\DoesNotExistException;
 class VolunteerService {
 
 	/** Request statuses in which people can still offer, be accepted, or step back. */
-	private const ACTIVE_REQUEST_STATUSES = ['open', 'in_progress'];
+	private const array ACTIVE_REQUEST_STATUSES = ['open', 'in_progress'];
 
-	private const MAX_HOURS = 1000;
-	private const MIN_REASON_LENGTH = 3;
-	private const MAX_REASON_LENGTH = 1000;
+	private const int MAX_HOURS = 1000;
+	private const int MIN_REASON_LENGTH = 3;
+	private const int MAX_REASON_LENGTH = 1000;
 
 	private VolunteerMapper $volunteerMapper;
 	private RequestMapper $requestMapper;
@@ -75,7 +75,7 @@ class VolunteerService {
 		$volunteer->setRequestId($requestId);
 		$volunteer->setVolunteerId($volunteerId);
 		$volunteer->setProposedHours((string)$hours);
-		$volunteer->setMessage($data['message'] ?? null);
+		$volunteer->setMessage(Input::string($data['message'] ?? null));
 		$volunteer->setStatus('offered');
 		$volunteer->setCreatedAt(new \DateTime());
 
@@ -125,7 +125,7 @@ class VolunteerService {
 			$entry->setRequestId($request->getId());
 			$entry->setVolunteerId($userId);
 			$entry->setOfferStatus($status);
-			$entry->setProposedHours((string)$volunteer->getProposedHours());
+			$entry->setProposedHours($volunteer->getProposedHours());
 			$entry->setReason($reason);
 			$entry->setCreatedAt(new \DateTime());
 			$this->withdrawalMapper->insert($entry);
@@ -184,13 +184,6 @@ class VolunteerService {
 
 		$volunteer->setStatus('declined');
 		return $this->volunteerMapper->update($volunteer);
-	}
-
-	/**
-	 * @return Volunteer[]
-	 */
-	public function getMyVolunteerOffers(string $userId): array {
-		return $this->volunteerMapper->findByVolunteer($userId);
 	}
 
 	/**

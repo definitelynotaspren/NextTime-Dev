@@ -56,14 +56,12 @@ class BalanceMapper extends QBMapper {
 		return $balance;
 	}
 
-	public function updateBalance(Balance $balance): Balance {
+	public function updateBalance(Balance $balance): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update($this->getTableName())
 			->set('balance', $qb->createNamedParameter($balance->getBalance()))
 			->set('updated_at', $qb->createNamedParameter($balance->getUpdatedAt(), 'datetime'))
 			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($balance->getUserId())))
 			->executeStatement();
-
-		return $balance;
 	}
 }

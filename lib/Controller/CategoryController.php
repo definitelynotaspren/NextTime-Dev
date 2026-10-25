@@ -16,6 +16,7 @@ use OCP\IRequest;
 
 class CategoryController extends Controller {
 	use ServiceErrors;
+	use CurrentUser;
 
 	private CategoryService $categoryService;
 	private IGroupManager $groupManager;
@@ -57,7 +58,7 @@ class CategoryController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/categories')]
 	public function create(): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
+		if (!$this->groupManager->isAdmin($this->uid())) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -69,7 +70,7 @@ class CategoryController extends Controller {
 		];
 
 		try {
-			$category = $this->categoryService->create($data, $this->userId);
+			$category = $this->categoryService->create($data, $this->uid());
 			return new DataResponse($category->jsonSerialize(), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -79,7 +80,7 @@ class CategoryController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'PUT', url: '/api/categories/{id}', requirements: ['id' => '\\d+'])]
 	public function update(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
+		if (!$this->groupManager->isAdmin($this->uid())) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -93,7 +94,7 @@ class CategoryController extends Controller {
 		$data = array_filter($data, fn ($v) => $v !== null);
 
 		try {
-			$category = $this->categoryService->update($id, $data, $this->userId);
+			$category = $this->categoryService->update($id, $data, $this->uid());
 			return new DataResponse($category->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -103,12 +104,12 @@ class CategoryController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'DELETE', url: '/api/categories/{id}', requirements: ['id' => '\\d+'])]
 	public function destroy(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
+		if (!$this->groupManager->isAdmin($this->uid())) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
 		}
 
 		try {
-			$this->categoryService->delete($id, $this->userId);
+			$this->categoryService->delete($id, $this->uid());
 			return new DataResponse(['success' => true]);
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
@@ -120,7 +121,7 @@ class CategoryController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/categories/{id}/usage', requirements: ['id' => '\\d+'])]
 	public function usage(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
+		if (!$this->groupManager->isAdmin($this->uid())) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -134,12 +135,12 @@ class CategoryController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/categories/{id}/archive', requirements: ['id' => '\\d+'])]
 	public function archive(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
+		if (!$this->groupManager->isAdmin($this->uid())) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
 		}
 
 		try {
-			return new DataResponse($this->categoryService->archive($id, $this->userId)->jsonSerialize());
+			return new DataResponse($this->categoryService->archive($id, $this->uid())->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -148,12 +149,12 @@ class CategoryController extends Controller {
 	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/api/categories/{id}/restore', requirements: ['id' => '\\d+'])]
 	public function restore(int $id): DataResponse {
-		if (!$this->groupManager->isAdmin($this->userId)) {
+		if (!$this->groupManager->isAdmin($this->uid())) {
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_FORBIDDEN);
 		}
 
 		try {
-			return new DataResponse($this->categoryService->restore($id, $this->userId)->jsonSerialize());
+			return new DataResponse($this->categoryService->restore($id, $this->uid())->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}

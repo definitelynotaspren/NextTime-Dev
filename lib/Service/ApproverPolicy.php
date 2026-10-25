@@ -7,7 +7,7 @@ namespace OCA\TimeBank\Service;
 use OCA\TimeBank\AppInfo\Application;
 use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Schema\SchemaSpec;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IGroupManager;
 
 /**
@@ -22,19 +22,19 @@ use OCP\IGroupManager;
  */
 class ApproverPolicy {
 
-	public const AS_ADMIN = 'admin';
-	public const AS_FACILITATOR = 'facilitator';
-	public const AS_FALLBACK = 'fallback';
+	public const string AS_ADMIN = 'admin';
+	public const string AS_FACILITATOR = 'facilitator';
+	public const string AS_FALLBACK = 'fallback';
 
 	public function __construct(
 		private ChapterDirectory $chapters,
 		private IGroupManager $groups,
-		private IConfig $config,
+		private IAppConfig $config,
 	) {
 	}
 
 	public function fallbackGroup(): string {
-		$group = trim($this->config->getAppValue(Application::APP_ID, 'fallback_approver_group', SchemaSpec::GROUP_FALLBACK_DEFAULT));
+		$group = trim($this->config->getValueString(Application::APP_ID, 'fallback_approver_group', SchemaSpec::GROUP_FALLBACK_DEFAULT));
 
 		return $group === '' ? SchemaSpec::GROUP_FALLBACK_DEFAULT : $group;
 	}
@@ -42,7 +42,7 @@ class ApproverPolicy {
 	/**
 	 * Why this person may decide about the member, or null when they may not.
 	 *
-	 * @return array{as: string, chapter: string|null}|null
+	 * @return array{'as': string, chapter: string|null}|null
 	 */
 	public function capacity(string $deciderId, string $memberId): ?array {
 		if ($deciderId === $memberId) {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Tests\Unit\Chapter;
 
 use OCA\TimeBank\Chapter\ChapterDirectory;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -59,8 +59,8 @@ final class ChapterDirectoryTest extends TestCase {
 		$manager->method('search')->willReturnCallback(fn () => array_map($make, array_keys($this->groups)));
 		$manager->method('get')->willReturnCallback(fn (string $gid) => isset($this->groups[$gid]) ? $make($gid) : null);
 		$manager->method('isInGroup')->willReturnCallback(fn (string $u, string $g) => in_array($u, $this->groups[$g]['users'] ?? [], true));
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnCallback(fn ($app, $key, $default) => $key === 'chapter_zip_prefixes' ? $this->zipSetting : $default);
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturnCallback(fn ($app, $key, $default) => $key === 'chapter_zip_prefixes' ? $this->zipSetting : $default);
 
 		return new ChapterDirectory($manager, $config);
 	}

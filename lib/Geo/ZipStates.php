@@ -12,7 +12,7 @@ namespace OCA\TimeBank\Geo;
  */
 final class ZipStates {
 
-	/** @var array<string, string> */
+	/** @var array<array-key, string> numeric-looking keys become ints in PHP */
 	private const PREFIX = [
 		'010' => 'MA', '011' => 'MA', '012' => 'MA', '013' => 'MA', '014' => 'MA', '015' => 'MA', '016' => 'MA', '017' => 'MA',
 		'018' => 'MA', '019' => 'MA', '020' => 'MA', '021' => 'MA', '022' => 'MA', '023' => 'MA', '024' => 'MA', '025' => 'MA',
@@ -127,7 +127,7 @@ final class ZipStates {
 		'996' => 'AK', '997' => 'AK', '998' => 'AK', '999' => 'AK',
 	];
 
-	/** @var array<string, string> ZIPs whose state differs from their prefix's usual state */
+	/** @var array<array-key, string> ZIPs whose state differs from their prefix's usual state */
 	private const EXCEPTIONS = [
 		'06390' => 'NY', '063HH' => 'NY', '37642' => 'VA', '42223' => 'TN', '422XX' => 'TN', '51630' => 'MO',
 		'51640' => 'MO', '52626' => 'MO', '56219' => 'SD', '562HH' => 'SD', '59221' => 'ND', '592HH' => 'ND',
@@ -159,11 +159,10 @@ final class ZipStates {
 			return null;
 		}
 
-		return self::EXCEPTIONS[$zip] ?? self::PREFIX[substr($zip, 0, 3)] ?? null;
-	}
+		/** @var array<array-key, string> $prefixes */
+		$prefixes = self::PREFIX;
 
-	public static function nameOf(string $code): ?string {
-		return self::NAMES[strtoupper($code)] ?? null;
+		return self::EXCEPTIONS[$zip] ?? $prefixes[substr($zip, 0, 3)] ?? null;
 	}
 
 	/** @return array<string, string> code => name */

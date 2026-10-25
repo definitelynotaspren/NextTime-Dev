@@ -7,20 +7,20 @@ namespace OCA\TimeBank\Settings;
 use OCA\TimeBank\AppInfo\Application;
 use OCA\TimeBank\Service\AdjustmentService;
 use OCP\AppFramework\Http\TemplateResponse;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\Settings\ISettings;
 
 class Admin implements ISettings {
 
-	private IConfig $config;
+	private IAppConfig $config;
 
-	public function __construct(IConfig $config) {
+	public function __construct(IAppConfig $config) {
 		$this->config = $config;
 	}
 
 	public function getForm(): TemplateResponse {
 		$parameters = [
-			'adjustment_threshold' => (float)$this->config->getAppValue(
+			'adjustment_threshold' => (float)$this->config->getValueString(
 				Application::APP_ID,
 				'adjustment_threshold',
 				(string)AdjustmentService::DEFAULT_THRESHOLD,

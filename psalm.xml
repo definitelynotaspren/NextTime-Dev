@@ -5,10 +5,9 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns="https://getpsalm.org/schema/config"
     xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
-    findUnusedBaselineEntry="false"
+    findUnusedBaselineEntry="true"
     findUnusedCode="true"
 	phpVersion="8.3"
-	errorBaseline="psalm-baseline.xml"
 >
     <projectFiles>
         <directory name="lib" />
@@ -20,6 +19,40 @@
 		<directory name="vendor"/>
 	</extraFiles>
 	<issueHandlers>
+		<!-- Nextcloud loads these itself: controllers by route attributes, the rest from info.xml -->
+		<UnusedClass>
+			<errorLevel type="suppress">
+				<directory name="lib/Controller" />
+				<directory name="lib/Migration" />
+				<directory name="lib/BackgroundJob" />
+				<directory name="lib/Settings" />
+			</errorLevel>
+		</UnusedClass>
+		<!-- Constructors are called by dependency injection -->
+		<PossiblyUnusedMethod>
+			<errorLevel type="suppress">
+				<referencedMethod name="*::__construct" />
+			</errorLevel>
+		</PossiblyUnusedMethod>
+		<!-- Entity columns are read and written through Entity's magic getters and setters, and $id is
+		     set by the mapper, not the constructor -->
+		<PossiblyUnusedProperty>
+			<errorLevel type="suppress">
+				<directory name="lib/Db" />
+			</errorLevel>
+		</PossiblyUnusedProperty>
+		<!-- Reports every store of an untyped value (request params, JSON, DB rows) even when the next
+		     line checks its type. Using such a value unchecked is still caught by the other Mixed* issues. -->
+		<MixedAssignment errorLevel="suppress" />
+		<!-- CI checks every Nextcloud API from 29 on. Older ones leave query results untyped, so row
+		     annotations are needed there and only redundant on newer ones (and in shipped migrations,
+		     which are never edited). -->
+		<UnnecessaryVarAnnotation errorLevel="suppress" />
+		<PropertyNotSetInConstructor>
+			<errorLevel type="suppress">
+				<referencedProperty name="OCP\AppFramework\Db\Entity::$id" />
+			</errorLevel>
+		</PropertyNotSetInConstructor>
 		<UndefinedDocblockClass>
 			<errorLevel type="suppress">
 				<!-- Migrations type-hint Doctrine classes that OCP references but does not ship -->

@@ -34,6 +34,7 @@ class UserStats extends Entity implements JsonSerializable {
 		$this->addType('completedRequests', 'integer');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,

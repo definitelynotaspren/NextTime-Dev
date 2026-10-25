@@ -22,6 +22,7 @@ use OCP\IRequest;
  * The layer and field definitions, for organizers and facilitators.
  */
 class SchemaController extends Controller {
+	use CurrentUser;
 
 	private ViewerResolver $viewers;
 	private ?string $userId;
@@ -49,7 +50,7 @@ class SchemaController extends Controller {
 			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$viewer = $this->viewers->forUser($this->userId);
+		$viewer = $this->viewers->forUser($this->uid());
 		if (!$viewer->isStaff()) {
 			return new DataResponse(['error' => 'Organizer or facilitator role required'], Http::STATUS_FORBIDDEN);
 		}
@@ -85,7 +86,7 @@ class SchemaController extends Controller {
 		if ($this->userId === null) {
 			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);
 		}
-		if (!$this->groups->isAdmin($this->userId) && !$this->viewers->forUser($this->userId)->organizer) {
+		if (!$this->groups->isAdmin($this->uid()) && !$this->viewers->forUser($this->uid())->organizer) {
 			return new DataResponse(['error' => 'Admin or organizer role required'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -104,14 +105,14 @@ class SchemaController extends Controller {
 			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$viewer = $this->viewers->forUser($this->userId);
+		$viewer = $this->viewers->forUser($this->uid());
 
 		return new DataResponse([
 			'organizer' => $viewer->organizer,
 			'facilitator' => $viewer->facilitator,
-			'moderator' => $this->comments->isModerator($this->userId),
-			'admin' => $this->groups->isAdmin($this->userId),
-			'fallbackApprover' => $this->groups->isInGroup($this->userId, $this->policy->fallbackGroup()),
+			'moderator' => $this->comments->isModerator($this->uid()),
+			'admin' => $this->groups->isAdmin($this->uid()),
+			'fallbackApprover' => $this->groups->isInGroup($this->uid(), $this->policy->fallbackGroup()),
 		]);
 	}
 }

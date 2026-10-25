@@ -39,6 +39,7 @@ class Withdrawal extends Entity implements JsonSerializable {
 		$this->addType('createdAt', 'datetime');
 	}
 
+	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,
