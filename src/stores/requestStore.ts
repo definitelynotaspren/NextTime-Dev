@@ -68,7 +68,10 @@ export interface RequestComment {
  * @param fallback
  */
 export function errorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
-	const err = error as { response?: { data?: { error?: string } } }
+	const err = error as { response?: { status?: number, data?: { error?: string } } }
+	if (err.response?.status === 429) {
+		return 'You have done that many times in a short while. Please wait a few minutes and try again.'
+	}
 	return err.response?.data?.error || fallback
 }
 

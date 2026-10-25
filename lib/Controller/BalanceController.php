@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\BalanceService;
+use OCA\TimeBank\Service\Input;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -45,8 +46,8 @@ class BalanceController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/balance/all')]
 	public function all(): DataResponse {
-		$limit = (int)($this->request->getParam('limit') ?? 100);
-		$offset = (int)($this->request->getParam('offset') ?? 0);
+		$limit = Input::limit($this->request->getParam('limit'), 100);
+		$offset = Input::offset($this->request->getParam('offset'));
 
 		$balances = $this->balanceService->getAllBalances($limit, $offset);
 

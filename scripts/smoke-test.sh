@@ -147,6 +147,20 @@ N="$(json 'length')"
 call bob GET /ledger/my
 expect "bob's transactions" 200
 
+echo "- Lists are capped at 100 rows"
+call alice GET "/requests?limit=100000"
+expect "a huge limit is accepted" 200
+[ "$(json '.limit')" = 100 ] && pass "and capped to 100" || fail "limit came back as $(json '.limit')"
+call alice GET "/requests?limit=-1&offset=-5"
+expect "a negative limit and offset are not an error" 200
+[ "$(json '.offset')" = 0 ] && [ "$(json '.requests | length')" -le 100 ] && pass "offset 0, at most 100 rows" || fail "offset $(json '.offset')"
+call alice GET "/ledger?limit=100000"
+[ "$STATUS" = 200 ] && [ "$(json 'length')" -le 100 ] && pass "the ledger returns at most 100 rows" || fail "ledger: $STATUS, $(json 'length') rows"
+
+echo "- Evidence must be the claimant's own file"
+call bob POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Smoke test: evidence someone else's\",\"evidenceFileId\":999999999}"
+expect "a file id bob cannot read is refused" 400
+
 echo "- Lifecycle rules: several volunteers"
 call alice POST /requests "{\"title\":\"Smoke test: move a couch\",\"description\":\"Three people to carry a couch upstairs.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4}"
 expect "alice posts a second request" 201

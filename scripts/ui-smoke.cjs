@@ -73,8 +73,10 @@ const pickFirstOption = async (page, placeholder) => {
 
 ;(async () => {
 	console.log(`NextTime UI smoke test against ${BASE}`)
-	occ('group:add', 'timebank-organizer')
-	occ('group:adduser', 'timebank-organizer', 'alice')
+	occ('group:add', 'National Organizers')
+	occ('group:adduser', 'National Organizers', 'alice')
+	// Taken away again on exit, so other suites see alice as a plain member.
+	process.on('exit', () => occ('group:removeuser', 'National Organizers', 'alice'))
 
 	// WebGL is needed by the map; software rendering works without a GPU.
 	const browser = await chromium.launch({ args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })

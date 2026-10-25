@@ -18,6 +18,10 @@
 	<extraFiles>
 		<directory name="vendor"/>
 	</extraFiles>
+	<!-- Server classes that OCP interfaces extend but nextcloud/ocp does not ship -->
+	<stubs>
+		<file name="tests/stubs/oc_hooks_emitter.php" />
+	</stubs>
 	<issueHandlers>
 		<!-- Nextcloud loads these itself: controllers by route attributes, the rest from info.xml -->
 		<UnusedClass>

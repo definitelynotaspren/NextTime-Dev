@@ -247,7 +247,8 @@ them unless the form is anonymous; NextTime does not copy the submitter's accoun
 All endpoints are plain JSON under `/index.php/apps/timebank/api/...` (no OCS envelope). Log in with a Nextcloud account
 or an app password. Calls that change data must send `OCS-APIRequest: true` (Nextcloud 30 and later; Nextcloud 29 needs a
 session cookie and a `requesttoken` header instead, as `scripts/smoke-test.sh` does). Errors are `{"error": "..."}`:
-400 for a move the rules refuse, 403 when you may not do it, 404 when it does not exist. "(admin)" means admins only;
+400 for a move the rules refuse, 403 when you may not do it, 404 when it does not exist, 429 (empty body) when you post
+too often. Lists return at most 100 rows a page (`limit` 1 to 100, `offset` 0 or more). "(admin)" means admins only;
 "(owner only)" means the person who created the thing.
 
 ### Requests
@@ -408,6 +409,10 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **CSRF**: changing calls need a request token or `OCS-APIRequest: true`; read-only calls skip it.
 - **Authorization** is checked on the server on every call from Nextcloud groups; the links hidden in the UI are only a
   convenience. Nobody can approve or vote on their own claim, or adjust their own balance.
+- **Rate limits** per person, per 10 minutes: 50 new requests, 50 claims, and 100 each of comments, offers and votes.
+  Beyond that the call gets HTTP 429 until the window passes.
+- **Bulk reading**: every list is capped at 100 rows a page.
+- **Evidence files**: a claim's `evidenceFileId` must be a file the claimant can read in their own Nextcloud files.
 - **Not encrypted at rest**: everything is plain text in the database, so protect database access and backups.
 
 ## Troubleshooting
@@ -435,7 +440,9 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **Approving a claim creates hours; nothing charges the person helped.** How hours are spent is still to be designed.
 - **A facilitator working a row cannot see the requester's contact details** (organizer-only).
 - **A member can flag a comment once, ever**: after a moderator keeps it, those members cannot flag it again.
-- **Evidence files** for claims are not uploaded or read yet.
+- **Evidence files** for claims are not uploaded from the app yet; the API checks the claimant can read a given file id.
+- **Rate limits are fixed** (see Security) and count every call, including refused ones; a burst of data entry by one
+  person can hit them, and they then wait up to 10 minutes.
 - **SQLite (all tests) and PostgreSQL (the API smoke test, on the Docker stack) have been run.** MySQL/MariaDB and
   PHP 8.4 are untested.
 

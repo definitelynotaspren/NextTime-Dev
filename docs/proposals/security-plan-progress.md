@@ -13,7 +13,7 @@ so the next session can pick up from here.
 | 3. Posting, voting and moderation gates | Not started (needs 2) | |
 | 4. Adjustments by facilitators | Not started (needs 1) | |
 | 5. Remote requests with Nextcloud files | Not started (needs 2) | |
-| 6. Hardening carried over | Not started (independent, small) | |
+| 6. Hardening carried over | Done | `claude/youthful-davinci-6pmld6` |
 
 ## Phase 1: what landed
 
@@ -32,12 +32,23 @@ so the next session can pick up from here.
 Not done in Phase 1, on purpose: the national group name is set with occ, like the other settings, not in a form. The
 admin settings page stays display-only.
 
+## Phase 6: what landed
+
+- `Service\Input::limit()` / `offset()`: every list endpoint (requests, ledgers, balances, governance) takes 1-100 rows
+  and an offset of 0 or more. `smoke-test.sh` checks `limit=100000` and `limit=-1`.
+- `#[UserRateLimit]` per 10 minutes: create request 50, claim 50, comment 100, offer 100, vote 100. Nextcloud stores
+  the counters in `oc_ratelimit_entries` when no memcache is set up. Checked by hand: 55 posts gave 50 accepted, then
+  429. Not in a smoke script, since tripping it locks that user out for 10 minutes. To reset on the dev server:
+  `php -r '(new PDO("sqlite:../nc-server/data/owncloud.db"))->exec("delete from oc_ratelimit_entries");'`.
+  The frontend shows a plain message for 429.
+- `EarningService::submitClaim()` refuses an `evidenceFileId` the claimant cannot read
+  (`IRootFolder::getUserFolder()->getById()`). Psalm needed `tests/stubs/oc_hooks_emitter.php` for `IRootFolder`.
+- `desk-smoke.sh` and `ui-smoke.cjs` now use "National Organizers" and remove alice again at exit; before, she stayed
+  in `timebank-organizer`, which since Phase 1 is a national organizer, and `smoke-test.sh` failed when run after them.
+
 ## Next run: suggested order
 
-1. **Phase 6** first if the budget is small: clamp `limit` to 1-100 and `offset` to >= 0 (request, ledger, balance
-   controllers), `#[UserRateLimit]` on create request/comment/offer/claim/vote (`OCP\AppFramework\Http\Attribute\UserRateLimit`
-   exists from Nextcloud 27, so it is safe for 29), and check a claim's `evidenceFileId` is readable by the claimant via
-   `IRootFolder::getUserFolder($uid)->getById()`. No migration. Add smoke checks for `limit=100000` and `limit=-1`.
+1. ~~Phase 6~~ done.
 2. **Phase 2** next; it is the largest and everything in 3 and 5 depends on it. Start with the migration
    (`Version000008...`, columns in the plan) and `RequestService::present(Request, Viewer)`, with unit tests for every row
    of the Location visibility table written before the change. Then make `Request::jsonSerialize()` drop coordinates and

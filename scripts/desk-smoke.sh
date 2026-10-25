@@ -2,7 +2,7 @@
 # End-to-end check of the organizer desk and its PII rules against a running Nextcloud.
 #
 # Roles used (created here with occ, idempotent):
-#   alice  organizer            (group timebank-organizer)
+#   alice  national organizer   (group National Organizers, removed again at the end)
 #   bob    facilitator of Oregon (group "Oregon Facilitators" alone is enough; chapters are found from group names)
 #   carol  plain member
 # Checks that fields marked organizer/chapter never reach people outside those roles,
@@ -21,7 +21,8 @@ BASE="${1:-${BASE_URL:-http://127.0.0.1:8081}}"
 API="$BASE/index.php/apps/timebank/api"
 FAILS=0
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# alice leaves the group at the end so other suites see her as a plain member again.
+trap 'scripts/dev-native.sh occ group:removeuser "National Organizers" alice >/dev/null 2>&1; rm -rf "$TMP"' EXIT
 
 command -v jq >/dev/null || { echo "jq is required (apt install jq / brew install jq)"; exit 99; }
 
@@ -55,11 +56,11 @@ has() { # has LABEL JQ_FILTER [JQ_ARGS...]
 echo "NextTime organizer desk smoke test against $BASE"
 
 echo "- Roles"
-occ group:add timebank-organizer
+occ group:add "National Organizers"
 occ group:add timebank-facilitator
 occ group:add "Oregon"
 occ group:add "Oregon Facilitators"
-occ group:adduser timebank-organizer alice
+occ group:adduser "National Organizers" alice
 occ group:adduser "Oregon Facilitators" bob
 
 echo "- Schema access"

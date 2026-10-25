@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Lists are capped at 100 rows** (Phase 6 of the security and permission plan). `limit` is clamped to 1 to 100
+  and `offset` to 0 or more on the request list, ledgers, balances and governance log (which allowed 200), so a
+  single call cannot read everything at once; a negative or non-numeric value falls back to the default.
+- **Posting is rate-limited** per person over 10 minutes: 50 new requests and 50 claims, 100 comments, offers and
+  votes. Beyond that Nextcloud answers 429 and the app says to wait a few minutes.
+- **A claim's evidence file must be one the claimant can read.** A file id is just a number, so before, a claim
+  could point at anyone's file.
+
 ### Changed
 
 - **One national organizer role** replaces the separate `timebank-organizer` and `GSUS` fallback groups

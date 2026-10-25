@@ -6,12 +6,14 @@ namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\CategoryService;
 use OCA\TimeBank\Service\CommentService;
+use OCA\TimeBank\Service\Input;
 use OCA\TimeBank\Service\RequestService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
@@ -48,8 +50,8 @@ class RequestController extends Controller {
 
 		$filters = array_filter($filters, fn ($v) => $v !== null);
 
-		$limit = (int)($this->request->getParam('limit') ?? 50);
-		$offset = (int)($this->request->getParam('offset') ?? 0);
+		$limit = Input::limit($this->request->getParam('limit'), 50);
+		$offset = Input::offset($this->request->getParam('offset'));
 
 		$data = $this->requestService->getRequests($filters, $limit, $offset);
 
@@ -72,6 +74,7 @@ class RequestController extends Controller {
 	}
 
 	#[NoAdminRequired]
+	#[UserRateLimit(limit: 50, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/api/requests')]
 	public function create(): DataResponse {
 		// Validate required fields
