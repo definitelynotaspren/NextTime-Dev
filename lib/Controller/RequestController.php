@@ -53,7 +53,7 @@ class RequestController extends Controller {
 		$limit = Input::limit($this->request->getParam('limit'), 50);
 		$offset = Input::offset($this->request->getParam('offset'));
 
-		$data = $this->requestService->getRequests($filters, $limit, $offset);
+		$data = $this->requestService->getRequests($this->uid(), $filters, $limit, $offset);
 
 		return new DataResponse($data);
 	}
@@ -122,13 +122,14 @@ class RequestController extends Controller {
 			'location' => $this->request->getParam('location'),
 			'latitude' => $this->request->getParam('latitude'),
 			'longitude' => $this->request->getParam('longitude'),
+			'zip' => $this->request->getParam('zip'),
 		];
 
 		try {
 			// Archived categories keep their history but cannot take new requests.
 			$this->categoryService->requireUsable((int)$categoryId);
 			$request = $this->requestService->createRequest($this->uid(), $data);
-			return new DataResponse($request->jsonSerialize(), Http::STATUS_CREATED);
+			return new DataResponse($this->requestService->present($request, $this->uid()), Http::STATUS_CREATED);
 		} catch (\Exception $e) {
 			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
 		}
@@ -148,19 +149,20 @@ class RequestController extends Controller {
 			'location' => $this->request->getParam('location'),
 			'latitude' => $this->request->getParam('latitude'),
 			'longitude' => $this->request->getParam('longitude'),
+			'zip' => $this->request->getParam('zip'),
 		];
 
 		$data = array_filter($data, fn ($v) => $v !== null);
 
 		try {
 			if (isset($data['categoryId'])) {
-				$current = $this->requestService->getRequestDetails($id)['request']['categoryId'];
+				$current = $this->requestService->getRequestDetails($id, $this->uid())['request']['categoryId'];
 				if ((int)$data['categoryId'] !== $current) {
 					$this->categoryService->requireUsable((int)$data['categoryId']);
 				}
 			}
 			$request = $this->requestService->updateRequest($id, $this->uid(), $data);
-			return new DataResponse($request->jsonSerialize());
+			return new DataResponse($this->requestService->present($request, $this->uid()));
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -175,7 +177,7 @@ class RequestController extends Controller {
 
 		try {
 			$request = $this->requestService->completeRequest($id, $this->uid(), $volunteerId);
-			return new DataResponse($request->jsonSerialize());
+			return new DataResponse($this->requestService->present($request, $this->uid()));
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -186,7 +188,7 @@ class RequestController extends Controller {
 	public function cancel(int $id): DataResponse {
 		try {
 			$request = $this->requestService->cancelRequest($id, $this->uid());
-			return new DataResponse($request->jsonSerialize());
+			return new DataResponse($this->requestService->present($request, $this->uid()));
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}
@@ -197,7 +199,7 @@ class RequestController extends Controller {
 	#[FrontpageRoute(verb: 'GET', url: '/api/requests/my')]
 	public function myRequests(): DataResponse {
 		$filters = ['requesterId' => $this->uid()];
-		$data = $this->requestService->getRequests($filters);
+		$data = $this->requestService->getRequests($this->uid(), $filters);
 
 		return new DataResponse($data);
 	}

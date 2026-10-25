@@ -231,7 +231,13 @@ watch(requestId, (id) => {
 				<div class="request-meta">
 					<span>&#9201; {{ requestStore.currentRequest.request.hoursBudget }} hours budget</span>
 					<span v-if="requestStore.currentRequest.request.location">
-						&#128205; {{ requestStore.currentRequest.request.location }}
+						&#128205; {{ requestStore.currentRequest.request.location }}<template v-if="requestStore.currentRequest.request.zip">, {{ requestStore.currentRequest.request.zip }}</template>
+					</span>
+					<span v-else-if="requestStore.currentRequest.request.zip">
+						&#128205; ZIP {{ requestStore.currentRequest.request.zip }}
+						<em v-if="!requestStore.currentRequest.request.exactLocation" class="location-note">
+							(exact location shared once your offer is accepted)
+						</em>
 					</span>
 					<span v-if="requestStore.currentRequest.request.deadline">
 						&#128197; Due: {{ new Date(requestStore.currentRequest.request.deadline).toLocaleDateString() }}
@@ -301,7 +307,7 @@ watch(requestId, (id) => {
 
 			<div class="sidebar">
 				<!-- Location Map -->
-				<div v-if="requestStore.currentRequest.request.location" class="location-map-section">
+				<div v-if="requestStore.currentRequest.request.location || requestStore.currentRequest.request.latitude !== null || requestStore.currentRequest.request.zipCenter" class="location-map-section">
 					<h3>Location</h3>
 					<MapComponent
 						:requests="[requestStore.currentRequest.request]"
@@ -537,6 +543,10 @@ watch(requestId, (id) => {
 .comment-date {
 	color: var(--color-text-lighter);
 	font-size: 12px;
+}
+
+.location-note {
+	color: var(--color-text-maxcontrast);
 }
 
 .location-map-section {

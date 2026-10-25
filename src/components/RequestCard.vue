@@ -73,9 +73,9 @@ const formatDate = (dateString: string | null) => {
 				<span class="icon">&#9201;</span>
 				<span>{{ request.hoursBudget }} hours</span>
 			</div>
-			<div v-if="request.location" class="meta-item">
+			<div v-if="request.location || request.zip" class="meta-item">
 				<span class="icon">&#128205;</span>
-				<span>{{ request.location }}</span>
+				<span>{{ request.location || `ZIP ${request.zip}` }}</span>
 			</div>
 			<div v-if="request.deadline" class="meta-item">
 				<span class="icon">&#128197;</span>

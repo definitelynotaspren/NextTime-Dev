@@ -19,6 +19,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setUid(string $uid)
  * @method string|null getChapter()
  * @method void setChapter(?string $chapter)
+ * @method string|null getChapterOverride()
+ * @method void setChapterOverride(?string $chapterOverride)
  * @method bool getPublish()
  * @method void setPublish(bool $publish)
  * @method string getSource()
@@ -42,6 +44,7 @@ class LayerRow extends Entity {
 	protected ?string $layer = null;
 	protected ?string $uid = null;
 	protected ?string $chapter = null;
+	protected ?string $chapterOverride = null;
 	protected ?bool $publish = null;
 	protected ?string $source = null;
 	protected ?string $data = null;

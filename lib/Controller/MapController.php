@@ -6,7 +6,7 @@ namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Db\Request;
 use OCA\TimeBank\Db\RequestMapper;
-use OCA\TimeBank\Geo\Coordinates;
+use OCA\TimeBank\Geo\ZipCenters;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -17,8 +17,8 @@ use OCP\IRequest;
 /**
  * Read-only GeoJSON feeds for map clients such as uMap.
  *
- * Feeds are for logged-in members. Points are coarsened to an approximate
- * area and only non-contact request fields are included.
+ * Feeds are for logged-in members. Each request is placed at the center of its
+ * ZIP area, never at its exact point, and only non-contact fields are included.
  */
 class MapController extends Controller {
 
@@ -39,7 +39,7 @@ class MapController extends Controller {
 	public function requests(): DataResponse {
 		$features = array_map(
 			fn (Request $request) => $this->toFeature($request),
-			$this->requestMapper->findOpenWithCoordinates(),
+			$this->requestMapper->findOpenWithZip(),
 		);
 
 		return new DataResponse([
@@ -52,9 +52,8 @@ class MapController extends Controller {
 	 * @return array<string, mixed>|null
 	 */
 	private function toFeature(Request $request): ?array {
-		$lat = $request->getLatitude();
-		$lng = $request->getLongitude();
-		if ($lat === null || $lng === null) {
+		$center = ZipCenters::centerOf($request->getZip());
+		if ($center === null) {
 			return null;
 		}
 
@@ -62,13 +61,14 @@ class MapController extends Controller {
 			'type' => 'Feature',
 			'geometry' => [
 				'type' => 'Point',
-				'coordinates' => Coordinates::toPublic($lat, $lng),
+				'coordinates' => [$center[1], $center[0]],
 			],
 			'properties' => [
 				'id' => $request->getId(),
 				'title' => $request->getTitle(),
 				'categoryId' => $request->getCategoryId(),
 				'priority' => $request->getPriority(),
+				'zip' => $request->getZip(),
 				'hoursBudget' => (float)$request->getHoursBudget(),
 			],
 		];

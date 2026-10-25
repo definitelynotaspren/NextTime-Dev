@@ -19,7 +19,7 @@ workbook yet.
 
 | Table | Holds | Sensitivity |
 |-------|-------|-------------|
-| `oc_timebank_requests` | title, description, free-text `location`, `latitude`/`longitude`, requester | Visible to every logged-in member. Free text can contain an address. |
+| `oc_timebank_requests` | title, description, `zip`, state, free-text `location`, `latitude`/`longitude`, requester | Visible to every logged-in member, except `location` and the point: only the requester, the facilitators of the request's state and accepted volunteers get those (`RequestPresenter`). |
 | `oc_timebank_volunteers` | who offered, hours, message, status | Visible to members on the request page |
 | `oc_timebank_comments` | comments on requests | Members, except flagged-hidden or removed ones: the server withholds their text, moderators still see it |
 | `oc_timebank_adjustments` | manual balance adjustments: member, hours, reason, proposer, approver | Admins and facilitators; the result is public in the ledger and governance log |
@@ -56,8 +56,9 @@ workbook yet.
 - **Free text can hold personal details.** `summary`, request titles, descriptions, comments and the
   `location` text are shown as typed. Nothing can reliably detect a name or address in a sentence, so
   the form wording and organizer review are the defence.
-- **Any logged-in member can read all requests,** including their `location` text, volunteer user
-  names, messages and comments. That is how the board works today.
+- **Any logged-in member can read all requests,** including their ZIP, volunteer user names, messages
+  and comments. That is how the board works today. The exact `location` and point are held back (see the
+  table above), but anything typed into a title or description is shown as typed.
 - **Nextcloud Forms keeps its own copy.** Answers submitted through a form stay in the Forms app's tables
   (`oc_forms_v2_*`), with the submitter's account unless the form is anonymous. NextTime imports only the answers that
   match a desk field and not the submitter. Treat the Forms tables like the desk table, and delete old submissions in
@@ -149,9 +150,9 @@ and all but the last need a Nextcloud account.
 
 ### What stays out of reach of this
 
-- **Regular members cannot all be on a VPN**, so the board, comments, names, and the free-text `location`
-  of requests stay visible to any logged-in member over the normal site. Keep addresses out of that free
-  text, or move to exact-location-only-after-acceptance as a later feature.
+- **Regular members cannot all be on a VPN**, so the board, comments, names and request ZIPs stay visible
+  to any logged-in member over the normal site. Exact locations are only sent to the requester, the
+  state's facilitators and accepted volunteers; keep addresses out of titles and descriptions.
 - **A tunnel proves the device, not the person.** Add Nextcloud's two-factor login (TOTP app) and, in
   Settings, Security, enforce it for the `timebank-organizer`, `timebank-facilitator` and admin groups.
 - **Whoever has a shell or database credentials on the server bypasses all of it,** including admins. The

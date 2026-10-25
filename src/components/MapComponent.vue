@@ -23,6 +23,7 @@ interface Request {
 	categoryId?: number
 	latitude?: number | null
 	longitude?: number | null
+	zipCenter?: { latitude: number, longitude: number } | null
 }
 
 interface Offer {
@@ -68,12 +69,17 @@ const { mapContainer, map, addMarker, clearMarkers, fitBounds } = useMap({
 
 // Parse location string to coordinates
 // Expected format: "lat,lng" or "address" (for now we'll handle lat,lng)
-// Prefer stored coordinates; fall back to "lat, lng" location text for older rows.
-function pointOf(item: { latitude?: number | null, longitude?: number | null, location: string | null }): LngLatLike | null {
+// Prefer stored coordinates; fall back to "lat, lng" location text for older rows, then to
+// the ZIP area's center when the exact location is not shared with you.
+function pointOf(item: { latitude?: number | null, longitude?: number | null, location: string | null, zipCenter?: { latitude: number, longitude: number } | null }): LngLatLike | null {
 	if (typeof item.latitude === 'number' && typeof item.longitude === 'number') {
 		return [item.longitude, item.latitude]
 	}
-	return parseLocation(item.location)
+	const parsed = parseLocation(item.location)
+	if (parsed) {
+		return parsed
+	}
+	return item.zipCenter ? [item.zipCenter.longitude, item.zipCenter.latitude] : null
 }
 
 function parseLocation(location: string | null): LngLatLike | null {

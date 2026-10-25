@@ -31,6 +31,18 @@ use OCP\AppFramework\Db\Entity;
  * @method void setLatitude(?float $latitude)
  * @method float|null getLongitude()
  * @method void setLongitude(?float $longitude)
+ * @method string|null getZip()
+ * @method void setZip(?string $zip)
+ * @method string|null getChapter()
+ * @method void setChapter(?string $chapter)
+ * @method string|null getChapterOverride()
+ * @method void setChapterOverride(?string $chapterOverride)
+ * @method string getMode()
+ * @method void setMode(string $mode)
+ * @method int|null getResourceFileId()
+ * @method void setResourceFileId(?int $resourceFileId)
+ * @method string getReviewStatus()
+ * @method void setReviewStatus(string $reviewStatus)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method \DateTime getUpdatedAt()
@@ -48,6 +60,12 @@ class Request extends Entity implements JsonSerializable {
 	protected ?string $location = null;
 	protected ?float $latitude = null;
 	protected ?float $longitude = null;
+	protected ?string $zip = null;
+	protected ?string $chapter = null;
+	protected ?string $chapterOverride = null;
+	protected ?string $mode = 'in_person';
+	protected ?int $resourceFileId = null;
+	protected ?string $reviewStatus = 'published';
 	protected ?\DateTime $createdAt = null;
 	protected ?\DateTime $updatedAt = null;
 
@@ -59,9 +77,15 @@ class Request extends Entity implements JsonSerializable {
 		$this->addType('categoryId', 'integer');
 		$this->addType('latitude', 'float');
 		$this->addType('longitude', 'float');
+		$this->addType('resourceFileId', 'integer');
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * Everything but the exact location (address text and point), which only some people may see.
+	 * RequestPresenter adds it for them; nothing should send a request out without going through it.
+	 *
+	 * @return array<string, mixed>
+	 */
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,
@@ -73,9 +97,8 @@ class Request extends Entity implements JsonSerializable {
 			'status' => $this->status,
 			'priority' => $this->priority,
 			'deadline' => $this->deadline?->format('Y-m-d H:i:s'),
-			'location' => $this->location,
-			'latitude' => $this->latitude,
-			'longitude' => $this->longitude,
+			'zip' => $this->zip,
+			'mode' => $this->mode,
 			'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),
 			'updatedAt' => $this->updatedAt?->format('Y-m-d H:i:s'),
 		];

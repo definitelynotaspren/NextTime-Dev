@@ -9,7 +9,7 @@ so the next session can pick up from here.
 | Phase | State | Branch / PR |
 | --- | --- | --- |
 | 1. One role model | Done | `claude/youthful-davinci-6pmld6` |
-| 2. Request geography and location privacy | Not started | |
+| 2. Request geography and location privacy | Server side and ZIP field done; reassign endpoint and pin-first form left | `claude/youthful-davinci-6pmld6` |
 | 3. Posting, voting and moderation gates | Not started (needs 2) | |
 | 4. Adjustments by facilitators | Not started (needs 1) | |
 | 5. Remote requests with Nextcloud files | Not started (needs 2) | |
@@ -46,14 +46,40 @@ admin settings page stays display-only.
 - `desk-smoke.sh` and `ui-smoke.cjs` now use "National Organizers" and remove alice again at exit; before, she stayed
   in `timebank-organizer`, which since Phase 1 is a national organizer, and `smoke-test.sh` failed when run after them.
 
+## Phase 2: what landed (part 1)
+
+- Migration `Version000008Date20261028000001` (app 0.9.0): requests get `zip`, `chapter`, `chapter_override`, `mode`
+  (default `in_person`), `resource_file_id`, `review_status` (default `published`); desk rows get `chapter_override`.
+  Only `zip` and `chapter` are used so far; the rest wait for the reassign endpoint (Phase 2), Phase 3 and Phase 5.
+- `RequestService::createRequest()` requires a ZIP (5 digits or ZIP+4, of a US state, via `ZipCenters::normalize()`)
+  and sets `chapter`; an edit of an old ZIP-less request asks for one. `mode` is always `in_person` until Phase 5.
+- `RequestPresenter` (tested row by row in `RequestPresenterTest`): exact for the requester, facilitators of the
+  request's state (`chapter_override` first, else the ZIP's chapter, computed live) and volunteers whose offer is
+  `accepted` now. Not `completed` offers: once the job is done the address is no longer shared. Used by list, detail,
+  my requests, and every create/update/complete/cancel response. `Request::jsonSerialize()` no longer has the location.
+- `Geo\ZipCenters`: Census 2023 ZCTA centers in `lib/Geo/data/zip-centers.txt` (fixed-width, binary-searched on disk,
+  33,791 ZIPs). `/api/map/requests` uses ZIP centers for everyone; the old ~1 km rounding is gone for requests (desk
+  feeds still use `Coordinates::toPublic()`).
+- Frontend: ZIP field on the posting/edit form, ZIP on cards, "exact location shared once your offer is accepted" on
+  the detail page, map falls back to `zipCenter`. Chapters page counts active requests without a ZIP.
+- Tests: `smoke-test.sh` "Location privacy" (bad ZIPs, ZIP+4, member/accepted/withdrawn, map feed),
+  `desk-smoke.sh` (Oregon facilitator exact, Washington facilitator ZIP only), `ui-smoke.cjs` (form ZIP, another
+  member gets no point).
+
+### Phase 2, still to do
+
+1. `POST /api/requests/{id}/state` and `POST /api/layers/{layer}/rows/{uid}/state`: set `chapter_override`, allowed for
+   facilitators of the old or new state, national organizers and admins; `GovernanceLog::record()`;
+   `LayerService::chapterOf()` honours the override. `RequestPresenter::chapterOf()` already does.
+2. Pin-first posting: `src/geo/nearestZip.ts` over the same `zip-centers.txt` (serve it from `lib/Geo/data` through a
+   small controller or copy it into `js/` at build), fill the ZIP field from a dropped pin, keep it editable, and a
+   "save exact spot" checkbox (off by default) so an unsaved pin never reaches the server.
+3. Plan test section 2 items not yet automated: notifications never carry the address (claims have none today).
+
 ## Next run: suggested order
 
 1. ~~Phase 6~~ done.
-2. **Phase 2** next; it is the largest and everything in 3 and 5 depends on it. Start with the migration
-   (`Version000008...`, columns in the plan) and `RequestService::present(Request, Viewer)`, with unit tests for every row
-   of the Location visibility table written before the change. Then make `Request::jsonSerialize()` drop coordinates and
-   address, and route list, detail, map and notifications through `present()`. Zip-center table and the pin-first form
-   can be a second PR within Phase 2.
+2. **Finish Phase 2**: the two items under "Phase 2, still to do".
 3. **Phase 4** can run in parallel with 2 (it only needs Phase 1): `AdjustmentService::propose()` scope, a `voting`
    status, an adjustment-vote table with a unique (adjustment, voter) index, and `listFor()` scoped to the viewer's
    states.

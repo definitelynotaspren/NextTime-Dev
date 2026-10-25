@@ -30,6 +30,7 @@ interface Report {
 		members: string[]
 		legacyOnly: { group: string, users: string[] }[]
 	}
+	requestsWithoutZip: number
 }
 
 const report = ref<Report | null>(null)
@@ -88,6 +89,12 @@ onMounted(async () => {
 					</tr>
 				</tbody>
 			</table>
+
+			<p v-if="report.requestsWithoutZip" class="warning">
+				{{ report.requestsWithoutZip }} open or in-progress {{ report.requestsWithoutZip === 1 ? 'request has' : 'requests have' }}
+				no ZIP code, from before ZIPs were required. They belong to no state, so no facilitator sees their exact location
+				and they are not on the map, until the person who posted each one edits it and adds a ZIP.
+			</p>
 
 			<h2>National organizers</h2>
 			<p class="subtitle">

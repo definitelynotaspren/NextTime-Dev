@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Exact request locations are private** (Phase 2 of the security and permission plan). Every in-person
+  request now needs a ZIP code, which everyone sees and which decides the request's state. The address text and
+  map point go only to the requester, the facilitators of that state, and volunteers whose offer is accepted
+  right now; a volunteer who withdraws or is declined loses it on their next read. Everyone else, national
+  organizers and Nextcloud admins included, sees the ZIP, and the map shows the request at the center of the
+  ZIP area (Census Bureau 2023 ZIP-area table, bundled). The rule lives in one place, `RequestPresenter`, used
+  by the request list, detail, every write response and the map. Before, every member got the exact point and
+  address, and the map feed a point rounded to about 1 km.
+- Requests posted before this version have no ZIP: they belong to no state and are not on others' maps until
+  their poster edits them and adds one. The **Chapters** page counts them. Migration `Version000008` also adds
+  the columns later phases use (state override, remote mode, linked file, review status).
+
 - **Lists are capped at 100 rows** (Phase 6 of the security and permission plan). `limit` is clamped to 1 to 100
   and `offset` to 0 or more on the request list, ledgers, balances and governance log (which allowed 200), so a
   single call cannot read everything at once; a negative or non-numeric value falls back to the default.

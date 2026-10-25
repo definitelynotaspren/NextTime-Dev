@@ -21,8 +21,14 @@ BASE="${1:-${BASE_URL:-http://127.0.0.1:8081}}"
 API="$BASE/index.php/apps/timebank/api"
 FAILS=0
 TMP="$(mktemp -d)"
-# alice leaves the group at the end so other suites see her as a plain member again.
-trap 'scripts/dev-native.sh occ group:removeuser "National Organizers" alice >/dev/null 2>&1; rm -rf "$TMP"' EXIT
+# alice and bob leave their groups at the end so other suites see them as plain members again.
+cleanup() {
+	scripts/dev-native.sh occ group:removeuser "National Organizers" alice >/dev/null 2>&1
+	scripts/dev-native.sh occ group:removeuser "Oregon Facilitators" bob >/dev/null 2>&1
+	scripts/dev-native.sh occ group:removeuser "Washington Facilitators" carol >/dev/null 2>&1
+	rm -rf "$TMP"
+}
+trap cleanup EXIT
 
 command -v jq >/dev/null || { echo "jq is required (apt install jq / brew install jq)"; exit 99; }
 
@@ -138,13 +144,21 @@ call alice POST /layers/survey/rows '{"chapter":"x"}'; eq "survey rows cannot be
 echo "- Request coordinates and the map feed"
 call alice GET /categories
 CAT_ID="$(jq -r '.[0].id' "$TMP/body")"
-call alice POST /requests "{\"title\":\"Garden help\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"location\":\"45.4215, -122.7528\"}"; eq "create a request with lat,lng text" 201
+call alice POST /requests "{\"title\":\"Garden help\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\",\"location\":\"45.4215, -122.7528\"}"; eq "create a request with lat,lng text" 201
 has "coordinates are derived from the text" '.latitude==45.4215 and .longitude==-122.7528'
-call alice POST /requests "{\"title\":\"Address only\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"location\":\"123 Main Street\"}"; eq "an address-only request is accepted" 201
+GARDEN_ID="$(jq -r '.id' "$TMP/body")"
+call bob GET "/requests/$GARDEN_ID"
+has "the Oregon facilitator sees an Oregon request's exact point" '.request.exactLocation==true and .request.latitude==45.4215'
+occ group:add "Washington Facilitators"
+occ group:adduser "Washington Facilitators" carol
+call carol GET "/requests/$GARDEN_ID"
+has "a Washington facilitator gets the ZIP only" '.request.exactLocation==false and .request.latitude==null and .request.zip=="97055"'
+occ group:removeuser "Washington Facilitators" carol
+call alice POST /requests "{\"title\":\"Address only\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\",\"location\":\"123 Main Street\"}"; eq "an address-only request is accepted" 201
 has "an address-only request has no coordinates" '.latitude==null'
-call alice POST /requests "{\"title\":\"Bad coords\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"latitude\":95,\"longitude\":0}"; eq "out-of-range coordinates are rejected" 400
+call alice POST /requests "{\"title\":\"Bad coords\",\"description\":\"Clearing a plot of land\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\",\"latitude\":95,\"longitude\":0}"; eq "out-of-range coordinates are rejected" 400
 call carol GET /map/requests; eq "map feed" 200
-has "map feed has a rounded point" 'any(.features[]; .geometry.coordinates==[-122.75,45.42])'
+has "map feed places requests at their ZIP's center, not their point" 'any(.features[]; .properties.id==$id and .geometry.coordinates==[-122.1579,45.3611])' --argjson id "$GARDEN_ID"
 has "map feed carries no description, requester or location" 'any(.features[]; .properties|has("description") or has("requesterId") or has("location"))|not'
 
 echo

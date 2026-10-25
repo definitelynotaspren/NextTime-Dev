@@ -12,7 +12,17 @@ export interface Request {
 	status: string
 	priority: string
 	deadline: string | null
+	/** The ZIP of where help is needed; everyone sees it. */
+	zip: string | null
+	chapter: string | null
+	/** True when you may see the exact location (you posted it, facilitate its state, or your offer is accepted). */
+	exactLocation: boolean
+	/** Address text and point: null unless exactLocation. */
 	location: string | null
+	latitude: number | null
+	longitude: number | null
+	/** Center of the ZIP area, for the map when the exact point is not shared. */
+	zipCenter: { latitude: number, longitude: number } | null
 	createdAt: string
 	updatedAt: string
 	volunteerCount?: number

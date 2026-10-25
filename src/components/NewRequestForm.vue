@@ -33,7 +33,9 @@ const categoryId = ref<string | null>(props.request ? String(props.request.categ
 const hoursBudget = ref(props.request ? String(props.request.hoursBudget) : '')
 const priority = ref(props.request?.priority ?? 'normal')
 const deadline = ref(props.request?.deadline ? props.request.deadline.slice(0, 10) : '')
+const zip = ref(props.request?.zip ?? '')
 const location = ref(props.request?.location ?? '')
+const zipValid = computed(() => /^\d{5}(-\d{4})?$/.test(zip.value.trim()))
 const submitting = ref(false)
 const error = ref<string | null>(null)
 
@@ -60,6 +62,7 @@ const isValid = computed(() => {
 		&& categoryId.value
 		&& hoursBudget.value
 		&& parseFloat(hoursBudget.value) > 0
+		&& zipValid.value
 	)
 })
 
@@ -76,6 +79,7 @@ const submit = async () => {
 		hoursBudget: parseFloat(hoursBudget.value),
 		priority: priority.value,
 		deadline: deadline.value || undefined,
+		zip: zip.value.trim(),
 		location: location.value || undefined,
 	}
 
@@ -169,6 +173,21 @@ const submit = async () => {
 		</div>
 
 		<div class="form-group">
+			<label for="zip">ZIP code *</label>
+			<NcTextField
+				id="zip"
+				v-model="zip"
+				placeholder="For example 97055"
+				inputmode="numeric"
+				autocomplete="postal-code"
+				:disabled="submitting" />
+			<p class="hint">
+				Everyone sees the ZIP, and the map shows the request at the middle of the ZIP area.
+				The exact location below is optional: only you, your state's facilitators and volunteers you accept see it.
+			</p>
+		</div>
+
+		<div class="form-group">
 			<LocationPicker
 				v-model="location"
 				:show-map="true" />
@@ -192,6 +211,12 @@ const submit = async () => {
 .new-request-form {
 	padding: 20px;
 	max-width: 600px;
+}
+
+.hint {
+	margin: 4px 0 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
 }
 
 .new-request-form h2 {

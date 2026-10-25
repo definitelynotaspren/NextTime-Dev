@@ -138,6 +138,13 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   `textParam()`/`optionalTextParam()` and `Service\Input`, never pass `getParam()` straight on.
   Layer and field shapes are the `Layer`/`Field` psalm types in `SchemaSpec`. The suppressions in
   psalm.xml are for things Nextcloud calls itself; each says why.
+- **Requests leave the server only through `RequestPresenter`** (`RequestService::present()`). `Request::jsonSerialize()`
+  omits `location`, `latitude` and `longitude` on purpose; the presenter adds them for the requester, facilitators of the
+  request's state and accepted volunteers. Any new endpoint, notification or export that includes a request must use it.
+  Map pins for everyone else come from `Geo\ZipCenters` (bundled Census table, `scripts/generate-zip-centers.php`).
+- **Smoke scripts must leave users in no groups.** alice/bob/carol are plain members unless a script adds them; a group
+  left behind (for example `timebank-organizer`, now a national organizer) changes what the next suite sees.
+  Remove memberships in an exit trap.
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
 

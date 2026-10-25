@@ -76,7 +76,11 @@ const pickFirstOption = async (page, placeholder) => {
 	occ('group:add', 'National Organizers')
 	occ('group:adduser', 'National Organizers', 'alice')
 	// Taken away again on exit, so other suites see alice as a plain member.
-	process.on('exit', () => occ('group:removeuser', 'National Organizers', 'alice'))
+	process.on('exit', () => {
+		occ('group:removeuser', 'National Organizers', 'alice')
+		occ('group:removeuser', 'Oregon Facilitators', 'bob')
+		occ('group:removeuser', 'Oregon', 'alice')
+	})
 
 	// WebGL is needed by the map; software rendering works without a GPU.
 	const browser = await chromium.launch({ args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
@@ -97,6 +101,7 @@ const pickFirstOption = async (page, placeholder) => {
 	await alice.fill('#description', 'Need two people to carry a couch up one flight of stairs.')
 	await pickFirstOption(alice, 'Select category')
 	await alice.fill('#hours', '2')
+	await alice.fill('#zip', '97214')
 	await alice.fill('#location-text', '45.5231, -122.6765')
 	await alice.locator('#location-text').blur()
 	await alice.getByRole('button', { name: 'Post Request' }).click()
@@ -107,6 +112,10 @@ const pickFirstOption = async (page, placeholder) => {
 	const created = list.requests?.find((r) => r.title === title)
 	check('request has a category', created && Number.isInteger(created.categoryId) && created.categoryId > 0, JSON.stringify(created))
 	check('request has coordinates from the location text', created?.latitude === 45.5231 && created?.longitude === -122.6765)
+	check('request has the ZIP from the form', created?.zip === '97214', JSON.stringify(created))
+	const carolList = await (await carol.request.get(`${APP}/api/requests`, { headers: { 'OCS-APIRequest': 'true' } })).json()
+	const seenByCarol = carolList.requests?.find((r) => r.title === title)
+	check('another member gets the ZIP and its center, not the exact point', seenByCarol && seenByCarol.latitude === null && seenByCarol.location === null && seenByCarol.zipCenter !== null, JSON.stringify(seenByCarol))
 
 	console.log('- Board filter')
 	await go(alice, '/')
@@ -210,6 +219,7 @@ const pickFirstOption = async (page, placeholder) => {
 	await alice.fill('#description', 'A second request used to try editing and cancelling.')
 	await pickFirstOption(alice, 'Select category')
 	await alice.fill('#hours', '1')
+	await alice.fill('#zip', '97214')
 	await alice.getByRole('button', { name: 'Post Request' }).click()
 	await alice.waitForTimeout(2000)
 	const list2 = await (await alice.request.get(`${APP}/api/requests`, { headers: { 'OCS-APIRequest': 'true' } })).json()

@@ -6,6 +6,7 @@ namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Chapter\NationalOrganizers;
+use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Schema\SchemaSpec;
 use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\ViewerResolver;
@@ -34,6 +35,7 @@ class SchemaController extends Controller {
 		private CommentService $comments,
 		private IGroupManager $groups,
 		private NationalOrganizers $nationalOrganizers,
+		private RequestMapper $requests,
 		private ChapterDirectory $chapterDirectory,
 		?string $userId,
 	) {
@@ -90,7 +92,10 @@ class SchemaController extends Controller {
 			return new DataResponse(['error' => 'Admin or national organizer role required'], Http::STATUS_FORBIDDEN);
 		}
 
-		return new DataResponse($this->chapterDirectory->report() + ['nationalOrganizers' => $this->nationalOrganizers->report()]);
+		return new DataResponse($this->chapterDirectory->report() + [
+			'nationalOrganizers' => $this->nationalOrganizers->report(),
+			'requestsWithoutZip' => $this->requests->countActiveWithoutZip(),
+		]);
 	}
 
 	/**

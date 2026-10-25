@@ -235,12 +235,17 @@ them unless the form is anonymous; NextTime does not copy the submitter's accoun
 
 ## Map
 
-- A request appears on the map only if it has coordinates: pick a point on the map in the form, or type `lat, lng`. A
-  free-text address (for example "123 Main Street") is saved but not plotted; geocoding is not implemented.
+- Every request has a ZIP code. **Who sees the exact location** (the address text and the point picked on the map):
+  the person who posted it, the facilitators of its state, and volunteers whose offer is accepted, for as long as it
+  stays accepted. Everyone else, national organizers and Nextcloud admins included, sees the ZIP, and the map puts the
+  request at the center of the ZIP area (from the Census Bureau's 2023 ZIP-area table, bundled in
+  `lib/Geo/data/zip-centers.txt`, so no lookup leaves the server).
+- A request's state is the one its ZIP is in. A free-text address (for example "123 Main Street") is saved but not
+  plotted; geocoding is not implemented.
 - The basemap is [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key). Viewers' browsers connect to
   `tiles.openfreemap.org`. To use another tile source, change `MAP_STYLE_URL` in `src/composables/useMap.ts` **and**
   `MAP_HOST` in `lib/Controller/PageController.php`: Nextcloud's Content-Security-Policy blocks any host not listed there.
-- Map and feed output is rounded to about 1 km and never includes contact fields.
+- The `/api/map/requests` feed always uses ZIP centers and never includes contact fields.
 
 ## API documentation
 
@@ -257,7 +262,9 @@ too often. Lists return at most 100 rows a page (`limit` 1 to 100, `offset` 0 or
 - `GET /api/requests/{id}` - details, volunteers and comments (`canModerate` tells you if you can moderate)
 - `GET /api/requests/my` - your own requests
 - `POST /api/requests` - create (`title` 5+ characters, `description` 20+, `categoryId`, `hoursBudget` up to 1000,
-  `priority`, optional `deadline`, `location`, `latitude`, `longitude`). Archived categories are refused
+  `priority`, `zip` (5 digits or ZIP+4, of a US state), optional `deadline`, `location`, `latitude`, `longitude`).
+  Archived categories are refused. Every endpoint returns a request with `zip`, `chapter`, `zipCenter` and
+  `exactLocation`; `location`, `latitude` and `longitude` are `null` unless `exactLocation` is true
 - `PUT /api/requests/{id}` - update *(owner only, while open; the same limits apply)*
 - `POST /api/requests/{id}/complete` - every accepted volunteer is completed. Credits no hours *(owner only)*
 - `POST /api/requests/{id}/cancel` - cancel an open or in-progress request *(owner only)*
@@ -318,7 +325,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 ### Map and public feeds
 
-- `GET /api/map/requests` - GeoJSON of open requests (points rounded to about 1 km; no contact fields)
+- `GET /api/map/requests` - GeoJSON of open requests, each at its ZIP's center (no exact points, no contact fields)
 - `GET /api/layers/{layer}/feed` - GeoJSON of published rows for `point_snapped` layers (`needs_offers`, `issue_reports`)
 
 ### Organizer desk (organizers and facilitators)
@@ -424,7 +431,7 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **No claim notices**: the Nextcloud Notifications app must be enabled and Nextcloud cron running.
 - **Forms are not imported**: the Forms app must be enabled, the form added under **Form Intake**, and cron running;
   rejected submissions and their reasons are listed on that page.
-- **Map shows no markers**: check the Content-Security-Policy host (see Map above) and that requests have coordinates.
+- **Map shows no markers**: check the Content-Security-Policy host (see Map above) and that requests have a ZIP.
 - **Dev server stalls**: PHP's built-in server is single-threaded; `make native-start` already runs it with 4 workers.
 - **Debug logging** in `config/config.php`: `'debug' => true, 'loglevel' => 0,` then `tail -f data/nextcloud.log`.
 
@@ -441,6 +448,10 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **A facilitator working a row cannot see the requester's contact details** (organizer-only).
 - **A member can flag a comment once, ever**: after a moderator keeps it, those members cannot flag it again.
 - **Evidence files** for claims are not uploaded from the app yet; the API checks the claimant can read a given file id.
+- **Requests posted before version 0.9 have no ZIP**, so they belong to no state and are not on the map for anyone
+  but their poster, until the poster edits them (an edit asks for the ZIP). The **Chapters** page counts them.
+- **A request cannot yet be moved to another state** by hand; its ZIP decides. The reassign endpoint and the
+  pin-first posting form (drop a pin, the ZIP fills in) are the rest of Phase 2.
 - **Rate limits are fixed** (see Security) and count every call, including refused ones; a burst of data entry by one
   person can hit them, and they then wait up to 10 minutes.
 - **SQLite (all tests) and PostgreSQL (the API smoke test, on the Docker stack) have been run.** MySQL/MariaDB and

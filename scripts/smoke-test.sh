@@ -67,7 +67,7 @@ CAT_ID="$(json '.[0].id')"
 [ -n "$CAT_ID" ] && [ "$CAT_ID" != null ] && pass "categories are seeded (first id $CAT_ID)" || fail "no categories seeded - run occ maintenance:repair"
 
 echo "- Request lifecycle"
-call alice POST /requests "{\"title\":\"Smoke test: fix porch step\",\"description\":\"Loose board on the porch step needs a few screws.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"priority\":\"normal\"}"
+call alice POST /requests "{\"title\":\"Smoke test: fix porch step\",\"description\":\"Loose board on the porch step needs a few screws.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\",\"priority\":\"normal\"}"
 expect "alice creates request" 201
 REQ_ID="$(json '.id')"
 
@@ -162,7 +162,7 @@ call bob POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"desc
 expect "a file id bob cannot read is refused" 400
 
 echo "- Lifecycle rules: several volunteers"
-call alice POST /requests "{\"title\":\"Smoke test: move a couch\",\"description\":\"Three people to carry a couch upstairs.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4}"
+call alice POST /requests "{\"title\":\"Smoke test: move a couch\",\"description\":\"Three people to carry a couch upstairs.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4,\"zip\":\"97055\"}"
 expect "alice posts a second request" 201
 COUCH_ID="$(json '.id')"
 
@@ -186,7 +186,7 @@ call alice GET "/requests/$COUCH_ID"
 [ "$(jq -r '[.volunteers[] | select(.status=="accepted")] | length' <<<"$BODY")" = 2 ] && pass "both accepted volunteers stay accepted (no one is auto-declined)" || fail "expected 2 accepted volunteers: $BODY"
 
 echo "- Lifecycle rules: integrity"
-call bob POST /requests "{\"title\":\"Smoke test: other request\",\"description\":\"Owned by bob, to check offers cannot cross requests.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1}"
+call bob POST /requests "{\"title\":\"Smoke test: other request\",\"description\":\"Owned by bob, to check offers cannot cross requests.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1,\"zip\":\"97055\"}"
 expect "bob posts his own request" 201
 OTHER_ID="$(json '.id')"
 [ -n "$OTHER_ID" ] && [ "$OTHER_ID" != null ] || { fail "could not create the second request; skipping the integrity checks"; OTHER_ID=0; }
@@ -211,8 +211,42 @@ expect "a completed request cannot be completed again" 400
 call alice PUT "/requests/$COUCH_ID" '{"title":"Edited after completion"}'
 expect "a finished request cannot be edited" 400
 
+echo "- Location privacy: ZIP for everyone, exact for the requester and accepted volunteers"
+for zip in 9705 abcde 00000 ""; do
+	call alice POST /requests "{\"title\":\"Smoke test: bad zip\",\"description\":\"Checking that a bad ZIP is refused.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1,\"zip\":\"$zip\"}"
+	expect "ZIP '$zip' is refused" 400
+done
+call alice POST /requests "{\"title\":\"Smoke test: no zip\",\"description\":\"Checking that a ZIP is required.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1}"
+expect "a request without a ZIP is refused" 400
+call alice POST /requests "{\"title\":\"Smoke test: private spot\",\"description\":\"Sandy, exact spot only for helpers.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1,\"zip\":\"97055-1234\",\"location\":\"45.3975, -122.2612\"}"
+expect "alice posts with ZIP+4 and an exact point" 201
+LOC_ID="$(json '.id')"
+[ "$(json '.zip')" = 97055 ] && [ "$(json '.latitude')" = 45.3975 ] && pass "the requester sees ZIP 97055 and her exact point" || fail "alice's view: $BODY"
+call bob GET "/requests/$LOC_ID"
+[ "$(json '.request.zip')" = 97055 ] && [ "$(json '.request.latitude')" = null ] && [ "$(json '.request.location')" = null ] && [ "$(json '.request.exactLocation')" = false ] \
+	&& pass "another member gets the ZIP only" || fail "bob's view: $(head -c 400 <<<"$BODY")"
+grep -q -- '-122.2612' <<<"$BODY" && fail "the exact longitude appears in bob's detail response" || pass "the exact point appears nowhere in bob's detail response"
+call bob GET "/requests?limit=100"
+grep -q -- '-122.2612' <<<"$BODY" && fail "the exact longitude appears in bob's list response" || pass "nor in the list"
+call bob GET /map/requests
+[ "$(jq -r --argjson id "$LOC_ID" '[.features[] | select(.properties.id==$id)][0].geometry.coordinates | join(",")' <<<"$BODY")" = "-122.1579,45.3611" ] \
+	&& pass "the map feed places it at the ZIP's center" || fail "map feed: $(head -c 300 <<<"$BODY")"
+call bob POST "/requests/$LOC_ID/volunteer" '{"proposedHours":1}'
+V_LOC="$(json '.id')"
+call bob GET "/requests/$LOC_ID"
+[ "$(json '.request.latitude')" = null ] && pass "offering alone does not share it" || fail "bob sees it before acceptance"
+call alice POST "/volunteers/$V_LOC/accept"
+call bob GET "/requests/$LOC_ID"
+[ "$(json '.request.latitude')" = 45.3975 ] && [ "$(json '.request.exactLocation')" = true ] && pass "once accepted, bob sees the exact point" || fail "bob after acceptance: $(head -c 300 <<<"$BODY")"
+call carol GET "/requests/$LOC_ID"
+[ "$(json '.request.latitude')" = null ] && pass "carol still does not" || fail "carol sees it"
+call bob DELETE "/volunteers/$V_LOC" '{"reason":"Smoke test: plans changed"}'
+call bob GET "/requests/$LOC_ID"
+[ "$(json '.request.latitude')" = null ] && pass "after withdrawing, bob is back to the ZIP only" || fail "bob still sees it after withdrawing"
+call alice POST "/requests/$LOC_ID/cancel"
+
 echo "- Lifecycle rules: withdrawing and the log"
-call alice POST /requests "{\"title\":\"Smoke test: withdraw\",\"description\":\"For the withdrawal log.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2}"
+call alice POST /requests "{\"title\":\"Smoke test: withdraw\",\"description\":\"For the withdrawal log.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\"}"
 expect "alice posts a third request" 201
 WD_ID="$(json '.id')"
 call bob POST "/requests/$WD_ID/volunteer" '{"proposedHours":2}'
@@ -253,7 +287,7 @@ call bob GET /volunteers/my
 [ "$(jq -r --argjson r "$WD_ID" '[.[] | select(.request.id==$r)][0].request.status' <<<"$BODY")" = cancelled ] && pass "bob sees the request is cancelled" || fail "offer still shows old status: $BODY"
 
 echo "- Comments: flagging and moderation"
-call alice POST /requests "{\"title\":\"Smoke test: comments\",\"description\":\"Used to try out comment flagging.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1}"
+call alice POST /requests "{\"title\":\"Smoke test: comments\",\"description\":\"Used to try out comment flagging.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1,\"zip\":\"97055\"}"
 expect "alice posts a request for comments" 201
 CM_ID="$(json '.id')"
 call alice POST "/requests/$CM_ID/comments" '{"comment":"   "}'
@@ -345,7 +379,7 @@ call admin DELETE "/categories/$NEWCAT"
 expect "an unused category can be deleted" 200
 call admin POST /categories "{\"name\":\"Smoke busy $SUF\"}"
 BUSY="$(json '.id')"
-call alice POST /requests "{\"title\":\"Smoke test: busy category\",\"description\":\"Keeps the category busy for the delete check.\",\"categoryId\":$BUSY,\"hoursBudget\":1}"
+call alice POST /requests "{\"title\":\"Smoke test: busy category\",\"description\":\"Keeps the category busy for the delete check.\",\"categoryId\":$BUSY,\"hoursBudget\":1,\"zip\":\"97055\"}"
 expect "a request uses the new category" 201
 BUSY_REQ="$(json '.id')"
 call admin GET "/categories/$BUSY/usage"
@@ -361,7 +395,7 @@ call admin DELETE "/categories/$BUSY"
 expect "cancelled work still pins the category as history, so delete is refused" 400
 call admin POST "/categories/$BUSY/archive"
 expect "admin archives it instead" 200
-call alice POST /requests "{\"title\":\"Smoke test: archived category\",\"description\":\"Trying to use an archived category.\",\"categoryId\":$BUSY,\"hoursBudget\":1}"
+call alice POST /requests "{\"title\":\"Smoke test: archived category\",\"description\":\"Trying to use an archived category.\",\"categoryId\":$BUSY,\"hoursBudget\":1,\"zip\":\"97055\"}"
 expect "an archived category cannot take new requests" 400
 call carol GET /categories
 [ "$(jq -r --argjson c "$BUSY" '.[] | select(.id==$c) | .archived' <<<"$BODY")" = true ] && pass "archived categories are flagged but still listed for old requests" || fail "no archived flag: $BODY"
