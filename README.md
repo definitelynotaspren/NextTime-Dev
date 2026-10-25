@@ -470,7 +470,10 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 
 ## Roadmap
 
-See [docs/proposals/next-steps.md](docs/proposals/next-steps.md) for the maintained list. Not planned yet: mobile app,
+Everything planned but not built yet, including the remaining phases of the security plan, open decisions and the
+checklist for moving the repository to the InputLoop organization, is indexed in
+[docs/proposals/outstanding-work.md](docs/proposals/outstanding-work.md). The product backlog itself is
+[docs/proposals/next-steps.md](docs/proposals/next-steps.md). Not planned yet: mobile app,
 calendar integration, CSV/PDF export, a NextTime-hosted public form, translations.
 
 ## Contributing

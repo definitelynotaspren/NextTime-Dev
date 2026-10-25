@@ -82,6 +82,9 @@ admin settings page stays display-only.
 Not automated: notifications never carry the address (claim notices have no request data today; re-check when
 request notifications are added).
 
+The plan's remaining phases (3, 4, 5), its testing checklist and its policy steps are restated in full in
+[outstanding-work.md](outstanding-work.md), since the plan document itself is not in the repository.
+
 ## Next run: suggested order
 
 1. ~~Phase 6~~ done.
