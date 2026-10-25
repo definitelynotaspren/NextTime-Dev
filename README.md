@@ -21,7 +21,8 @@ which can arrive from Nextcloud Forms.
   where they came from.
 - **Community moderation**: three flags from different members hide a comment; moderators keep or remove it.
 - **Admin tools with a paper trail**: categories (archive instead of deleting what is in use), balance adjustments that
-  need a second person above a threshold, and a **Governance Log** every member can read.
+  facilitators propose and a second person or a vote of the member's state decides, and a **Governance Log** every
+  member can read.
 
 ## Requirements
 
@@ -147,7 +148,7 @@ Set with `occ config:app:set timebank <key> --value=<value>`:
 | `national_organizer_group` | `National Organizers` | Id or name of the national organizer group |
 | `fallback_approver_group` | `GSUS` | Legacy: its members still count as national organizers until moved (see Roles) |
 | `chapter_zip_prefixes` | built-in for New York City | JSON for city chapters, for example `{"Chicago": ["606"]}`. Replaces the default when set |
-| `adjustment_threshold` | `5` | Hours up to which one admin can adjust a balance alone (1 to 20). Change it under **Adjustments**, which records a reason publicly |
+| `adjustment_threshold` | `5` | Hours (1 to 20) up to which a second person decides an adjustment (or an admin applies it alone); above it, facilitators' proposals go to a vote. Change it under **Adjustments**, which records a reason publicly |
 | `forms_intake` | none | Which forms feed the desk. Add and remove them on the **Form Intake** page |
 
 ### Category earn rates
@@ -163,7 +164,8 @@ are seeded at 1.0 to 1.5, and admins can set any rate above 0 and up to 5 under 
 - **Requesters**: accept or decline offers, **Mark complete** (this does *not* credit hours; each volunteer claims
   theirs), edit while the request is open, or cancel.
 - **Facilitators and approvers**: **Approvals & Votes** shows only the claims you may decide, and why. You can approve,
-  reject (with a reason) or send to a community vote. Facilitators also work their chapter's rows on the **Organizer Desk**.
+  reject (with a reason) or send to a community vote. Facilitators also work their chapter's rows on the **Organizer Desk**
+  and propose balance **Adjustments** for members of their state; chapter members vote on the large ones there.
 - **National organizers**: claims and adjustments for any member, the desk everywhere, the **Form Intake** and **Chapters** pages, and comment moderation.
 - **Admins**: **Categories**, **Adjustments**, the **Governance Log**, and approval of claims.
 
@@ -312,11 +314,20 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 - `GET /api/balance/my`, `GET /api/balance/all`
 - `GET /api/ledger`, `GET /api/ledger/my`, `GET /api/ledger/user/{userId}` - the public ledger
-- `GET /api/adjustments` - recent adjustments, what you may do to each, the threshold *(admins, facilitators, national organizers)*
-- `POST /api/adjustments` - `userId`, `hours` (negative to deduct), `reason` (10+ characters, public). Up to the threshold it
-  applies at once; larger ones wait for a second person *(admins; nobody adjusts their own balance)*
-- `POST /api/adjustments/{id}/approve`, `/reject` (`note`), `/withdraw` - a second approver (never the proposer or the
-  member), or the proposer withdrawing. Pending ones expire after 14 days
+- `GET /api/adjustments` - the adjustments you may see, what you may do to each (`canDecide`, `canVote`,
+  `canWithdraw`), each vote's tally and voters, the threshold and `canPropose`. Admins and national organizers see all;
+  a facilitator their states' members and their own proposals; a chapter member the votes open to them
+- `POST /api/adjustments` - `userId`, `hours` (negative to deduct, at most 100), `reason` (10+ characters, public).
+  A facilitator for members of their state, a national organizer for anyone, an admin for anyone; never yourself.
+  From a facilitator or national organizer: up to the threshold `pending` (a second person decides), above it `voting`.
+  From an admin: up to the threshold applied at once, above it `pending`
+- `POST /api/adjustments/{id}/approve`, `/reject` (`note`) - on a `pending` one: a facilitator of the member's state, a
+  national organizer or an admin, never the proposer or the member. Pending ones expire after 14 days
+- `POST /api/adjustments/{id}/vote` - `vote`: `approve` or `reject`, on a `voting` one: chapter members of the member's
+  state (national organizers when the member has no state), never the proposer or the member, once each, public. The
+  vote closes after 14 days, or once everyone eligible has voted: 3+ votes with more for than against applies it, 3+
+  otherwise rejects it, fewer expires it
+- `POST /api/adjustments/{id}/withdraw` - the proposer, while `pending` or `voting`
 - `PUT /api/settings/adjustment-threshold` - `hours` (1 to 20) and `reason` *(admins)*
 - `GET /api/governance` - the public log of admin decisions *(every member)*
 
@@ -389,7 +400,8 @@ Tables created by the migrations (prefix `oc_` in a default install):
 - `timebank_earnings`, `timebank_votes` - claims and community votes
 - `timebank_balances`, `timebank_transactions` - balances and the public ledger
 - `timebank_user_stats` - hours and jobs per category
-- `timebank_adjustments` - manual balance adjustments and who proposed and approved them
+- `timebank_adjustments` - manual balance adjustments and who proposed and approved them (`community-vote` when a vote did)
+- `timebank_adjustment_votes` - public votes on adjustments, one per person (unique index)
 - `timebank_governance_log` - the public, append-only log of admin decisions
 - `timebank_layer_rows` - organizer-desk rows (one JSON column holds the fields; the most sensitive table)
 - `timebank_intake_log` - which Forms submissions were imported or rejected, and why

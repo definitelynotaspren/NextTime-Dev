@@ -12,6 +12,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -35,7 +36,10 @@ class AdjustmentController extends Controller {
 		parent::__construct($appName, $request);
 	}
 
-	/** Admins and facilitators: recent adjustments, what each may do, and the threshold. */
+	/**
+	 * Recent adjustments this person may see (see AdjustmentService::listFor), what they may do to
+	 * each, and the threshold. Members see the votes open to them.
+	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/adjustments')]
@@ -44,7 +48,9 @@ class AdjustmentController extends Controller {
 			return new DataResponse([
 				'adjustments' => $this->adjustments->listFor($this->uid()),
 				'threshold' => $this->adjustments->getThreshold(),
-				'canPropose' => $this->groups->isAdmin($this->uid()),
+				'canPropose' => $this->adjustments->mayPropose($this->uid()),
+				'isAdmin' => $this->groups->isAdmin($this->uid()),
+				'minVotes' => AdjustmentService::MIN_VOTES,
 				'expiryDays' => AdjustmentService::EXPIRY_DAYS,
 			]);
 		} catch (\Exception $e) {
@@ -84,6 +90,22 @@ class AdjustmentController extends Controller {
 	public function reject(int $id): DataResponse {
 		try {
 			return new DataResponse($this->adjustments->reject($id, $this->uid(), (string)$this->request->getParam('note'))->jsonSerialize());
+		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	/** `vote`: approve or reject. Chapter members of the member's state; public, once each. */
+	#[NoAdminRequired]
+	#[UserRateLimit(limit: 100, period: 600)]
+	#[FrontpageRoute(verb: 'POST', url: '/api/adjustments/{id}/vote', requirements: ['id' => '\\d+'])]
+	public function vote(int $id): DataResponse {
+		$vote = $this->request->getParam('vote');
+		if ($vote !== 'approve' && $vote !== 'reject') {
+			return new DataResponse(['error' => 'Vote must be approve or reject'], Http::STATUS_BAD_REQUEST);
+		}
+		try {
+			return new DataResponse($this->adjustments->vote($id, $this->uid(), $vote === 'approve')->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);
 		}

@@ -22,7 +22,8 @@ workbook yet.
 | `oc_timebank_requests` | title, description, `zip`, state, free-text `location`, `latitude`/`longitude`, requester | Visible to every logged-in member, except `location` and the point: only the requester, the facilitators of the request's state and accepted volunteers get those (`RequestPresenter`). |
 | `oc_timebank_volunteers` | who offered, hours, message, status | Visible to members on the request page |
 | `oc_timebank_comments` | comments on requests | Members, except flagged-hidden or removed ones: the server withholds their text, moderators still see it |
-| `oc_timebank_adjustments` | manual balance adjustments: member, hours, reason, proposer, approver | Admins and facilitators; the result is public in the ledger and governance log |
+| `oc_timebank_adjustments` | manual balance adjustments: member, hours, reason, proposer, approver | Admins and national organizers; facilitators for their states; chapter members for votes open to them. The result is public in the ledger and governance log |
+| `oc_timebank_adjustment_votes` | who voted for or against an adjustment | Public by design: shown with the adjustment and in the governance log |
 | `oc_timebank_governance_log` | who changed what, with old and new values and reasons | **Public to every member by design.** Never put personal details in a reason |
 | `oc_timebank_intake_log` | which Nextcloud Forms submissions were imported or rejected, and why | Admins and organizers; holds IDs and reasons, no answers |
 | `oc_timebank_comment_flags` | who flagged which comment, and why | Names and reasons: moderators only. Counts are public |

@@ -16,7 +16,7 @@ Size: S under a day, M a few days, L a week or more. **Decision** means a person
 
 The plan itself ("NextTime: Security Testing Plan & Permission Review", 2026-10-25) is not in the repository, so its
 remaining phases are restated here in full. Its seven decisions were confirmed on 2026-10-25; Decision 2 may be
-revisited after the first communities use it. Phases 1, 2 and 6 are done.
+revisited after the first communities use it. Phases 1, 2, 4 and 6 are done.
 
 Roles, as built in Phase 1: **Member** (any logged-in user), **chapter member** (in a state group such as "Oregon"),
 **state facilitator** (in "Oregon Facilitators"), **national organizer** (in "National Organizers"). Each has everything
@@ -36,28 +36,11 @@ the one before it has.
 - [ ] Frontend: hide Post, Vote and Moderate controls for people without the power (the server still enforces it); a
   review queue page for national organizers.
 
-### Phase 4: adjustments by facilitators (M; needs Phase 1, done; can start now)
+### Phase 4: adjustments by facilitators: done
 
-Decision 3, as agreed:
-
-1. A facilitator proposes an adjustment for a member of their own state, with hours (at most 100 either way) and a
-   written reason (10+ characters). National organizers may propose for anyone.
-2. At or under the threshold (`adjustment_threshold`, 5 hours by default, set by an admin): a second facilitator of that
-   state or a national organizer approves or rejects it. No vote.
-3. Over the threshold: a 14-day vote of that state's chapter members. It passes with at least 3 votes and more
-   approvals than rejections; fewer than 3 votes by day 14 means it expires.
-4. The proposer and the member adjusted cannot vote or approve. For members with no state, national organizers vote.
-5. Every step goes to the public governance log; the ledger entry names the proposer and the deciders.
-6. Nextcloud admins keep today's direct power as a break-glass, still logged, still unable to approve their own.
-
-Build:
-
-- [ ] `AdjustmentService::propose()` scoped as above.
-- [ ] A `voting` status and an adjustment-vote table with a unique (adjustment, voter) index (new migration); resolve
-  and expire as above.
-- [ ] `AdjustmentService::listFor()` scoped to the viewer's states; national organizers see all. Today any facilitator
-  sees every state's adjustments.
-- [ ] Adjustments page: propose form, vote buttons, countdown to expiry.
+Built on branch `phase-4-adjustments` (2026-10-25); see security-plan-progress.md. Two points the plan left open were
+decided while building and can be revisited: a vote closes early once every eligible voter has voted, and a vote
+that passes but would take the balance below zero is rejected with a note.
 
 ### Phase 5: remote requests with Nextcloud files (M; needs Phase 2, done)
 
@@ -74,8 +57,8 @@ Decision 6: read-only share to the accepted volunteer; the requester can raise i
 
 Run on a local Nextcloud with the two-state test world from the plan (nina, ana, otto, ben, fern, wes, nora):
 
-- [ ] Section 1 (roles) items that depend on Phases 3 and 4: nina's post awaiting review, voting by state, moderation
-  by state, facilitator adjustments and their vote, wes seeing no Oregon adjustments.
+- [ ] Section 1 (roles) items that depend on Phase 3: nina's post awaiting review, voting on claims by state,
+  moderation by state. (Phase 4's adjustments and their vote are covered by `approver-smoke.sh`.)
 - [ ] Section 2: notifications and comment emails never include the address (no request notifications exist yet;
   re-check when P3 adds them). Remote requests and shares (Phase 5).
 - [ ] Section 3: "send the same vote twice at the same moment" (the database index enforces it; no concurrent test);
@@ -102,6 +85,8 @@ Run on a local Nextcloud with the two-state test world from the plan (nina, ana,
 | D4 | Are the rate limits right? | Fixed per 10 minutes: 50 requests, 50 claims, 100 comments, offers and votes. Not settings. |
 | D5 | Requests posted before ZIPs were required have no state and no map pin for others until edited. Contact the posters? | Counted on the Chapters page only. |
 | D6 | Should the national organizer group name be editable in Admin settings? | Set with `occ config:app:set timebank national_organizer_group`. |
+| D7 | A chapter with fewer than 3 eligible voters can never pass an adjustment vote. Fall back to national organizers? | Such votes expire after 14 days; a smaller adjustment (under the threshold) still works. |
+| D8 | Should admins keep proposing large adjustments that skip the vote (break-glass, Decision 3.6)? | Yes, as decided; logged like everything else. |
 
 ## 3. Product backlog
 
@@ -161,7 +146,7 @@ GitHub redirects the old URLs after a transfer, so nothing breaks on the day; up
 
 ## 6. Suggested order
 
-1. **Phase 4** (adjustments by facilitators): self-contained, needs only Phase 1.
+1. ~~Phase 4~~ done.
 2. **Phase 3** (posting, voting and moderation gates): changes what members see, so announce it to the communities.
 3. **Phase 5** (remote requests), after answering its open state question.
 4. The decisions in section 2, then the backlog in the order next-steps.md suggests (R5b, R3, R1, T3, T2, T7, T4).

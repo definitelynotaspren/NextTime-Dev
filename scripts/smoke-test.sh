@@ -407,7 +407,11 @@ expect "any member reads the governance log" 200
 
 echo "- Balance adjustments: second approval"
 call carol GET /adjustments
-expect "members cannot open adjustments" 403
+# carol may have proposed some as a facilitator in approver-smoke.sh; those are hers to see.
+[ "$STATUS" = 200 ] && [ "$(json '[.adjustments[] | select(.proposerId != "carol")] | length')" = 0 ] && [ "$(json '.canPropose')" = false ] \
+	&& pass "a member with no state sees no one else's adjustments and cannot propose" || fail "carol's adjustments: $STATUS $(head -c 300 <<<"$BODY")"
+call carol POST /adjustments '{"userId":"bob","hours":1,"reason":"Trying without any role"}'
+expect "and a proposal from her is refused" 403
 call admin POST /adjustments '{"userId":"admin","hours":1,"reason":"Adjusting my own balance"}'
 expect "nobody adjusts their own balance" 403
 call admin POST /adjustments '{"userId":"bob","hours":1,"reason":"short"}'

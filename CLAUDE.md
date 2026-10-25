@@ -121,7 +121,7 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   Ask "is this person a national organizer" only through that class or `Viewer::$nationalOrganizer`. Desk rows get their chapter from the ZIP (`lib/Geo/ZipStates.php`). Tests need
   group names with spaces; `scripts/approver-smoke.sh` and `desk-smoke.sh` create "Oregon" groups with occ.
 - **Nobody decides on their own claim or adjustment.** `EarningService::requireDecidable` covers approve, reject,
-  send-to-vote and vote; `AdjustmentService` refuses the proposer and the member. Keep that rule in any new path.
+  send-to-vote and vote; `AdjustmentService` refuses the proposer and the member for approve, reject and vote. Keep that rule in any new path.
 - **Admin changes are logged publicly.** Call `GovernanceLog::record()` for any new admin power. Categories in
   active use cannot be deleted; archive instead. `GET /api/categories` includes archived ones, so pickers filter them.
 - Schema changes go in a NEW migration class (`VersionXXXXXXDateYYYYMMDDHHMMSS`)

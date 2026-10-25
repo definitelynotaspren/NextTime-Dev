@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Facilitators propose balance adjustments, and large ones go to a vote** (Phase 4 of the security plan,
+  Decision 3). A facilitator proposes for members of their own state, a national organizer for anyone. Up to the
+  threshold (5 hours by default) a second facilitator of that state or a national organizer approves or rejects it.
+  Above it, the state's chapter members vote for 14 days (national organizers vote for members with no state): at
+  least 3 votes and more for than against applies it, otherwise it is rejected, and fewer than 3 votes let it expire.
+  The vote closes early once everyone eligible has voted. Votes are public, one per person (enforced by the database),
+  and the ledger entry names the proposer and every voter. The proposer and the member never approve or vote.
+  Nextcloud admins keep their direct power as a break-glass, logged as before. Chapter members now see an
+  **Adjustments** page with the votes open to them; facilitators see their own states' adjustments, no longer every
+  state's. Migration `Version000009` (app 0.10.0) adds the vote table.
+
 - **Move a request or desk row to another state** (Phase 2 of the security plan, Decision 5). Normally the ZIP
   decides; a facilitator of the old or new state, a national organizer or an admin can move it, or send it back to
   its ZIP's state. Every move is in the public governance log. The request page and the organizer desk show the

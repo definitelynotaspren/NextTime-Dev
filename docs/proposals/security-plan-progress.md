@@ -11,7 +11,7 @@ so the next session can pick up from here.
 | 1. One role model | Done | PR #49 |
 | 2. Request geography and location privacy | Done | PR #49 (part 1), `claude/youthful-davinci-6pmld6` (part 2) |
 | 3. Posting, voting and moderation gates | Not started (needs 2) | |
-| 4. Adjustments by facilitators | Not started (needs 1) | |
+| 4. Adjustments by facilitators | Done | `phase-4-adjustments` |
 | 5. Remote requests with Nextcloud files | Not started (needs 2) | |
 | 6. Hardening carried over | Done | PR #49 |
 
@@ -82,6 +82,24 @@ admin settings page stays display-only.
 Not automated: notifications never carry the address (claim notices have no request data today; re-check when
 request notifications are added).
 
+## Phase 4: what landed
+
+- `AdjustmentService::propose()`: `ApproverPolicy::capacity()` decides who may propose for whom (admin, facilitator of
+  a chapter the member is in, national organizer). From a facilitator or national organizer: `pending` up to the
+  threshold (a second person, via `mayDecide()`), `voting` above it. From an admin: unchanged (applied up to the
+  threshold, `pending` above).
+- `AdjustmentService::vote()` and `POST /api/adjustments/{id}/vote`: electorate = the member and facilitator groups of
+  the member's chapters, or the national organizers when the member has none, minus proposer and member. `settle()`
+  at 14 days or when all eligible have voted: 3+ votes and more for than against applies (approver `community-vote`,
+  ledger text names every voter), 3+ otherwise rejects, fewer expires. Migration `Version000009` (app 0.10.0):
+  `timebank_adjustment_votes` with a unique (adjustment_id, voter_id) index.
+- `listFor()` is scoped: admins and national organizers all; facilitators their states' members and their own
+  proposals; chapter members the votes open to them. Members no longer get 403 on `GET /api/adjustments`.
+- Frontend: the Adjustments page explains the rules, shows each vote's tally, voters and days left, with vote buttons;
+  the nav link shows for chapter members; the threshold form is admins only.
+- Tests: 14 new cases in `AdjustmentServiceTest`; `approver-smoke.sh` "Adjustments by facilitators and votes" (21 checks,
+  makes and deletes three voters).
+
 The plan's remaining phases (3, 4, 5), its testing checklist and its policy steps are restated in full in
 [outstanding-work.md](outstanding-work.md), since the plan document itself is not in the repository.
 
@@ -89,10 +107,8 @@ The plan's remaining phases (3, 4, 5), its testing checklist and its policy step
 
 1. ~~Phase 6~~ done.
 2. ~~Finish Phase 2~~ done.
-3. **Phase 4** can run in parallel with 2 (it only needs Phase 1): `AdjustmentService::propose()` scope, a `voting`
-   status, an adjustment-vote table with a unique (adjustment, voter) index, and `listFor()` scoped to the viewer's
-   states.
-4. Phases 3 and 5 after 2.
+3. ~~Phase 4~~ done.
+4. Phase 3, then Phase 5.
 
 Every phase: tests before the change, then `composer lint && composer cs:check && composer psalm`,
 `composer test:unit`, `npm run lint`, `npm run build`, and against `scripts/dev-native.sh start`:

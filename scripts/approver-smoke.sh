@@ -17,9 +17,11 @@ API="$BASE/index.php/apps/timebank/api"
 FAILS=0
 TMP="$(mktemp -d)"
 cleanup() {
-	for pair in "Oregon|bob" "Oregon Facilitators|carol" "National Organizers|bob" "GSUS|alice"; do
+	for pair in "Oregon|bob" "Oregon Facilitators|carol" "National Organizers|bob" "National Organizers|alice" "GSUS|alice"; do
 		scripts/dev-native.sh occ group:removeuser "${pair%%|*}" "${pair##*|}" >/dev/null 2>&1 || true
 	done
+	# Voters made for the adjustment vote; deleting them also drops their group memberships.
+	for u in dave erin frank; do scripts/dev-native.sh occ user:delete "$u" >/dev/null 2>&1 || true; done
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -132,6 +134,60 @@ call carol GET /earnings/pending
 [ "$(jq -r --argjson c "$BOB3" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 0 ] && pass "and no longer sees the claim" || fail "carol still sees it: $BODY"
 call admin POST "/earnings/$BOB3/reject" '{"reason":"Approver smoke: cleaning up this claim"}'
 expect "an admin can still settle it" 200
+
+echo "- Adjustments by facilitators and votes (security plan Phase 4)"
+# Oregon: bob (the member adjusted), dave, erin, frank (voters); carol facilitates. alice is a national organizer.
+for u in dave erin frank; do
+	OC_PASS="$u-pass-123" scripts/dev-native.sh occ user:add --password-from-env "$u" >/dev/null 2>&1 || true
+	occ group:adduser Oregon "$u"
+done
+occ group:adduser "Oregon Facilitators" carol
+call carol POST /adjustments '{"userId":"alice","hours":3,"reason":"Approver smoke: not in her state"}'
+expect "a facilitator cannot propose for someone outside her state" 403
+call carol POST /adjustments '{"userId":"bob","hours":3,"reason":"Approver smoke: a small adjustment"}'
+expect "a facilitator proposes a small adjustment for a member of her state" 201
+SMALL="$(jq -r '.id' <<<"$BODY")"
+[ "$(jq -r '.status' <<<"$BODY")" = pending ] && pass "it waits for a second person, not applied at once" || fail "small: $BODY"
+call carol POST "/adjustments/$SMALL/approve"
+expect "the proposer cannot approve it" 403
+call dave POST "/adjustments/$SMALL/approve"
+expect "a chapter member cannot approve it alone" 403
+occ group:adduser "National Organizers" alice
+call alice POST "/adjustments/$SMALL/approve"
+expect "a national organizer approves it" 200
+
+call carol POST /adjustments '{"userId":"bob","hours":10,"reason":"Approver smoke: a large adjustment"}'
+expect "a facilitator proposes a large adjustment" 201
+BIG="$(jq -r '.id' <<<"$BODY")"
+[ "$(jq -r '.status' <<<"$BODY")" = voting ] && pass "it opens a vote of Oregon's chapter members" || fail "big: $BODY"
+call alice POST "/adjustments/$BIG/approve"
+expect "nobody approves a vote alone, not even a national organizer" 400
+call alice POST "/adjustments/$BIG/vote" '{"vote":"approve"}'
+expect "a national organizer outside Oregon does not vote on an Oregon member" 403
+call carol POST "/adjustments/$BIG/vote" '{"vote":"approve"}'
+expect "the proposer does not vote" 403
+call bob POST "/adjustments/$BIG/vote" '{"vote":"approve"}'
+expect "the member adjusted does not vote" 403
+call dave GET /adjustments
+[ "$(jq -r --argjson id "$BIG" '[.adjustments[] | select(.id==$id)][0] | "\(.canVote) \(.vote.eligible)"' <<<"$BODY")" = "true 3" ] \
+	&& pass "dave, a chapter member, sees the vote and may vote (3 eligible)" || fail "dave's list: $(head -c 400 <<<"$BODY")"
+call dave POST "/adjustments/$BIG/vote" '{"vote":"approve"}'
+expect "dave votes for" 200
+call dave POST "/adjustments/$BIG/vote" '{"vote":"reject"}'
+expect "one vote each" 400
+call erin POST "/adjustments/$BIG/vote" '{"vote":"approve"}'
+expect "erin votes for" 200
+[ "$(jq -r '.status' <<<"$BODY")" = voting ] && pass "two votes do not decide it" || fail "after two votes: $BODY"
+call frank POST "/adjustments/$BIG/vote" '{"vote":"reject"}'
+expect "frank votes against" 200
+[ "$(jq -r '.status' <<<"$BODY")" = approved ] && pass "everyone eligible voted, 2 to 1: applied" || fail "after three votes: $BODY"
+call bob GET /ledger/my
+jq -e '.transactions[0].description | contains("proposed by carol, approved by community vote (for: dave, erin; against: frank)")' <<<"$BODY" >/dev/null \
+	&& pass "the ledger names the proposer and every voter" || fail "bob's ledger: $(head -c 400 <<<"$BODY")"
+call carol GET "/governance?limit=30"
+jq -e '[.entries[] | select(.action=="adjustment.vote")] | length >= 3' <<<"$BODY" >/dev/null && pass "each vote is in the public governance log" || fail "governance log: $(head -c 300 <<<"$BODY")"
+occ group:removeuser "National Organizers" alice
+occ group:removeuser "Oregon Facilitators" carol
 
 echo "- Chapter check page"
 call carol GET /chapters/check
