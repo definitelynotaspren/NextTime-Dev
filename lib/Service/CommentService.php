@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Service;
 
+use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCA\TimeBank\Db\Comment;
 use OCA\TimeBank\Db\CommentFlag;
 use OCA\TimeBank\Db\CommentFlagMapper;
 use OCA\TimeBank\Db\CommentMapper;
-use OCA\TimeBank\Schema\SchemaSpec;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IGroupManager;
 
 /**
  * Comments are moderated by the community first: members flag, and at FLAG_LIMIT distinct
  * flags a comment is hidden from members (not deleted). Moderators, meaning Nextcloud
- * admins and the organizer group, can remove it or dismiss the flags. Authors cannot
+ * admins and national organizers, can remove it or dismiss the flags. Authors cannot
  * delete their own comments. Removal is soft, so there is always an audit trail.
  */
 class CommentService {
@@ -30,6 +30,7 @@ class CommentService {
 		private CommentMapper $commentMapper,
 		private CommentFlagMapper $flagMapper,
 		private IGroupManager $groups,
+		private NationalOrganizers $nationalOrganizers,
 	) {
 	}
 
@@ -57,7 +58,7 @@ class CommentService {
 	}
 
 	public function isModerator(string $userId): bool {
-		return $this->groups->isAdmin($userId) || $this->groups->isInGroup($userId, SchemaSpec::GROUP_ORGANIZER);
+		return $this->groups->isAdmin($userId) || $this->nationalOrganizers->isNationalOrganizer($userId);
 	}
 
 	/**

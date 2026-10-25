@@ -58,7 +58,7 @@ post() {
 	[ -n "$cat" ] || { echo "Category '$3' is missing; run occ maintenance:repair"; exit 1; }
 	call "$1" POST /requests "$(jq -n --arg t "$2" --arg d "$7" --arg l "$6" --arg p "$5" \
 		--argjson c "$cat" --argjson h "$4" \
-		'{title: $t, description: $d, categoryId: $c, hoursBudget: $h, priority: $p, location: $l}')"
+		'{title: $t, description: $d, categoryId: $c, hoursBudget: $h, priority: $p, location: $l, zip: "97214"}')"
 	must 201 "post \"$2\""
 	json '.id'
 }
@@ -84,7 +84,8 @@ if jq -e '.requests[] | select(.title == "Ride to a medical appointment on Thurs
 	exit 0
 fi
 
-# Locations are "latitude, longitude" so they show as pins on the Request Board map.
+# Every request is in Portland (ZIP 97214). Locations are "latitude, longitude": the poster, Oregon's
+# facilitators and accepted volunteers see that pin; everyone else sees the ZIP's center.
 RIDE=$(post alice "Ride to a medical appointment on Thursday" Transportation 2 high "45.5122, -122.6587" \
 	"I need a ride to a clinic appointment across town on Thursday morning and back afterwards. About an hour each way with the wait.")
 GARDEN=$(post carol "Help planting a community garden bed" Gardening 3 normal "45.5355, -122.6230" \

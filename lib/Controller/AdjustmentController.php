@@ -6,6 +6,7 @@ namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\AdjustmentService;
 use OCA\TimeBank\Service\GovernanceLog;
+use OCA\TimeBank\Service\Input;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
@@ -120,8 +121,8 @@ class AdjustmentController extends Controller {
 	#[FrontpageRoute(verb: 'GET', url: '/api/governance')]
 	public function governance(): DataResponse {
 		return new DataResponse($this->log->getPage(
-			(int)($this->request->getParam('limit') ?? 50),
-			(int)($this->request->getParam('offset') ?? 0),
+			Input::limit($this->request->getParam('limit')),
+			Input::offset($this->request->getParam('offset')),
 		));
 	}
 }

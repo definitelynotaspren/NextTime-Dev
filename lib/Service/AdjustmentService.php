@@ -166,8 +166,8 @@ class AdjustmentService {
 	 */
 	public function listFor(string $viewerId): array {
 		$viewer = $this->viewers->forUser($viewerId);
-		if (!$this->groups->isAdmin($viewerId) && !$viewer->facilitator && !$this->groups->isInGroup($viewerId, $this->policy->fallbackGroup())) {
-			throw new NotAuthorizedException('Only admins, facilitators and the fallback group can see adjustments');
+		if (!$this->groups->isAdmin($viewerId) && !$viewer->isStaff()) {
+			throw new NotAuthorizedException('Only admins, facilitators and national organizers can see adjustments');
 		}
 
 		$rows = [];
@@ -230,7 +230,7 @@ class AdjustmentService {
 			throw new NotAuthorizedException('You cannot decide on an adjustment to your own balance');
 		}
 		if (!$this->mayDecide($adjustment, $userId)) {
-			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or the fallback group can decide this');
+			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or a national organizer can decide this');
 		}
 	}
 

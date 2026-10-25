@@ -15,6 +15,9 @@ use OCA\TimeBank\Service\EarningService;
 use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\NotAuthorizedException;
 use OCA\TimeBank\Service\TransactionService;
+use OCP\Files\File;
+use OCP\Files\Folder;
+use OCP\Files\IRootFolder;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -28,6 +31,8 @@ final class EarningServiceTest extends TestCase {
 	private BalanceService&MockObject $balances;
 	private ApproverPolicy&MockObject $policy;
 	private ClaimNotifier&MockObject $notifier;
+	private CategoryMapper&MockObject $categories;
+	private IRootFolder&MockObject $root;
 	private EarningService $service;
 
 	protected function setUp(): void {
@@ -38,14 +43,17 @@ final class EarningServiceTest extends TestCase {
 		$this->policy = $this->createMock(ApproverPolicy::class);
 		$this->policy->method('mayDecide')->willReturnCallback(fn (string $d) => $d !== 'nobody');
 		$this->notifier = $this->createMock(ClaimNotifier::class);
+		$this->categories = $this->createMock(CategoryMapper::class);
+		$this->root = $this->createMock(IRootFolder::class);
 		$this->service = new EarningService(
 			$this->earnings,
-			$this->createMock(CategoryMapper::class),
+			$this->categories,
 			$this->votes,
 			$this->balances,
 			$this->createMock(TransactionService::class),
 			$this->policy,
 			$this->notifier,
+			$this->root,
 		);
 		$this->earnings->method('update')->willReturnArgument(0);
 	}
@@ -131,5 +139,47 @@ final class EarningServiceTest extends TestCase {
 		$this->votes->method('findByEarning')->willReturn([]);
 
 		$this->assertFalse($this->service->recordVote(1, 'nobody', 'approve')['complete']);
+	}
+
+	/** bob's own files hold file 5 (readable) and file 6 (not readable); nothing else. */
+	private function evidenceFiles(): void {
+		$readable = $this->createMock(File::class);
+		$readable->method('isReadable')->willReturn(true);
+		$unreadable = $this->createMock(File::class);
+		$unreadable->method('isReadable')->willReturn(false);
+		$folder = $this->createMock(Folder::class);
+		$folder->method('getById')->willReturnCallback(fn (int $id) => match ($id) {
+			5 => [$readable],
+			6 => [$unreadable],
+			default => [],
+		});
+		$this->root->method('getUserFolder')->with('bob')->willReturn($folder);
+		$category = new \OCA\TimeBank\Db\Category();
+		$category->setEarnRate('1.0');
+		$this->categories->method('find')->willReturn($category);
+		$this->earnings->method('insert')->willReturnArgument(0);
+	}
+
+	public function testEvidenceMustBeAFileTheClaimantCanRead(): void {
+		$this->evidenceFiles();
+
+		$claim = $this->service->submitClaim('bob', ['categoryId' => 1, 'hoursClaimed' => 1, 'evidenceFileId' => 5]);
+		$this->assertSame(5, $claim->getEvidenceFileId());
+
+		foreach ([6, 999] as $id) {
+			try {
+				$this->service->submitClaim('bob', ['categoryId' => 1, 'hoursClaimed' => 1, 'evidenceFileId' => $id]);
+				$this->fail("file $id was accepted");
+			} catch (InvalidStateException) {
+				$this->addToAssertionCount(1);
+			}
+		}
+	}
+
+	public function testAClaimWithoutEvidenceDoesNotTouchFiles(): void {
+		$this->evidenceFiles();
+		$this->root->expects($this->never())->method('getUserFolder');
+
+		$this->assertNull($this->service->submitClaim('bob', ['categoryId' => 1, 'hoursClaimed' => 1])->getEvidenceFileId());
 	}
 }

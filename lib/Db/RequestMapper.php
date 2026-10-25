@@ -54,17 +54,33 @@ class RequestMapper extends QBMapper {
 	}
 
 	/**
-	 * Open requests with coordinates, newest first. Used by the map feed.
+	 * Requests not yet finished that have no ZIP, so no state: posted before ZIPs were required.
+	 * They stay unassigned until the requester edits them. Shown on the Chapters page.
+	 */
+	public function countActiveWithoutZip(): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*', 'n'))
+			->from($this->getTableName())
+			->where($qb->expr()->in('status', $qb->createNamedParameter(['open', 'in_progress'], IQueryBuilder::PARAM_STR_ARRAY)))
+			->andWhere($qb->expr()->isNull('zip'));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count;
+	}
+
+	/**
+	 * Open requests with a ZIP, newest first. Used by the map feed.
 	 *
 	 * @return Request[]
 	 */
-	public function findOpenWithCoordinates(int $limit = 500): array {
+	public function findOpenWithZip(int $limit = 500): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('status', $qb->createNamedParameter('open')))
-			->andWhere($qb->expr()->isNotNull('latitude'))
-			->andWhere($qb->expr()->isNotNull('longitude'))
+			->andWhere($qb->expr()->isNotNull('zip'))
 			->orderBy('created_at', 'DESC')
 			->setMaxResults($limit);
 

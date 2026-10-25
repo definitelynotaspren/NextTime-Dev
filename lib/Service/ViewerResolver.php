@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Service;
 
 use OCA\TimeBank\Chapter\ChapterDirectory;
+use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCA\TimeBank\Schema\SchemaSpec;
 use OCA\TimeBank\Schema\Viewer;
 use OCP\IGroupManager;
@@ -16,7 +17,7 @@ use OCP\IGroupManager;
  *
  * Facilitating a chapter means being in that chapter's facilitator group (see ChapterDirectory).
  *
- * Nextcloud admins are not organizers unless they are also in the organizer
+ * Nextcloud admins are not national organizers unless they are also in that
  * group. Grant the group explicitly.
  */
 class ViewerResolver {
@@ -24,16 +25,17 @@ class ViewerResolver {
 	public function __construct(
 		private IGroupManager $groups,
 		private ChapterDirectory $chapters,
+		private NationalOrganizers $nationalOrganizers,
 	) {
 	}
 
 	public function forUser(string $userId): Viewer {
-		$organizer = $this->groups->isInGroup($userId, SchemaSpec::GROUP_ORGANIZER);
-		$facilitator = $this->groups->isInGroup($userId, SchemaSpec::GROUP_FACILITATOR);
+		$national = $this->nationalOrganizers->isNationalOrganizer($userId);
+		$facilitatorOf = $this->facilitatedChapters($userId);
+		$facilitator = $facilitatorOf !== [] || $this->groups->isInGroup($userId, SchemaSpec::GROUP_FACILITATOR);
+		$chapterMember = $facilitatorOf !== [] || $this->chapters->memberChapters($userId) !== [];
 
-		$chapters = $this->facilitatedChapters($userId);
-
-		return new Viewer($userId, $organizer, $facilitator || $chapters !== [], $chapters);
+		return new Viewer($userId, $national, $facilitator, $facilitatorOf, $chapterMember);
 	}
 
 	/**

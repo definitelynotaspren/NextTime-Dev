@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Controller;
 
+use OCA\TimeBank\Service\Input;
 use OCA\TimeBank\Service\TransactionService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
@@ -33,8 +34,8 @@ class LedgerController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/ledger')]
 	public function index(): DataResponse {
-		$limit = (int)($this->request->getParam('limit') ?? 50);
-		$offset = (int)($this->request->getParam('offset') ?? 0);
+		$limit = Input::limit($this->request->getParam('limit'), 50);
+		$offset = Input::offset($this->request->getParam('offset'));
 
 		$data = $this->transactionService->getPublicLedger($limit, $offset);
 
@@ -45,8 +46,8 @@ class LedgerController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/ledger/my')]
 	public function myTransactions(): DataResponse {
-		$limit = (int)($this->request->getParam('limit') ?? 50);
-		$offset = (int)($this->request->getParam('offset') ?? 0);
+		$limit = Input::limit($this->request->getParam('limit'), 50);
+		$offset = Input::offset($this->request->getParam('offset'));
 
 		$data = $this->transactionService->getUserTransactions($this->uid(), $limit, $offset);
 
@@ -57,8 +58,8 @@ class LedgerController extends Controller {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/api/ledger/user/{userId}')]
 	public function userTransactions(string $userId): DataResponse {
-		$limit = (int)($this->request->getParam('limit') ?? 50);
-		$offset = (int)($this->request->getParam('offset') ?? 0);
+		$limit = Input::limit($this->request->getParam('limit'), 50);
+		$offset = Input::offset($this->request->getParam('offset'));
 
 		$data = $this->transactionService->getUserTransactions($userId, $limit, $offset);
 

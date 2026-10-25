@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Tests\Unit\Service;
 
+use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCA\TimeBank\Db\Comment;
 use OCA\TimeBank\Db\CommentFlag;
 use OCA\TimeBank\Db\CommentFlagMapper;
@@ -11,6 +12,7 @@ use OCA\TimeBank\Db\CommentMapper;
 use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\NotAuthorizedException;
+use OCP\IAppConfig;
 use OCP\IGroupManager;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -32,9 +34,12 @@ final class CommentServiceTest extends TestCase {
 		$this->comments = $this->createMock(CommentMapper::class);
 		$this->flagMapper = $this->createMock(CommentFlagMapper::class);
 		$this->groups = $this->createMock(IGroupManager::class);
-		$this->service = new CommentService($this->comments, $this->flagMapper, $this->groups);
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturnArgument(2);
+		$this->service = new CommentService($this->comments, $this->flagMapper, $this->groups, new NationalOrganizers($this->groups, $config));
 
 		$this->groups->method('isAdmin')->willReturnCallback(fn (string $u) => $u === 'admin');
+		$this->groups->method('search')->willReturn([]);
 		$this->groups->method('isInGroup')->willReturnCallback(fn (string $u, string $g) => $u === 'lead' && $g === 'timebank-organizer');
 
 		$this->comments->method('update')->willReturnArgument(0);

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Exact request locations are private** (Phase 2 of the security and permission plan). Every in-person
+  request now needs a ZIP code, which everyone sees and which decides the request's state. The address text and
+  map point go only to the requester, the facilitators of that state, and volunteers whose offer is accepted
+  right now; a volunteer who withdraws or is declined loses it on their next read. Everyone else, national
+  organizers and Nextcloud admins included, sees the ZIP, and the map shows the request at the center of the
+  ZIP area (Census Bureau 2023 ZIP-area table, bundled). The rule lives in one place, `RequestPresenter`, used
+  by the request list, detail, every write response and the map. Before, every member got the exact point and
+  address, and the map feed a point rounded to about 1 km.
+- Requests posted before this version have no ZIP: they belong to no state and are not on others' maps until
+  their poster edits them and adds one. The **Chapters** page counts them. Migration `Version000008` also adds
+  the columns later phases use (state override, remote mode, linked file, review status).
+
+- **Lists are capped at 100 rows** (Phase 6 of the security and permission plan). `limit` is clamped to 1 to 100
+  and `offset` to 0 or more on the request list, ledgers, balances and governance log (which allowed 200), so a
+  single call cannot read everything at once; a negative or non-numeric value falls back to the default.
+- **Posting is rate-limited** per person over 10 minutes: 50 new requests and 50 claims, 100 comments, offers and
+  votes. Beyond that Nextcloud answers 429 and the app says to wait a few minutes.
+- **A claim's evidence file must be one the claimant can read.** A file id is just a number, so before, a claim
+  could point at anyone's file.
+
+### Changed
+
+- **One national organizer role** replaces the separate `timebank-organizer` and `GSUS` fallback groups
+  (Phase 1 of the security and permission plan). Everyone in the group "National Organizers" (setting
+  `national_organizer_group`) may decide claims and adjustments for any member but themselves, works the
+  organizer desk everywhere and moderates comments. Members whose state has no facilitator, or who have no
+  state, are decided by national organizers. Members of the two old groups keep the role until an admin moves
+  them; the **Chapters** page lists them. Because the role is nationwide, former `GSUS` members can now also
+  decide for members whose chapter has a facilitator.
+- `GET /api/roles` reports `member`, `chapterMember`, `facilitatorOf` (chapter slugs) and `nationalOrganizer`.
+  `fallbackApprover` is gone; `organizer` remains as an alias of `nationalOrganizer`. A claim's `decidingAs`
+  is now `national` where it was `fallback`.
+
 ### Fixed
 
 - **NextTime could not be installed on the official Nextcloud 33, 34 or 35 Docker images**, which ship PHP 8.4

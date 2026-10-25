@@ -24,6 +24,13 @@ interface Report {
 	chapters: ChapterRow[]
 	unpairedFacilitatorGroups: { id: string, name: string }[]
 	stateGroupsWithoutFacilitators: { id: string, name: string, state: string }[]
+	nationalOrganizers: {
+		groupName: string
+		groupId: string | null
+		members: string[]
+		legacyOnly: { group: string, users: string[] }[]
+	}
+	requestsWithoutZip: number
 }
 
 const report = ref<Report | null>(null)
@@ -77,17 +84,42 @@ onMounted(async () => {
 						<td>{{ c.zipPrefixes.length ? `ZIPs starting ${c.zipPrefixes.join(', ')}` : c.state ? `every ZIP in ${c.state}` : 'no ZIPs' }}</td>
 						<td>{{ c.memberCount }}</td>
 						<td :class="{ warn: c.facilitators.length === 0 }">
-							{{ c.facilitators.length ? c.facilitators.join(', ') : 'nobody: members fall back to the fallback group' }}
+							{{ c.facilitators.length ? c.facilitators.join(', ') : 'nobody: national organizers decide for its members' }}
 						</td>
 					</tr>
 				</tbody>
 			</table>
 
+			<p v-if="report.requestsWithoutZip" class="warning">
+				{{ report.requestsWithoutZip }} open or in-progress {{ report.requestsWithoutZip === 1 ? 'request has' : 'requests have' }}
+				no ZIP code, from before ZIPs were required. They belong to no state, so no facilitator sees their exact location
+				and they are not on the map, until the person who posted each one edits it and adds a ZIP.
+			</p>
+
+			<h2>National organizers</h2>
+			<p class="subtitle">
+				Everyone in the group "{{ report.nationalOrganizers.groupName }}" decides claims and adjustments for any member
+				(never their own) and sees every desk row.
+			</p>
+			<p v-if="!report.nationalOrganizers.groupId" class="warning">
+				No group named "{{ report.nationalOrganizers.groupName }}" exists yet. Create it in Nextcloud's group settings.
+			</p>
+			<p v-else>
+				{{ report.nationalOrganizers.members.length ? report.nationalOrganizers.members.join(', ') : 'Nobody is in it yet.' }}
+			</p>
+			<template v-for="legacy in report.nationalOrganizers.legacyOnly" :key="legacy.group">
+				<p class="warning">
+					Still national organizers only through the old group "{{ legacy.group }}": {{ legacy.users.join(', ') }}.
+					Add them to "{{ report.nationalOrganizers.groupName }}" (or remove them from "{{ legacy.group }}" if they
+					should not have the role).
+				</p>
+			</template>
+
 			<template v-if="report.stateGroupsWithoutFacilitators.length">
 				<h2>States with no facilitator group</h2>
 				<p class="subtitle">
 					These have members but no group named like "<em>Name</em> Facilitators". Their members' claims go to the
-					fallback group. If a facilitator group exists with a slightly different name, rename it to match.
+					national organizers. If a facilitator group exists with a slightly different name, rename it to match.
 				</p>
 				<ul>
 					<li v-for="g in report.stateGroupsWithoutFacilitators" :key="g.id">
@@ -113,6 +145,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.warning {
+	color: var(--color-warning-text);
+}
+
 .chapter-check {
 	padding: 20px;
 	max-width: 900px;

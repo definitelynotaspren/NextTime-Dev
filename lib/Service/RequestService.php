@@ -11,6 +11,7 @@ use OCA\TimeBank\Db\UserStatsMapper;
 use OCA\TimeBank\Db\VolunteerMapper;
 use OCA\TimeBank\Db\WithdrawalMapper;
 use OCA\TimeBank\Geo\Coordinates;
+use OCA\TimeBank\Geo\ZipCenters;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 class RequestService {
@@ -27,6 +28,7 @@ class RequestService {
 		CommentMapper $commentMapper,
 		UserStatsMapper $statsMapper,
 		WithdrawalMapper $withdrawalMapper,
+		private RequestPresenter $presenter,
 	) {
 		$this->requestMapper = $requestMapper;
 		$this->volunteerMapper = $volunteerMapper;
@@ -36,18 +38,27 @@ class RequestService {
 	}
 
 	/**
+	 * The request as this person may see it (see RequestPresenter for who gets the exact location).
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function present(Request $request, string $viewerId): array {
+		return $this->presenter->forUser($request, $viewerId);
+	}
+
+	/**
 	 * @param array<string, mixed> $filters
 	 * @return array{requests: array<array-key, mixed>, total: int, limit: int, offset: int}
 	 */
-	public function getRequests(array $filters = [], int $limit = 50, int $offset = 0): array {
+	public function getRequests(string $viewerId, array $filters = [], int $limit = 50, int $offset = 0): array {
 		$requests = $this->requestMapper->findAll($filters, $limit, $offset);
 		$total = $this->requestMapper->count($filters);
 
-		$enrichedRequests = array_map(function ($request) {
+		$enrichedRequests = array_map(function ($request) use ($viewerId) {
 			$volunteerCount = $this->volunteerMapper->countByRequest($request->getId());
 			$commentCount = $this->commentMapper->countByRequest($request->getId());
 
-			$data = $request->jsonSerialize();
+			$data = $this->present($request, $viewerId);
 			$data['volunteerCount'] = $volunteerCount;
 			$data['commentCount'] = $commentCount;
 
@@ -69,7 +80,7 @@ class RequestService {
 	 * @return array{request: array<string, mixed>, volunteers: array<array-key, mixed>, comments: array<array-key, mixed>, withdrawals?: array<array-key, mixed>}
 	 * @throws DoesNotExistException
 	 */
-	public function getRequestDetails(int $id, ?string $viewerId = null): array {
+	public function getRequestDetails(int $id, string $viewerId): array {
 		$request = $this->requestMapper->find($id);
 		$volunteers = $this->volunteerMapper->findByRequest($id);
 		$comments = $this->commentMapper->findByRequest($id);
@@ -90,12 +101,12 @@ class RequestService {
 		usort($enrichedVolunteers, fn (array $a, array $b): int => (int)$b['completedInCategory'] - (int)$a['completedInCategory']);
 
 		$details = [
-			'request' => $request->jsonSerialize(),
+			'request' => $this->present($request, $viewerId),
 			'volunteers' => $enrichedVolunteers,
 			'comments' => array_map(fn ($c) => $c->jsonSerialize(), $comments),
 		];
 
-		if ($viewerId !== null && $viewerId === $request->getRequesterId()) {
+		if ($viewerId === $request->getRequesterId()) {
 			$details['withdrawals'] = array_map(
 				fn ($entry) => $entry->jsonSerialize(),
 				$this->withdrawalMapper->findByRequest($id),
@@ -117,6 +128,9 @@ class RequestService {
 		$request->setHoursBudget((string)$data['hoursBudget']);
 		$request->setStatus('open');
 		$request->setPriority(Input::string($data['priority'] ?? null) ?? 'normal');
+		$request->setMode('in_person');
+		$request->setReviewStatus('published');
+		$this->applyZip($request, $data);
 
 		$deadline = Input::string($data['deadline'] ?? null);
 		if ($deadline !== null && $deadline !== '') {
@@ -187,10 +201,33 @@ class RequestService {
 			$request->setLocation(Input::string($data['location']));
 		}
 		$this->applyCoordinates($request, $data);
+		if (array_key_exists('zip', $data) || $request->getZip() === null) {
+			$this->applyZip($request, $data);
+		}
 
 		$request->setUpdatedAt(new \DateTime());
 
 		return $this->requestMapper->update($request);
+	}
+
+	/**
+	 * An in-person request needs the ZIP of where the help is needed; it decides the request's state
+	 * unless someone reassigned it. The exact address and point stay optional.
+	 *
+	 * @param array<string, mixed> $data
+	 * @throws InvalidStateException when the ZIP is missing or not a ZIP of a US state
+	 */
+	private function applyZip(Request $request, array $data): void {
+		$given = $data['zip'] ?? null;
+		if ($given === null || $given === '') {
+			throw new InvalidStateException('A ZIP code is required: the 5-digit ZIP of where the help is needed');
+		}
+		$zip = ZipCenters::normalize($given);
+		if ($zip === null) {
+			throw new InvalidStateException('ZIP code must be 5 digits (or ZIP+4) of a US state, for example 97055');
+		}
+		$request->setZip($zip);
+		$request->setChapter($this->presenter->chapterOf($request));
 	}
 
 	/**

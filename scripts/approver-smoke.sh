@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Who may decide on a claim: chapter facilitators (both groups), the fallback group, admins.
+# Who may decide on a claim: chapter facilitators (both groups), national organizers, admins.
 # Also checks the in-app notification. Uses occ to set up groups, so it needs the dev server.
 #
 # Dev users as roles: bob is a member of the Oregon group; carol is in "Oregon Facilitators" only (the
@@ -17,7 +17,7 @@ API="$BASE/index.php/apps/timebank/api"
 FAILS=0
 TMP="$(mktemp -d)"
 cleanup() {
-	for pair in "Oregon|bob" "Oregon Facilitators|carol" "GSUS|bob" "GSUS|alice"; do
+	for pair in "Oregon|bob" "Oregon Facilitators|carol" "National Organizers|bob" "GSUS|alice"; do
 		scripts/dev-native.sh occ group:removeuser "${pair%%|*}" "${pair##*|}" >/dev/null 2>&1 || true
 	done
 	rm -rf "$TMP"
@@ -52,7 +52,7 @@ ocs() { # ocs USER PATH -> OCS notifications, JSON
 echo "NextTime approver smoke test against $BASE"
 
 echo "- Roles"
-for g in "Oregon" "Oregon Facilitators" "GSUS"; do occ group:add "$g"; done
+for g in "Oregon" "Oregon Facilitators" "National Organizers" "GSUS"; do occ group:add "$g"; done
 occ group:adduser "Oregon" bob
 occ group:adduser "Oregon Facilitators" carol
 
@@ -89,7 +89,7 @@ jq -e --arg c "$BOB_CLAIM" '[(.ocs.data // [])[] | select(.object_id==$c)] | len
 call carol POST "/earnings/$BOB_CLAIM/approve"
 expect "a decided claim cannot be decided again" 400
 
-echo "- A member with no facilitator: the GSUS fallback"
+echo "- A member with no chapter: national organizers"
 call alice POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Approver smoke: alice has no chapter\"}"
 expect "alice (no chapter) submits a claim" 201
 ALICE_CLAIM="$(jq -r '.id' <<<"$BODY")"
@@ -97,22 +97,28 @@ call carol POST "/earnings/$ALICE_CLAIM/approve"
 expect "the Oregon facilitator cannot decide for someone with no chapter" 403
 call bob POST "/earnings/$ALICE_CLAIM/approve"
 expect "a plain member cannot" 403
-occ group:adduser GSUS bob
+occ group:adduser "National Organizers" bob
+call bob GET /roles
+[ "$(jq -r '.nationalOrganizer' <<<"$BODY")" = true ] && pass "/api/roles reports bob as a national organizer" || fail "bob's roles: $BODY"
 call bob GET /earnings/pending
-[ "$(jq -r --argjson c "$ALICE_CLAIM" '[.[] | select(.id==$c)][0].decidingAs' <<<"$BODY")" = fallback ] && pass "once in GSUS, bob sees alice's claim, as the fallback" || fail "bob's list: $BODY"
+[ "$(jq -r --argjson c "$ALICE_CLAIM" '[.[] | select(.id==$c)][0].decidingAs' <<<"$BODY")" = national ] && pass "once a national organizer, bob sees alice's claim" || fail "bob's list: $BODY"
 call bob POST "/earnings/$ALICE_CLAIM/send-to-vote"
-expect "a GSUS member can send it to a vote" 200
+expect "a national organizer can send it to a vote" 200
 
-echo "- GSUS does not override a chapter that has facilitators"
+echo "- National organizers act nationwide, but never on their own claim"
 call bob POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Approver smoke: bob again\"}"
 BOB2="$(jq -r '.id' <<<"$BODY")"
-occ group:adduser GSUS alice
-call alice POST "/earnings/$BOB2/approve"
-expect "a GSUS member cannot decide for a member whose chapter has a facilitator" 403
 call bob POST "/earnings/$BOB2/approve"
-expect "and nobody decides on their own claim" 403
-call admin POST "/earnings/$BOB2/approve"
-expect "an admin still can" 200
+expect "a national organizer cannot decide on their own claim" 403
+occ group:removeuser "National Organizers" bob
+occ group:adduser GSUS alice
+call alice GET /roles
+[ "$(jq -r '.nationalOrganizer' <<<"$BODY")" = true ] && pass "the legacy GSUS group still counts as national organizer" || fail "alice's roles: $BODY"
+call alice POST "/earnings/$BOB2/approve"
+expect "so a GSUS member decides for a member whose chapter has a facilitator" 200
+call admin GET /chapters/check
+[ "$(jq -r '[.nationalOrganizers.legacyOnly[] | select(.group=="GSUS") | .users[]] | index("alice") != null' <<<"$BODY")" = true ] && pass "the check page lists alice as still only in GSUS" || fail "check page: $(head -c 300 <<<"$BODY")"
+occ group:removeuser GSUS alice
 
 echo "- Losing the facilitator role takes the ability away at once"
 call bob POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Approver smoke: bob, facilitator removed\"}"

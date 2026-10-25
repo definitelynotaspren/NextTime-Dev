@@ -11,6 +11,7 @@ use OCA\TimeBank\Db\Vote;
 use OCA\TimeBank\Db\VoteMapper;
 use OCA\TimeBank\Notification\ClaimNotifier;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\Files\IRootFolder;
 
 class EarningService {
 
@@ -30,6 +31,7 @@ class EarningService {
 		TransactionService $transactionService,
 		ApproverPolicy $policy,
 		ClaimNotifier $notifier,
+		private IRootFolder $rootFolder,
 	) {
 		$this->earningMapper = $earningMapper;
 		$this->categoryMapper = $categoryMapper;
@@ -42,8 +44,14 @@ class EarningService {
 
 	/**
 	 * @param array<string, mixed> $data
+	 * @throws InvalidStateException when the evidence is not a file the claimant can read
 	 */
 	public function submitClaim(string $userId, array $data): Earning {
+		$evidenceFileId = Input::int($data['evidenceFileId'] ?? null);
+		if ($evidenceFileId !== null && !$this->canRead($userId, $evidenceFileId)) {
+			throw new InvalidStateException('The evidence file was not found in your files');
+		}
+
 		$category = $this->categoryMapper->find((int)$data['categoryId']);
 
 		$earning = new Earning();
@@ -57,9 +65,7 @@ class EarningService {
 		$earning->setDescription(Input::string($data['description'] ?? null) ?? '');
 		$earning->setStatus('pending');
 
-		if (isset($data['evidenceFileId'])) {
-			$earning->setEvidenceFileId((int)$data['evidenceFileId']);
-		}
+		$earning->setEvidenceFileId($evidenceFileId);
 
 		$earning->setCreatedAt(new \DateTime());
 		$earning = $this->earningMapper->insert($earning);
@@ -70,7 +76,7 @@ class EarningService {
 
 	/**
 	 * Pending claims this person may decide on, each with the capacity they would act in:
-	 * admin, facilitator of a chapter, or fallback group. Never their own claims.
+	 * admin, facilitator of a chapter, or national organizer. Never their own claims.
 	 *
 	 * @return list<array<string, mixed>>
 	 */
@@ -272,6 +278,24 @@ class EarningService {
 	}
 
 	/**
+	 * Whether the file is in the claimant's own files or shared with them, and readable. A file id
+	 * is just a number, so without this a claim could point at anyone's file.
+	 */
+	private function canRead(string $userId, int $fileId): bool {
+		try {
+			foreach ($this->rootFolder->getUserFolder($userId)->getById($fileId) as $node) {
+				if ($node->isReadable()) {
+					return true;
+				}
+			}
+		} catch (\Exception) {
+			// No such user folder, or storage unavailable: treat as not readable.
+		}
+
+		return false;
+	}
+
+	/**
 	 * The claim must be in the expected state, and the person deciding must not be the one
 	 * who made the claim, whoever they are. Approving, rejecting and sending to a vote also
 	 * need to be an approver for the claimant (see ApproverPolicy); voting is open to members.
@@ -284,7 +308,7 @@ class EarningService {
 			throw new NotAuthorizedException('You cannot decide on your own claim. Someone else has to look at it.');
 		}
 		if ($needsApprover && !$this->policy->mayDecide($deciderId, $earning->getUserId())) {
-			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or the fallback group can decide on this claim');
+			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or a national organizer can decide on this claim');
 		}
 		if ($earning->getStatus() !== $expectedStatus) {
 			throw new InvalidStateException('This claim is ' . $earning->getStatus() . ', so that is not possible now');

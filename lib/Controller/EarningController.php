@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\EarningService;
+use OCA\TimeBank\Service\Input;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
@@ -33,6 +35,7 @@ class EarningController extends Controller {
 	}
 
 	#[NoAdminRequired]
+	#[UserRateLimit(limit: 50, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/api/earnings/claim')]
 	public function claim(): DataResponse {
 		// Validate required fields
@@ -64,8 +67,7 @@ class EarningController extends Controller {
 			'categoryId' => (int)$categoryId,
 			'hoursClaimed' => (float)$hoursClaimed,
 			'description' => $description,
-			'evidenceFileId' => $this->request->getParam('evidenceFileId')
-				? (int)$this->request->getParam('evidenceFileId') : null,
+			'evidenceFileId' => Input::int($this->request->getParam('evidenceFileId')),
 		];
 
 		try {
@@ -140,6 +142,7 @@ class EarningController extends Controller {
 	}
 
 	#[NoAdminRequired]
+	#[UserRateLimit(limit: 100, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/api/earnings/{id}/vote', requirements: ['id' => '\\d+'])]
 	public function vote(int $id): DataResponse {
 		$vote = $this->request->getParam('vote');

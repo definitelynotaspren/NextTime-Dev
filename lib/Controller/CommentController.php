@@ -10,6 +10,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
@@ -28,6 +29,7 @@ class CommentController extends Controller {
 	}
 
 	#[NoAdminRequired]
+	#[UserRateLimit(limit: 100, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/api/requests/{requestId}/comments', requirements: ['requestId' => '\\d+'])]
 	public function create(int $requestId): DataResponse {
 		$data = [

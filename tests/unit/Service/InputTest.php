@@ -35,4 +35,20 @@ final class InputTest extends TestCase {
 		$this->assertNull(Input::int(1.5));
 		$this->assertNull(Input::int([7]));
 	}
+
+	public function testAPageHoldsOneToAHundredRows(): void {
+		$this->assertSame(50, Input::limit(null));
+		$this->assertSame(20, Input::limit('20'));
+		$this->assertSame(100, Input::limit('100000'));
+		$this->assertSame(1, Input::limit('0'));
+		$this->assertSame(50, Input::limit('-1'), 'not a whole number: the default');
+		$this->assertSame(100, Input::limit(null, 500), 'even the default is capped');
+	}
+
+	public function testAnOffsetIsZeroOrMore(): void {
+		$this->assertSame(0, Input::offset(null));
+		$this->assertSame(0, Input::offset('-5'));
+		$this->assertSame(40, Input::offset('40'));
+		$this->assertSame(0, Input::offset(['40']));
+	}
 }

@@ -14,6 +14,7 @@ use OCA\TimeBank\Db\Withdrawal;
 use OCA\TimeBank\Db\WithdrawalMapper;
 use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\NotAuthorizedException;
+use OCA\TimeBank\Service\RequestPresenter;
 use OCA\TimeBank\Service\RequestService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +30,7 @@ final class RequestServiceTest extends TestCase {
 	private VolunteerMapper&MockObject $volunteers;
 	private UserStatsMapper&MockObject $stats;
 	private WithdrawalMapper&MockObject $withdrawals;
+	private RequestPresenter&MockObject $presenter;
 	private RequestService $service;
 
 	protected function setUp(): void {
@@ -43,6 +45,7 @@ final class RequestServiceTest extends TestCase {
 			$this->createMock(CommentMapper::class),
 			$this->stats,
 			$this->withdrawals,
+			$this->presenter = $this->createMock(RequestPresenter::class),
 		);
 
 		$this->requests->method('update')->willReturnArgument(0);
@@ -55,6 +58,7 @@ final class RequestServiceTest extends TestCase {
 		$request->setRequesterId($owner);
 		$request->setStatus($status);
 		$request->setCategoryId(7);
+		$request->setZip('97055');
 		return $request;
 	}
 
@@ -123,7 +127,7 @@ final class RequestServiceTest extends TestCase {
 			$this->requests->method('update')->willReturnArgument(0);
 			$stats = $this->createMock(UserStatsMapper::class);
 			$stats->expects($this->never())->method('incrementStats');
-			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $stats, $this->withdrawals);
+			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $stats, $this->withdrawals, $this->presenter);
 
 			try {
 				$service->completeRequest(1, 'alice');
@@ -157,7 +161,7 @@ final class RequestServiceTest extends TestCase {
 			$this->requests = $this->createMock(RequestMapper::class);
 			$this->requests->method('find')->willReturn($this->request($status));
 			$this->requests->method('update')->willReturnArgument(0);
-			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats, $this->withdrawals);
+			$service = new RequestService($this->requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats, $this->withdrawals, $this->presenter);
 
 			$this->assertSame('cancelled', $service->cancelRequest(1, 'alice')->getStatus());
 		}
@@ -195,7 +199,7 @@ final class RequestServiceTest extends TestCase {
 		$forRequester = $this->service->getRequestDetails(1, 'alice');
 		$this->assertSame('Family emergency', $forRequester['withdrawals'][0]['reason']);
 
-		foreach (['bob', 'carol', null] as $viewer) {
+		foreach (['bob', 'carol'] as $viewer) {
 			$this->assertArrayNotHasKey('withdrawals', $this->service->getRequestDetails(1, $viewer), 'reasons stay private to the requester');
 		}
 	}
@@ -209,7 +213,7 @@ final class RequestServiceTest extends TestCase {
 		foreach (['in_progress', 'completed', 'cancelled'] as $status) {
 			$requests = $this->createMock(RequestMapper::class);
 			$requests->method('find')->willReturn($this->request($status));
-			$service = new RequestService($requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats, $this->withdrawals);
+			$service = new RequestService($requests, $this->volunteers, $this->createMock(CommentMapper::class), $this->stats, $this->withdrawals, $this->presenter);
 
 			try {
 				$service->updateRequest(1, 'alice', ['title' => 'Sneaky edit']);
@@ -249,5 +253,54 @@ final class RequestServiceTest extends TestCase {
 		$edited = $this->service->updateRequest(1, 'alice', ['categoryId' => 9, 'hoursBudget' => 2.5, 'priority' => 'high']);
 		$this->assertSame(9, $edited->getCategoryId());
 		$this->assertSame('high', $edited->getPriority());
+	}
+
+	// ---- ZIP and state -------------------------------------------------------
+
+	/** @return array<string, mixed> */
+	private function posting(mixed $zip): array {
+		return ['title' => 'Move a couch', 'description' => 'Two people to carry a couch upstairs.', 'categoryId' => 7, 'hoursBudget' => 2, 'zip' => $zip];
+	}
+
+	public function testPostingNeedsAZipOfAState(): void {
+		$this->requests->method('insert')->willReturnArgument(0);
+		$this->presenter->method('chapterOf')->willReturn('oregon');
+
+		$request = $this->service->createRequest('alice', $this->posting('97055-1234'));
+		$this->assertSame('97055', $request->getZip(), 'ZIP+4 keeps the first five digits');
+		$this->assertSame('oregon', $request->getChapter());
+		$this->assertSame('in_person', $request->getMode());
+		$this->assertSame('published', $request->getReviewStatus());
+		$this->assertNull($request->getLocation(), 'the exact address stays optional');
+
+		foreach (['9705', '00000', 'abcde', '', null, ['97055'], 97055.5] as $zip) {
+			try {
+				$this->service->createRequest('alice', $this->posting($zip));
+				$this->fail('Should refuse ZIP ' . json_encode($zip));
+			} catch (InvalidStateException) {
+				$this->addToAssertionCount(1);
+			}
+		}
+	}
+
+	public function testAnOldRequestWithoutAZipGetsOneWhenEdited(): void {
+		$old = $this->request('open');
+		$old->setZip(null);
+		$this->requests->method('find')->willReturn($old);
+
+		try {
+			$this->service->updateRequest(1, 'alice', ['title' => 'New title']);
+			$this->fail('An edit must add the missing ZIP');
+		} catch (InvalidStateException $e) {
+			$this->assertStringContainsString('ZIP', $e->getMessage());
+		}
+
+		$this->assertSame('98101', $this->service->updateRequest(1, 'alice', ['title' => 'New title', 'zip' => '98101'])->getZip());
+	}
+
+	public function testAnEditWithoutAZipKeepsTheOneItHas(): void {
+		$this->requests->method('find')->willReturn($this->request('open'));
+
+		$this->assertSame('97055', $this->service->updateRequest(1, 'alice', ['title' => 'New title'])->getZip());
 	}
 }

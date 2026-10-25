@@ -36,7 +36,7 @@ class GovernanceLog {
 	 * @return array{entries: list<array<string, mixed>>, total: int, limit: int, offset: int}
 	 */
 	public function getPage(int $limit = 50, int $offset = 0): array {
-		$limit = max(1, min(200, $limit));
+		$limit = max(1, min(Input::MAX_LIMIT, $limit));
 		$offset = max(0, $offset);
 
 		return [

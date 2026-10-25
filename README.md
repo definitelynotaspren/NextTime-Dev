@@ -10,7 +10,7 @@ which can arrive from Nextcloud Forms.
 - **Request Board and map**: post, browse and map service requests; the requester accepts volunteers (several allowed),
   completes the job, and can edit (while open) or cancel it.
 - **Earning claims**: volunteers claim hours for work done. A claim is approved, rejected or sent to a community vote
-  by someone other than the claimant: an admin, the facilitator of the claimant's chapter, or the fallback group.
+  by someone other than the claimant: an admin, the facilitator of the claimant's chapter, or a national organizer.
   Any member except the claimant can vote.
 - **Public ledger and personal balance**: every movement of hours is public; names link to a member's own ledger.
 - **Chapters from your Nextcloud groups**: a group "Colorado" and a group "Colorado Facilitators" make the Colorado
@@ -144,7 +144,8 @@ Set with `occ config:app:set timebank <key> --value=<value>`:
 
 | Key | Default | What it does |
 |-----|---------|--------------|
-| `fallback_approver_group` | `GSUS` | Group id of the people who decide for members whose chapter has no facilitator |
+| `national_organizer_group` | `National Organizers` | Id or name of the national organizer group |
+| `fallback_approver_group` | `GSUS` | Legacy: its members still count as national organizers until moved (see Roles) |
 | `chapter_zip_prefixes` | built-in for New York City | JSON for city chapters, for example `{"Chicago": ["606"]}`. Replaces the default when set |
 | `adjustment_threshold` | `5` | Hours up to which one admin can adjust a balance alone (1 to 20). Change it under **Adjustments**, which records a reason publicly |
 | `forms_intake` | none | Which forms feed the desk. Add and remove them on the **Form Intake** page |
@@ -163,7 +164,7 @@ are seeded at 1.0 to 1.5, and admins can set any rate above 0 and up to 5 under 
   theirs), edit while the request is open, or cancel.
 - **Facilitators and approvers**: **Approvals & Votes** shows only the claims you may decide, and why. You can approve,
   reject (with a reason) or send to a community vote. Facilitators also work their chapter's rows on the **Organizer Desk**.
-- **Organizers**: the desk everywhere, the **Form Intake** and **Chapters** pages, and comment moderation.
+- **National organizers**: claims and adjustments for any member, the desk everywhere, the **Form Intake** and **Chapters** pages, and comment moderation.
 - **Admins**: **Categories**, **Adjustments**, the **Governance Log**, and approval of claims.
 
 Walk-throughs of an offer, a need and a three-person job are in [docs/flows.md](docs/flows.md). What is not built yet is
@@ -177,8 +178,8 @@ Roles come from Nextcloud groups, so an admin creates nothing beyond the groups 
 |-------|---------|
 | `<State>` (for example "Colorado") | Who belongs to that state or chapter. Gives no powers. |
 | `<State> Facilitator` or `<State> Facilitators` | The facilitators of that chapter. **This group alone gives the power**; they need not also be in `<State>`. |
-| `GSUS` | Fallback approvers, for members whose chapter has no facilitator (and members with no chapter). Another group id can be set with `fallback_approver_group`. |
-| `timebank-organizer` | Organizer desk everywhere; also moderates comments. |
+| `National Organizers` | National organizers: decide claims and adjustments for any member (never their own), so also for members whose chapter has no facilitator or who have no chapter; the organizer desk everywhere; comment moderation. Another group can be set with `national_organizer_group`. |
+| `timebank-organizer`, `GSUS` | Legacy groups replaced by `National Organizers`. Their members still count as national organizers until an admin moves them; the **Chapters** page lists who is left. Note this gives former `GSUS` members nationwide decide power, not only for members without a facilitator. |
 | `timebank-facilitator` | Desk access without chapter rows. Does not let anyone approve claims. |
 
 NextTime finds chapters by pairing group names: a facilitator group pairs with the group of the same name minus
@@ -186,24 +187,23 @@ NextTime finds chapters by pairing group names: a facilitator group pairs with t
 when it has none; every role check uses the group id. A pair, or a lone facilitator group named after a US state (or a
 city chapter), is a chapter. A facilitator group that matches nothing (such as "Chapter Facilitators") is ignored. The
 **Chapters** page (admins and organizers) lists what was found, who facilitates each, states that have no facilitator
-group, and groups it ignored, so a spelling mistake shows up. Nextcloud admins are not organizers unless they are also in
-the organizer group.
+group, and groups it ignored, so a spelling mistake shows up. Nextcloud admins are not national organizers unless they are
+also in that group.
 
 A person may decide on a claim, or approve a large balance adjustment, for member U (never their own) when they are a
-Nextcloud admin, or they are in the facilitator group of a chapter U belongs to, or none of U's chapters has a facilitator
-and they are in `GSUS`. `GSUS` never overrides a chapter that has facilitators. Roles are read from the groups on every
+Nextcloud admin, or they are in the facilitator group of a chapter U belongs to, or they are a national organizer. Roles are read from the groups on every
 request and nothing is cached, so removing someone from a facilitator group ends their ability to approve, or to see that
 chapter's rows, on their next click.
 
 A chapter's facilitators work its desk rows: they can add rows for ZIPs in their chapter, assign them to themselves, set
-progress, publish and unpublish. Organizers can do the same anywhere. The privacy rules do not change: a facilitator sees
+progress, publish and unpublish. National organizers can do the same anywhere. The privacy rules do not change: a facilitator sees
 public and chapter fields, not organizer-only ones such as the requester's contact details.
 
 Which chapter reviews a desk row is worked out from its ZIP code each time: the chapter named after the ZIP's state, or a
 city chapter's own prefixes.
 
 When a claim is submitted, the facilitators of the claimant's chapters are told in Nextcloud notifications (else
-`GSUS`, else the admins). The notice names who, hours and category, never the description, and clears for everyone once
+the national organizers, else the admins). The notice names who, hours and category, never the description, and clears for everyone once
 the claim is decided. After 3 days the same people get a reminder, and after 7 days the admins are told too (an hourly
 background job).
 
@@ -235,19 +235,25 @@ them unless the form is anonymous; NextTime does not copy the submitter's accoun
 
 ## Map
 
-- A request appears on the map only if it has coordinates: pick a point on the map in the form, or type `lat, lng`. A
-  free-text address (for example "123 Main Street") is saved but not plotted; geocoding is not implemented.
+- Every request has a ZIP code. **Who sees the exact location** (the address text and the point picked on the map):
+  the person who posted it, the facilitators of its state, and volunteers whose offer is accepted, for as long as it
+  stays accepted. Everyone else, national organizers and Nextcloud admins included, sees the ZIP, and the map puts the
+  request at the center of the ZIP area (from the Census Bureau's 2023 ZIP-area table, bundled in
+  `lib/Geo/data/zip-centers.txt`, so no lookup leaves the server).
+- A request's state is the one its ZIP is in. A free-text address (for example "123 Main Street") is saved but not
+  plotted; geocoding is not implemented.
 - The basemap is [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key). Viewers' browsers connect to
   `tiles.openfreemap.org`. To use another tile source, change `MAP_STYLE_URL` in `src/composables/useMap.ts` **and**
   `MAP_HOST` in `lib/Controller/PageController.php`: Nextcloud's Content-Security-Policy blocks any host not listed there.
-- Map and feed output is rounded to about 1 km and never includes contact fields.
+- The `/api/map/requests` feed always uses ZIP centers and never includes contact fields.
 
 ## API documentation
 
 All endpoints are plain JSON under `/index.php/apps/timebank/api/...` (no OCS envelope). Log in with a Nextcloud account
 or an app password. Calls that change data must send `OCS-APIRequest: true` (Nextcloud 30 and later; Nextcloud 29 needs a
 session cookie and a `requesttoken` header instead, as `scripts/smoke-test.sh` does). Errors are `{"error": "..."}`:
-400 for a move the rules refuse, 403 when you may not do it, 404 when it does not exist. "(admin)" means admins only;
+400 for a move the rules refuse, 403 when you may not do it, 404 when it does not exist, 429 (empty body) when you post
+too often. Lists return at most 100 rows a page (`limit` 1 to 100, `offset` 0 or more). "(admin)" means admins only;
 "(owner only)" means the person who created the thing.
 
 ### Requests
@@ -256,7 +262,9 @@ session cookie and a `requesttoken` header instead, as `scripts/smoke-test.sh` d
 - `GET /api/requests/{id}` - details, volunteers and comments (`canModerate` tells you if you can moderate)
 - `GET /api/requests/my` - your own requests
 - `POST /api/requests` - create (`title` 5+ characters, `description` 20+, `categoryId`, `hoursBudget` up to 1000,
-  `priority`, optional `deadline`, `location`, `latitude`, `longitude`). Archived categories are refused
+  `priority`, `zip` (5 digits or ZIP+4, of a US state), optional `deadline`, `location`, `latitude`, `longitude`).
+  Archived categories are refused. Every endpoint returns a request with `zip`, `chapter`, `zipCenter` and
+  `exactLocation`; `location`, `latitude` and `longitude` are `null` unless `exactLocation` is true
 - `PUT /api/requests/{id}` - update *(owner only, while open; the same limits apply)*
 - `POST /api/requests/{id}/complete` - every accepted volunteer is completed. Credits no hours *(owner only)*
 - `POST /api/requests/{id}/cancel` - cancel an open or in-progress request *(owner only)*
@@ -288,7 +296,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 - `POST /api/earnings/claim` - claim hours (`categoryId`, `hoursClaimed` up to 1000, `description` 10+ characters)
 - `GET /api/earnings/my` - your claims
-- `GET /api/earnings/pending` - pending claims you may decide, each with `decidingAs` (`admin`, `facilitator`, `fallback`)
+- `GET /api/earnings/pending` - pending claims you may decide, each with `decidingAs` (`admin`, `facilitator`, `national`)
 - `GET /api/earnings/voting` - claims in a community vote
 - `POST /api/earnings/{id}/approve`, `/reject` (`reason` 10+ characters), `/send-to-vote` *(an approver for the claimant;
   never the claimant; a claim is decided once)*
@@ -298,7 +306,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 - `GET /api/balance/my`, `GET /api/balance/all`
 - `GET /api/ledger`, `GET /api/ledger/my`, `GET /api/ledger/user/{userId}` - the public ledger
-- `GET /api/adjustments` - recent adjustments, what you may do to each, the threshold *(admins, facilitators, fallback group)*
+- `GET /api/adjustments` - recent adjustments, what you may do to each, the threshold *(admins, facilitators, national organizers)*
 - `POST /api/adjustments` - `userId`, `hours` (negative to deduct), `reason` (10+ characters, public). Up to the threshold it
   applies at once; larger ones wait for a second person *(admins; nobody adjusts their own balance)*
 - `POST /api/adjustments/{id}/approve`, `/reject` (`note`), `/withdraw` - a second approver (never the proposer or the
@@ -317,7 +325,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 ### Map and public feeds
 
-- `GET /api/map/requests` - GeoJSON of open requests (points rounded to about 1 km; no contact fields)
+- `GET /api/map/requests` - GeoJSON of open requests, each at its ZIP's center (no exact points, no contact fields)
 - `GET /api/layers/{layer}/feed` - GeoJSON of published rows for `point_snapped` layers (`needs_offers`, `issue_reports`)
 
 ### Organizer desk (organizers and facilitators)
@@ -336,7 +344,7 @@ is aggregate-only and has no row endpoints.
 
 ### Roles, chapters and intake (admins and organizers)
 
-- `GET /api/roles` - your own flags (`organizer`, `facilitator`, `moderator`, `admin`, `fallbackApprover`)
+- `GET /api/roles` - your own flags (`member`, `chapterMember`, `facilitatorOf`, `nationalOrganizer`, `facilitator`, `moderator`, `admin`; `organizer` is an alias of `nationalOrganizer`)
 - `GET /api/chapters/check` - chapters found from your groups, their facilitators, and groups that did not pair
 - `GET /api/intake` (the added forms and recent submissions), `POST /api/intake/forms/lookup` (`link`: finds a form and
   shows its mapping, adds nothing), `PUT /api/intake/forms` (the full list of added forms), `GET /api/intake/forms/{id}/preview?layer=needs_offers`,
@@ -388,7 +396,7 @@ NEXTCLOUD_ROOT=../nc-server composer test:unit     # same as make test-native
 # Against a running server (the dev server on port 8081 by default; pass a URL to test another)
 scripts/smoke-test.sh      # the full request, claim, vote and ledger lifecycle
 scripts/desk-smoke.sh      # organizer desk and privacy rules
-scripts/approver-smoke.sh  # who may approve, the GSUS fallback, notifications (uses occ, needs the dev server)
+scripts/approver-smoke.sh  # who may approve, national organizers, notifications (uses occ, needs the dev server)
 scripts/intake-smoke.sh    # Forms intake end to end (needs the Forms app: occ app:enable forms)
 node scripts/ui-smoke.cjs  # the real forms and screens in a headless browser (needs Playwright)
 
@@ -408,6 +416,10 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **CSRF**: changing calls need a request token or `OCS-APIRequest: true`; read-only calls skip it.
 - **Authorization** is checked on the server on every call from Nextcloud groups; the links hidden in the UI are only a
   convenience. Nobody can approve or vote on their own claim, or adjust their own balance.
+- **Rate limits** per person, per 10 minutes: 50 new requests, 50 claims, and 100 each of comments, offers and votes.
+  Beyond that the call gets HTTP 429 until the window passes.
+- **Bulk reading**: every list is capped at 100 rows a page.
+- **Evidence files**: a claim's `evidenceFileId` must be a file the claimant can read in their own Nextcloud files.
 - **Not encrypted at rest**: everything is plain text in the database, so protect database access and backups.
 
 ## Troubleshooting
@@ -419,7 +431,7 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **No claim notices**: the Nextcloud Notifications app must be enabled and Nextcloud cron running.
 - **Forms are not imported**: the Forms app must be enabled, the form added under **Form Intake**, and cron running;
   rejected submissions and their reasons are listed on that page.
-- **Map shows no markers**: check the Content-Security-Policy host (see Map above) and that requests have coordinates.
+- **Map shows no markers**: check the Content-Security-Policy host (see Map above) and that requests have a ZIP.
 - **Dev server stalls**: PHP's built-in server is single-threaded; `make native-start` already runs it with 4 workers.
 - **Debug logging** in `config/config.php`: `'debug' => true, 'loglevel' => 0,` then `tail -f data/nextcloud.log`.
 
@@ -435,7 +447,13 @@ Where the data lives, who can read it, what is not protected and how to get raw 
 - **Approving a claim creates hours; nothing charges the person helped.** How hours are spent is still to be designed.
 - **A facilitator working a row cannot see the requester's contact details** (organizer-only).
 - **A member can flag a comment once, ever**: after a moderator keeps it, those members cannot flag it again.
-- **Evidence files** for claims are not uploaded or read yet.
+- **Evidence files** for claims are not uploaded from the app yet; the API checks the claimant can read a given file id.
+- **Requests posted before version 0.9 have no ZIP**, so they belong to no state and are not on the map for anyone
+  but their poster, until the poster edits them (an edit asks for the ZIP). The **Chapters** page counts them.
+- **A request cannot yet be moved to another state** by hand; its ZIP decides. The reassign endpoint and the
+  pin-first posting form (drop a pin, the ZIP fills in) are the rest of Phase 2.
+- **Rate limits are fixed** (see Security) and count every call, including refused ones; a burst of data entry by one
+  person can hit them, and they then wait up to 10 minutes.
 - **SQLite (all tests) and PostgreSQL (the API smoke test, on the Docker stack) have been run.** MySQL/MariaDB and
   PHP 8.4 are untested.
 

@@ -6,6 +6,7 @@ namespace OCA\TimeBank\Tests\Unit\Service;
 
 use OCA\TimeBank\Chapter\Chapter;
 use OCA\TimeBank\Chapter\ChapterDirectory;
+use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCA\TimeBank\Db\Adjustment;
 use OCA\TimeBank\Db\AdjustmentMapper;
 use OCA\TimeBank\Schema\Viewer;
@@ -50,6 +51,7 @@ final class AdjustmentServiceTest extends TestCase {
 
 		$groups = $this->createMock(IGroupManager::class);
 		$groups->method('isAdmin')->willReturnCallback(fn (string $u) => str_starts_with($u, 'admin'));
+		$groups->method('search')->willReturn([]);
 		$viewers = $this->createMock(ViewerResolver::class);
 		$viewers->method('forUser')->willReturnCallback(fn (string $u) => new Viewer($u, false, ($this->facilitates[$u] ?? []) !== [], $this->facilitates[$u] ?? []));
 		$viewers->method('facilitatedChapters')->willReturnCallback(fn (string $u) => $this->facilitates[$u] ?? []);
@@ -66,7 +68,7 @@ final class AdjustmentServiceTest extends TestCase {
 			$slug = substr($gid, 4);
 			return array_keys(array_filter($this->facilitates, fn (array $c) => in_array($slug, $c, true)));
 		});
-		$policy = new ApproverPolicy($directory, $groups, $config);
+		$policy = new ApproverPolicy($directory, $groups, new NationalOrganizers($groups, $config));
 		$this->service = new AdjustmentService($this->mapper, $this->balances, $this->transactions, $this->log, $viewers, $policy, $groups, $users, $config, $this->db);
 
 		$this->mapper->method('insert')->willReturnCallback(function (Adjustment $a) {

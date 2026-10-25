@@ -18,9 +18,12 @@ namespace OCA\TimeBank\Schema;
  */
 final class SchemaSpec {
 
+	/** National organizers act nationwide. Another group can be set with national_organizer_group. */
+	public const GROUP_NATIONAL_DEFAULT = 'National Organizers';
+	/** Legacy: counts as national organizer until its members move (see NationalOrganizers). */
 	public const GROUP_ORGANIZER = 'timebank-organizer';
 	public const GROUP_FACILITATOR = 'timebank-facilitator';
-	/** Decides for people whose state has no facilitator. The group id is the setting fallback_approver_group. */
+	/** Legacy: the old fallback approvers, setting fallback_approver_group. Counts as national organizer. */
 	public const GROUP_FALLBACK_DEFAULT = 'GSUS';
 
 	/**

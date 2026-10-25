@@ -108,15 +108,17 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   final. Several volunteers may be accepted; each is credited their own proposed hours. Complete
   does not credit hours (the claim flow does). See `docs/proposals/ui-gaps.md`.
 - **Comments are moderated, not author-deleted.** 3 distinct flags hide a comment from members;
-  moderators (NC admins and `timebank-organizer`) remove or dismiss. Removal is soft (`removed_at`/`removed_by`).
+  moderators (NC admins and national organizers) remove or dismiss. Removal is soft (`removed_at`/`removed_by`).
   `RequestController::show` swaps in `CommentService::getForViewer` so hidden text never leaves the server.
 - **Forms intake** (`lib/Intake/`): reads Nextcloud Forms' own `forms_v2_*` tables (nothing is written to Forms), maps
   questions to desk fields by name or text, imports each submission once as an unpublished row `NO-F<form>-<id>`
   (hand-typed rows are `NO-M...`). `scripts/intake-smoke.sh` needs the Forms app enabled (dev server: `occ app:enable forms`).
 - **Chapters come from group names** (`lib/Chapter/ChapterDirectory.php`): "<Name>" plus "<Name> Facilitator(s)".
   The facilitator group alone gives the power. Membership and roles are checked by group id, never cached across
-  requests. `ApproverPolicy` decides who may act for a member (admin, chapter facilitator, or the `GSUS` fallback when
-  no chapter of theirs has one). Desk rows get their chapter from the ZIP (`lib/Geo/ZipStates.php`). Tests need
+  requests. `ApproverPolicy` decides who may act for a member (admin, chapter facilitator, or a national organizer).
+  National organizers are one group, "National Organizers" (`lib/Chapter/NationalOrganizers.php`, setting
+  `national_organizer_group`); the legacy `timebank-organizer` and `GSUS` groups still count until their members move.
+  Ask "is this person a national organizer" only through that class or `Viewer::$nationalOrganizer`. Desk rows get their chapter from the ZIP (`lib/Geo/ZipStates.php`). Tests need
   group names with spaces; `scripts/approver-smoke.sh` and `desk-smoke.sh` create "Oregon" groups with occ.
 - **Nobody decides on their own claim or adjustment.** `EarningService::requireDecidable` covers approve, reject,
   send-to-vote and vote; `AdjustmentService` refuses the proposer and the member. Keep that rule in any new path.
@@ -136,6 +138,13 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   `textParam()`/`optionalTextParam()` and `Service\Input`, never pass `getParam()` straight on.
   Layer and field shapes are the `Layer`/`Field` psalm types in `SchemaSpec`. The suppressions in
   psalm.xml are for things Nextcloud calls itself; each says why.
+- **Requests leave the server only through `RequestPresenter`** (`RequestService::present()`). `Request::jsonSerialize()`
+  omits `location`, `latitude` and `longitude` on purpose; the presenter adds them for the requester, facilitators of the
+  request's state and accepted volunteers. Any new endpoint, notification or export that includes a request must use it.
+  Map pins for everyone else come from `Geo\ZipCenters` (bundled Census table, `scripts/generate-zip-centers.php`).
+- **Smoke scripts must leave users in no groups.** alice/bob/carol are plain members unless a script adds them; a group
+  left behind (for example `timebank-organizer`, now a national organizer) changes what the next suite sees.
+  Remove memberships in an exit trap.
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
 
