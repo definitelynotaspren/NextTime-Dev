@@ -1,4 +1,4 @@
-.PHONY: help install build clean test appstore docker-up docker-down docker-logs native-setup native-start native-stop test-native smoke docker-seed-users
+.PHONY: help install build clean test appstore docker-up docker-down docker-logs native-setup native-start native-stop test-native smoke demo docker-seed-users
 
 # Default target
 help:
@@ -22,6 +22,7 @@ help:
 	@echo "  make native-start  - Start it on http://127.0.0.1:8081"
 	@echo "  make test-native   - PHPUnit against ../nc-server"
 	@echo "  make smoke         - End-to-end API smoke test (BASE_URL=...)"
+	@echo "  make demo          - Fill a dev server with demo data to click through (BASE_URL=...)"
 	@echo ""
 
 # Install dependencies
@@ -128,31 +129,31 @@ docker-up:
 		cp .env.example .env; \
 		echo "Please update .env with your configuration!"; \
 	fi
-	docker-compose up -d
+	docker compose up -d
 	@echo "Docker environment started!"
 	@echo "Nextcloud will be available at http://localhost:8080"
 
 docker-down:
 	@echo "Stopping Docker environment..."
-	docker-compose down
+	docker compose down
 
 docker-logs:
-	docker-compose logs -f nextcloud
+	docker compose logs -f nextcloud
 
 docker-shell:
-	docker-compose exec nextcloud bash
+	docker compose exec nextcloud bash
 
 docker-rebuild:
 	@echo "Rebuilding Docker containers..."
-	docker-compose down
-	docker-compose build --no-cache
-	docker-compose up -d
+	docker compose down
+	docker compose build --no-cache
+	docker compose up -d
 	@echo "Docker containers rebuilt and started!"
 
 # Install app in running Nextcloud container
 docker-install-app:
 	@echo "Installing Time Bank app in Nextcloud..."
-	docker-compose exec -u www-data nextcloud php occ app:enable timebank
+	docker compose exec -u www-data nextcloud php occ app:enable timebank
 	@echo "Time Bank app enabled!"
 
 # Development workflow
@@ -175,6 +176,9 @@ test-native:
 
 smoke:
 	scripts/smoke-test.sh $(BASE_URL)
+
+demo:
+	scripts/demo-data.sh $(BASE_URL)
 
 # Create the alice/bob/carol test users in the Docker stack
 docker-seed-users:

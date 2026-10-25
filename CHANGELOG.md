@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Docker development stack could not run NextTime.** Its `nextcloud:29-apache` base image ships PHP 8.2,
+  and NextTime needs 8.3. It now uses `nextcloud:31-apache` (PHP 8.3), drops build steps that failed and were
+  not needed (the base image already has the PHP extensions), and the Makefile uses `docker compose`
+  instead of the retired `docker-compose`. The API smoke test passes on it, the first run on PostgreSQL.
 - **On Nextcloud 29, NextTime could break every user's notification list.** Its notifier refused other
   apps' notifications with `UnknownNotificationException`, a class Nextcloud 29 does not have; the
   resulting error was not caught. It now falls back to `\InvalidArgumentException` there.
@@ -98,6 +102,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `scripts/demo-data.sh` (`make demo`) fills a dev server with a small community to click through: requests with
+  map pins, offers, a job in progress, a claim waiting for an admin and one in a community vote.
+- The smoke test and the demo script take the admin password from `ADMIN_PASS` (default `admin`), for the
+  Docker stack, whose password policy rejects `admin`.
 - **Add a form by its link** on the Form Intake page: paste the Forms share link (or the form's address) and the page
   looks the form up, says plainly which links work (a form on this server; not Google Forms or another Nextcloud), shows how
   each question maps, and adds it on a click. Only forms added this way are listed, so organizers no longer see the

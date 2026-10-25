@@ -71,13 +71,15 @@ NextTime.
 
 ## Option C: Development environment (this repo)
 
-Requires Docker, Node.js ≥ 20, npm.
+Requires Docker (with `docker compose`), Node.js ≥ 20, npm, Composer.
 
 ```bash
 cp .env.example .env    # edit passwords first!
-make dev                # installs deps, builds frontend, starts containers
-# Nextcloud at http://localhost:8080 — finish setup wizard, then:
+make dev                # installs deps, builds frontend, starts Nextcloud 31 + Postgres + Redis
+# Nextcloud installs itself at http://localhost:8080 (admin password from .env), then:
 make docker-install-app
+make docker-seed-users  # optional: alice, bob, carol
+ADMIN_PASS='your-admin-password' make demo BASE_URL=http://localhost:8080   # optional: demo data
 ```
 
 `make watch` rebuilds the frontend on file changes during development.
