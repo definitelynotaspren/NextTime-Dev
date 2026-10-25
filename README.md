@@ -103,7 +103,8 @@ ADMIN_PASS='your-admin-password' make demo BASE_URL=http://localhost:8080   # Do
 
 Then log in as `alice`, `bob` or `carol` (password `<name>-pass-123`) or as `admin`, each in their own browser
 or private window, and try: carol accepts an offer on the garden request; alice votes on bob's claim under
-**Votes on Claims**; admin approves carol's claim under **Approvals & Votes**; anyone offers help on the meals
+**Approvals & Votes** (the demo puts everyone in an "Oregon" chapter, so they vote on each other's claims); admin
+approves carol's claim there; anyone offers help on the meals
 request. Running `make demo` again does nothing. The first login shows Nextcloud's welcome dialog; close it.
 
 ### Manual install from source
@@ -160,13 +161,15 @@ are seeded at 1.0 to 1.5, and admins can set any rate above 0 and up to 5 under 
 
 - **Members**: browse the **Request Board** (list or map) and offer help; post a request; after a job, **Submit
   Earnings** (claim hours); watch **My Balance**, **My Activity** (your requests, offers and withdrawn help) and the
-  **Public Ledger**; vote on claims in **Approvals & Votes**; flag a comment that does not belong.
+  **Public Ledger**; see every claim in **Approvals & Votes** and vote on the ones from your own state's members;
+  see who facilitates each state on **Chapters**; flag a comment that does not belong.
 - **Requesters**: accept or decline offers, **Mark complete** (this does *not* credit hours; each volunteer claims
   theirs), edit while the request is open, or cancel.
-- **Facilitators and approvers**: **Approvals & Votes** shows only the claims you may decide, and why. You can approve,
+- **Facilitators and approvers**: **Approvals & Votes** shows every claim and marks the ones you may decide, and why. You can approve,
   reject (with a reason) or send to a community vote. Facilitators also work their chapter's rows on the **Organizer Desk**
   and propose balance **Adjustments** for members of their state; chapter members vote on the large ones there.
-- **National organizers**: claims and adjustments for any member, the desk everywhere, the **Form Intake** and **Chapters** pages, and comment moderation.
+- **National organizers**: claims and adjustments for any member, votes for members of states too small to vote (or with
+  no state), the desk everywhere, the **Form Intake** page, the set-up fixes on **Chapters**, and comment moderation.
 - **Admins**: **Categories**, **Adjustments**, the **Governance Log**, and approval of claims.
 
 Walk-throughs of an offer, a need and a three-person job are in [docs/flows.md](docs/flows.md). What is not built yet is
@@ -304,11 +307,14 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 - `POST /api/earnings/claim` - claim hours (`categoryId`, `hoursClaimed` up to 1000, `description` 10+ characters)
 - `GET /api/earnings/my` - your claims
-- `GET /api/earnings/pending` - pending claims you may decide, each with `decidingAs` (`admin`, `facilitator`, `national`)
-- `GET /api/earnings/voting` - claims in a community vote
+- `GET /api/earnings/pending` - every pending claim, for every member; `canDecide` marks those you may decide, with
+  `decidingAs` (`admin`, `facilitator`, `national`) and `decidingChapter`
+- `GET /api/earnings/voting` - every claim in a community vote, with its votes; `canVote` marks those you may still vote on
 - `POST /api/earnings/{id}/approve`, `/reject` (`reason` 10+ characters), `/send-to-vote` *(an approver for the claimant;
   never the claimant; a claim is decided once)*
-- `POST /api/earnings/{id}/vote` - `approve`, `reject` or `abstain` (any member but the claimant, once). Three votes settle it
+- `POST /api/earnings/{id}/vote` - `approve`, `reject` or `abstain`, once, by a chapter member of the claimant's state
+  (member or facilitator group); national organizers vote instead when the claimant has no state or the state has fewer
+  than three people who could vote. Never the claimant. Three votes settle it
 
 ### Balance, ledger, adjustments, governance
 
@@ -365,7 +371,8 @@ is aggregate-only and has no row endpoints.
 ### Roles, chapters and intake (admins and organizers)
 
 - `GET /api/roles` - your own flags (`member`, `chapterMember`, `facilitatorOf`, `nationalOrganizer`, `facilitator`, `moderator`, `admin`; `organizer` is an alias of `nationalOrganizer`)
-- `GET /api/chapters/check` - chapters found from your groups, their facilitators, and groups that did not pair
+- `GET /api/chapters/check` - chapters found from your groups, their facilitators, the national organizers, and groups
+  that did not pair *(every member; `canManage` is true for admins and national organizers, who are shown the fixes)*
 - `GET /api/intake` (the added forms and recent submissions), `POST /api/intake/forms/lookup` (`link`: finds a form and
   shows its mapping, adds nothing), `PUT /api/intake/forms` (the full list of added forms), `GET /api/intake/forms/{id}/preview?layer=needs_offers`,
   `POST /api/intake/run`, `POST /api/intake/retry`

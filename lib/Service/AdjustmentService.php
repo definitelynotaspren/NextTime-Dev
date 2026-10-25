@@ -6,7 +6,7 @@ namespace OCA\TimeBank\Service;
 
 use OCA\TimeBank\AppInfo\Application;
 use OCA\TimeBank\Chapter\ChapterDirectory;
-use OCA\TimeBank\Chapter\NationalOrganizers;
+use OCA\TimeBank\Chapter\Electorate;
 use OCA\TimeBank\Db\Adjustment;
 use OCA\TimeBank\Db\AdjustmentMapper;
 use OCA\TimeBank\Db\AdjustmentVote;
@@ -26,7 +26,8 @@ use OCP\IUserManager;
  *
  * - Facilitators and national organizers: at or under the threshold, a second facilitator of the
  *   member's state or a national organizer approves or rejects it. Over the threshold it goes to a
- *   vote of the state's chapter members (national organizers, for members with no state). The vote
+ *   vote of the state's chapter members (see Electorate: national organizers for members with no
+ *   state, or whose state has fewer than three people who could vote). The vote
  *   closes after 14 days, or earlier once everyone eligible has voted: at least 3 votes and more
  *   approvals than rejections apply it; 3 or more votes otherwise reject it; fewer than 3 expire it.
  * - Admins (break-glass, unchanged): at or under the threshold it applies at once; over it, a second
@@ -57,7 +58,7 @@ class AdjustmentService {
 		private ViewerResolver $viewers,
 		private ApproverPolicy $policy,
 		private ChapterDirectory $chapters,
-		private NationalOrganizers $nationalOrganizers,
+		private Electorate $electorate,
 		private IGroupManager $groups,
 		private IUserManager $users,
 		private IAppConfig $config,
@@ -300,31 +301,12 @@ class AdjustmentService {
 	}
 
 	/**
-	 * Who may vote: the chapter members (member and facilitator groups) of the member's states, or
-	 * the national organizers when the member has no state. Never the proposer or the member.
+	 * Who may vote on it: see Electorate. Never the proposer or the member.
 	 *
 	 * @return list<string>
 	 */
 	private function electorate(Adjustment $adjustment): array {
-		$slugs = $this->chapters->memberChapters($adjustment->getUserId());
-		$people = [];
-		if ($slugs === []) {
-			$people = $this->nationalOrganizers->users();
-		}
-		foreach ($slugs as $slug) {
-			$chapter = $this->chapters->get($slug);
-			if ($chapter === null) {
-				continue;
-			}
-			if ($chapter->memberGroup !== null) {
-				$people = array_merge($people, $this->chapters->usersOf($chapter->memberGroup));
-			}
-			$people = array_merge($people, $this->chapters->usersOf($chapter->facilitatorGroup));
-		}
-
-		$excluded = [$adjustment->getProposerId(), $adjustment->getUserId()];
-
-		return array_values(array_unique(array_filter($people, fn (string $u) => !in_array($u, $excluded, true))));
+		return $this->electorate->forMember($adjustment->getUserId(), [$adjustment->getProposerId()]);
 	}
 
 	/**

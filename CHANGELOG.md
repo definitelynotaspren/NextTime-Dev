@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Changed
+
+- **Everyone sees every claim; only people who may act get buttons.** **Approvals & Votes** (one name for
+  everyone now) lists all pending claims and all claims in a vote for every member. Approve, reject and send to a
+  vote appear only for approvers; vote buttons only for people who may vote. The API marks each claim with
+  `canDecide` or `canVote`.
+- **Votes on claims belong to the claimant's state** (Decision 2 of the security plan, part of Phase 3): chapter
+  members (member or facilitator group) of the claimant's state vote. Before, any member could vote on any claim.
+- **Small states hand their votes to the national organizers.** When a member has no state, or their state has
+  fewer than three people who could vote, the national organizers vote instead, on claims and on adjustments. One
+  rule decides this for both (`Chapter\Electorate`).
+- **The Chapters page is open to every member**: who facilitates each state and who the national organizers are
+  is public. Set-up problems (unpaired groups, ZIP-less requests, people only in the old groups) are shown to admins
+  and national organizers only.
 
 - **Facilitators propose balance adjustments, and large ones go to a vote** (Phase 4 of the security plan,
   Decision 3). A facilitator proposes for members of their own state, a national organizer for anyone. Up to the

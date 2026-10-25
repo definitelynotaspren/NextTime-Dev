@@ -6,6 +6,7 @@ namespace OCA\TimeBank\Tests\Unit\Service;
 
 use OCA\TimeBank\Chapter\Chapter;
 use OCA\TimeBank\Chapter\ChapterDirectory;
+use OCA\TimeBank\Chapter\Electorate;
 use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCA\TimeBank\Db\Adjustment;
 use OCA\TimeBank\Db\AdjustmentMapper;
@@ -96,7 +97,7 @@ final class AdjustmentServiceTest extends TestCase {
 			return $v;
 		});
 		$policy = new ApproverPolicy($directory, $groups, $nationals);
-		$this->service = new AdjustmentService($this->mapper, $votes, $this->balances, $this->transactions, $this->log, $viewers, $policy, $directory, $nationals, $groups, $users, $config, $this->db);
+		$this->service = new AdjustmentService($this->mapper, $votes, $this->balances, $this->transactions, $this->log, $viewers, $policy, $directory, new Electorate($directory, $nationals), $groups, $users, $config, $this->db);
 
 		$this->mapper->method('insert')->willReturnCallback(function (Adjustment $a) {
 			$a->setId(7);
@@ -209,7 +210,7 @@ final class AdjustmentServiceTest extends TestCase {
 		$service = new AdjustmentService(
 			$this->mapper, $this->createMock(AdjustmentVoteMapper::class), $balances, $this->transactions, $this->log,
 			$this->createMock(ViewerResolver::class), $this->createMock(ApproverPolicy::class), $this->createMock(ChapterDirectory::class),
-			$this->createMock(NationalOrganizers::class), $this->createMock(IGroupManager::class),
+			$this->createMock(Electorate::class), $this->createMock(IGroupManager::class),
 			$this->createMock(IUserManager::class), $this->createMock(IAppConfig::class), $this->db,
 		);
 		$a = $this->pending('admin1', 'bob', '-10.00');
@@ -425,5 +426,16 @@ final class AdjustmentServiceTest extends TestCase {
 		$this->assertTrue($this->service->mayPropose('nora'));
 		$this->assertTrue($this->service->mayPropose('admin1'));
 		$this->assertFalse($this->service->mayPropose('ann'));
+	}
+
+	public function testASmallStatesVoteGoesToNationalOrganizers(): void {
+		$this->twoStates();
+		// Washington: carol (member) and gus (facilitator, proposing): nobody left to vote there.
+		$this->nationals = ['nora', 'nate', 'nell'];
+		$this->service->propose('gus', 'carol', 10.0, 'Ran the Spokane food share all autumn');
+
+		$this->service->vote(7, 'nora', true);
+		$this->service->vote(7, 'nate', true);
+		$this->assertSame('approved', $this->service->vote(7, 'nell', false)->getStatus());
 	}
 }

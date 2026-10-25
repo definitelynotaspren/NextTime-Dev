@@ -31,6 +31,8 @@ interface Report {
 		legacyOnly: { group: string, users: string[] }[]
 	}
 	requestsWithoutZip: number
+	/** Admins and national organizers: shown the set-up problems to fix. */
+	canManage: boolean
 }
 
 const report = ref<Report | null>(null)
@@ -53,6 +55,12 @@ onMounted(async () => {
 			Found from your Nextcloud groups: a group "Colorado" (members) and a group "Colorado Facilitators"
 			(facilitators) make the Colorado chapter. Being in the facilitator group is what gives the power to
 			approve claims and see that chapter's rows; remove someone from it and the power goes at once.
+			Who holds which role is open to every member.
+		</p>
+		<p class="subtitle">
+			A state's facilitators decide its members' claims and small adjustments. Where a state has no facilitator,
+			or the only one is the person asking, the national organizers decide. Votes go to the state's members and
+			facilitators, or to the national organizers when the state has fewer than three people who could vote.
 		</p>
 
 		<p v-if="error" class="error" role="alert">
@@ -90,7 +98,7 @@ onMounted(async () => {
 				</tbody>
 			</table>
 
-			<p v-if="report.requestsWithoutZip" class="warning">
+			<p v-if="report.canManage && report.requestsWithoutZip" class="warning">
 				{{ report.requestsWithoutZip }} open or in-progress {{ report.requestsWithoutZip === 1 ? 'request has' : 'requests have' }}
 				no ZIP code, from before ZIPs were required. They belong to no state, so no facilitator sees their exact location
 				and they are not on the map, until the person who posted each one edits it and adds a ZIP.
@@ -101,21 +109,26 @@ onMounted(async () => {
 				Everyone in the group "{{ report.nationalOrganizers.groupName }}" decides claims and adjustments for any member
 				(never their own) and sees every desk row.
 			</p>
-			<p v-if="!report.nationalOrganizers.groupId" class="warning">
+			<p v-if="!report.nationalOrganizers.groupId && report.canManage" class="warning">
 				No group named "{{ report.nationalOrganizers.groupName }}" exists yet. Create it in Nextcloud's group settings.
+			</p>
+			<p v-else-if="!report.nationalOrganizers.groupId">
+				Nobody yet.
 			</p>
 			<p v-else>
 				{{ report.nationalOrganizers.members.length ? report.nationalOrganizers.members.join(', ') : 'Nobody is in it yet.' }}
 			</p>
 			<template v-for="legacy in report.nationalOrganizers.legacyOnly" :key="legacy.group">
-				<p class="warning">
-					Still national organizers only through the old group "{{ legacy.group }}": {{ legacy.users.join(', ') }}.
-					Add them to "{{ report.nationalOrganizers.groupName }}" (or remove them from "{{ legacy.group }}" if they
-					should not have the role).
+				<p :class="{ warning: report.canManage }">
+					Also national organizers, through the older group "{{ legacy.group }}": {{ legacy.users.join(', ') }}.
+					<template v-if="report.canManage">
+						Add them to "{{ report.nationalOrganizers.groupName }}" (or remove them from "{{ legacy.group }}" if they
+						should not have the role).
+					</template>
 				</p>
 			</template>
 
-			<template v-if="report.stateGroupsWithoutFacilitators.length">
+			<template v-if="report.canManage && report.stateGroupsWithoutFacilitators.length">
 				<h2>States with no facilitator group</h2>
 				<p class="subtitle">
 					These have members but no group named like "<em>Name</em> Facilitators". Their members' claims go to the
@@ -128,7 +141,7 @@ onMounted(async () => {
 				</ul>
 			</template>
 
-			<template v-if="report.unpairedFacilitatorGroups.length">
+			<template v-if="report.canManage && report.unpairedFacilitatorGroups.length">
 				<h2>Facilitator groups that match no state or group</h2>
 				<p class="subtitle">
 					Ignored. Nothing is lost if they are on purpose (for example a group for all chapters). If one was meant

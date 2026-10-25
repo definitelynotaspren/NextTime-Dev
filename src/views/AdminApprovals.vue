@@ -19,12 +19,17 @@ interface Earning {
 	status: string
 	createdAt: string
 	votes?: { voterId: string }[]
-	decidingAs?: 'admin' | 'facilitator' | 'national'
+	decidingAs?: 'admin' | 'facilitator' | 'national' | null
 	decidingChapter?: string | null
+	/** Pending claims: you may approve, reject or send it to a vote. */
+	canDecide?: boolean
+	/** Claims in a vote: you are a chapter member of the claimant's state and have not voted. */
+	canVote?: boolean
+	approveCount?: number
+	rejectCount?: number
 }
 
 const currentUserId = getCurrentUser()?.uid ?? null
-const canReview = ref(false)
 const actionError = ref<string | null>(null)
 
 const pendingClaims = ref<Earning[]>([])
@@ -40,17 +45,13 @@ const fetchClaims = async () => {
 	error.value = null
 
 	try {
-		// Anyone can take part in votes; only admins review pending claims.
-		const votingRes = await axios.get(generateUrl('/apps/timebank/api/earnings/voting'))
+		// Everyone sees every claim; the server marks the ones you may act on.
+		const [pendingRes, votingRes] = await Promise.all([
+			axios.get(generateUrl('/apps/timebank/api/earnings/pending')),
+			axios.get(generateUrl('/apps/timebank/api/earnings/voting')),
+		])
+		pendingClaims.value = pendingRes.data
 		votingClaims.value = votingRes.data
-		try {
-			const pendingRes = await axios.get(generateUrl('/apps/timebank/api/earnings/pending'))
-			pendingClaims.value = pendingRes.data
-			canReview.value = true
-		} catch {
-			pendingClaims.value = []
-			canReview.value = false
-		}
 	} catch (e: unknown) {
 		error.value = errorMessage(e, 'Failed to fetch claims')
 	} finally {
@@ -125,7 +126,12 @@ onMounted(() => {
 
 <template>
 	<div class="admin-approvals">
-		<h1>Approval Dashboard</h1>
+		<h1>Approvals &amp; Votes</h1>
+		<p class="intro">
+			Every claim is shown to every member. A claim is approved by a facilitator of the claimant's state, a national
+			organizer or an admin, or sent to a vote of the state's members (national organizers vote when the state has
+			fewer than three people who could). Buttons appear only where you may act; nobody decides on their own claim.
+		</p>
 
 		<NcLoadingIcon v-if="loading" :size="44" />
 
@@ -139,11 +145,11 @@ onMounted(() => {
 			<p v-if="actionError" class="action-error" role="alert">
 				{{ actionError }}
 			</p>
-			<section v-if="canReview" class="pending-section">
+			<section class="pending-section">
 				<h2>Pending Claims ({{ pendingClaims.length }})</h2>
 
 				<div v-if="pendingClaims.length === 0" class="empty-state">
-					No pending claims to review.
+					No pending claims.
 				</div>
 
 				<div v-else class="claims-list">
@@ -162,10 +168,13 @@ onMounted(() => {
 						<p v-if="claim.userId === currentUserId" class="own-claim">
 							This is your claim. Someone else has to approve it, reject it or send it to a vote.
 						</p>
-						<p v-else class="deciding-as">
+						<p v-else-if="claim.canDecide" class="deciding-as">
 							You decide on this {{ claim.decidingAs === 'admin' ? 'as an admin' : claim.decidingAs === 'facilitator' ? `as a facilitator of ${claim.decidingChapter}` : 'as a national organizer' }}.
 						</p>
-						<div v-if="claim.userId !== currentUserId" class="claim-actions">
+						<p v-else class="deciding-as">
+							View only: a facilitator of this member's state or a national organizer decides.
+						</p>
+						<div v-if="claim.canDecide && claim.userId !== currentUserId" class="claim-actions">
 							<NcButton
 								variant="primary"
 								:disabled="processing === claim.id"
@@ -233,6 +242,9 @@ onMounted(() => {
 						<p v-else-if="claim.votes?.some((v) => v.voterId === currentUserId)" class="own-claim">
 							You have voted on this claim.
 						</p>
+						<p v-else-if="!claim.canVote" class="deciding-as">
+							View only: chapter members of this member's state vote on it.
+						</p>
 						<div v-else class="claim-actions">
 							<NcButton
 								variant="primary"
@@ -260,7 +272,13 @@ onMounted(() => {
 }
 
 .admin-approvals h1 {
+	margin-bottom: 8px;
+}
+
+.intro {
+	max-width: 760px;
 	margin-bottom: 20px;
+	color: var(--color-text-maxcontrast);
 }
 
 .deciding-as {

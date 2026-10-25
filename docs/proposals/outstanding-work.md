@@ -29,12 +29,14 @@ the one before it has.
   Add publish and decline endpoints for national organizers (logged). The column exists (migration `Version000008`).
 - [ ] **Request list.** Members and chapter members see open requests plus their own; facilitators and national
   organizers also see in-progress ones in their scope. Today everyone sees every status.
-- [ ] **Voting** (Decision 2). `EarningService::validateVoterEligibility()` requires chapter membership and the same
-  state as the claimant. Claims from members with no state go to a vote among national organizers.
+- [x] **Voting** (Decision 2). Done 2026-10-25: `Chapter\Electorate` decides who votes on claims and adjustments
+  (the claimant's state's chapter members; national organizers when they have no state or the state has fewer than
+  3 possible voters). Everyone sees every claim on Approvals & Votes; buttons only for those who may act.
 - [ ] **Comment moderation.** `CommentService::isModerator()` takes the request: facilitators of the request's state
   plus national organizers. Today any national organizer or admin moderates everywhere.
-- [ ] Frontend: hide Post, Vote and Moderate controls for people without the power (the server still enforces it); a
-  review queue page for national organizers.
+- [ ] Frontend: hide Post and Moderate controls for people without the power (the server still enforces it); a
+  review queue page for national organizers. (Vote and approve controls already follow the server's `canVote` and
+  `canDecide`.)
 
 ### Phase 4: adjustments by facilitators: done
 
@@ -85,7 +87,7 @@ Run on a local Nextcloud with the two-state test world from the plan (nina, ana,
 | D4 | Are the rate limits right? | Fixed per 10 minutes: 50 requests, 50 claims, 100 comments, offers and votes. Not settings. |
 | D5 | Requests posted before ZIPs were required have no state and no map pin for others until edited. Contact the posters? | Counted on the Chapters page only. |
 | D6 | Should the national organizer group name be editable in Admin settings? | Set with `occ config:app:set timebank national_organizer_group`. |
-| D7 | A chapter with fewer than 3 eligible voters can never pass an adjustment vote. Fall back to national organizers? | Such votes expire after 14 days; a smaller adjustment (under the threshold) still works. |
+| D7 | ~~A chapter with fewer than 3 eligible voters can never pass an adjustment vote.~~ | Decided 2026-10-25: the national organizers vote instead, for claims and adjustments alike. Needs the National Organizers group on the main instance (planned as its own role). |
 | D8 | Should admins keep proposing large adjustments that skip the vote (break-glass, Decision 3.6)? | Yes, as decided; logged like everything else. |
 
 ## 3. Product backlog

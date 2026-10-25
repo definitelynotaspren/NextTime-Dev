@@ -93,7 +93,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:name="isAdmin || isFacilitator || isOrganizer ? 'Approvals & Votes' : 'Votes on Claims'"
+					:name="'Approvals & Votes'"
 					:to="{ name: 'AdminApprovals' }"
 					:active="route.name === 'AdminApprovals'">
 					<template #icon>
@@ -118,7 +118,6 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					v-if="isAdmin || isOrganizer"
 					:name="'Chapters'"
 					:to="{ name: 'ChapterCheck' }"
 					:active="route.name === 'ChapterCheck'">

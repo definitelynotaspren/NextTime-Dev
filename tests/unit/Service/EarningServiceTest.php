@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Tests\Unit\Service;
 
+use OCA\TimeBank\Chapter\Electorate;
 use OCA\TimeBank\Db\CategoryMapper;
 use OCA\TimeBank\Db\Earning;
 use OCA\TimeBank\Db\EarningMapper;
@@ -33,6 +34,7 @@ final class EarningServiceTest extends TestCase {
 	private ClaimNotifier&MockObject $notifier;
 	private CategoryMapper&MockObject $categories;
 	private IRootFolder&MockObject $root;
+	private Electorate&MockObject $electorate;
 	private EarningService $service;
 
 	protected function setUp(): void {
@@ -54,7 +56,10 @@ final class EarningServiceTest extends TestCase {
 			$this->policy,
 			$this->notifier,
 			$this->root,
+			$this->electorate = $this->createMock(Electorate::class),
 		);
+		// bob's state: ann, dan and eve vote. bob never does on his own claim.
+		$this->electorate->method('forMember')->willReturnCallback(fn (string $member) => $member === 'bob' ? ['ann', 'dan', 'eve'] : ['nora', 'nate', 'nell']);
 		$this->earnings->method('update')->willReturnArgument(0);
 	}
 
@@ -134,11 +139,45 @@ final class EarningServiceTest extends TestCase {
 		$this->service->approveClaim(1, 'admin');
 	}
 
-	public function testVotingDoesNotNeedToBeAnApprover(): void {
+	public function testAChapterMemberOfTheClaimantsStateVotesWithoutBeingAnApprover(): void {
 		$this->claim('voting', 'bob');
 		$this->votes->method('findByEarning')->willReturn([]);
 
-		$this->assertFalse($this->service->recordVote(1, 'nobody', 'approve')['complete']);
+		$this->assertFalse($this->service->recordVote(1, 'ann', 'approve')['complete']);
+	}
+
+	public function testSomeoneOutsideTheClaimantsStateCannotVote(): void {
+		$this->claim('voting', 'bob');
+		$this->votes->expects($this->never())->method('insert');
+
+		$this->expectException(NotAuthorizedException::class);
+		$this->service->recordVote(1, 'nora', 'approve');
+	}
+
+	public function testEveryoneSeesPendingClaimsButOnlyApproversMayDecide(): void {
+		$this->claim('pending', 'bob');
+		$this->earnings->method('findByStatus')->willReturnCallback(fn (string $status) => $status === 'pending' ? [$this->earnings->find(1)] : []);
+		$this->policy->method('capacity')->willReturnCallback(fn (string $d) => $d === 'fay' ? ['as' => 'facilitator', 'chapter' => 'oregon'] : null);
+
+		$forAnn = $this->service->getPendingClaims('ann');
+		$this->assertCount(1, $forAnn, 'a member sees it too');
+		$this->assertFalse($forAnn[0]['canDecide']);
+		$this->assertSame(['facilitator', 'oregon'], [$this->service->getPendingClaims('fay')[0]['decidingAs'], $this->service->getPendingClaims('fay')[0]['decidingChapter']]);
+	}
+
+	public function testEveryoneSeesVotesButOnlyTheStatesChapterMembersMayVoteOnce(): void {
+		$this->claim('voting', 'bob');
+		$this->earnings->method('findByStatus')->willReturnCallback(fn (string $status) => $status === 'voting' ? [$this->earnings->find(1)] : []);
+		$vote = new \OCA\TimeBank\Db\Vote();
+		$vote->setVoterId('dan');
+		$vote->setVote('approve');
+		$this->votes->method('findByEarning')->willReturn([$vote]);
+
+		$this->assertTrue($this->service->getVotingClaims('ann')[0]['canVote']);
+		$this->assertFalse($this->service->getVotingClaims('dan')[0]['canVote'], 'already voted');
+		$this->assertFalse($this->service->getVotingClaims('nora')[0]['canVote'], 'another state');
+		$this->assertFalse($this->service->getVotingClaims('bob')[0]['canVote'], 'the claimant');
+		$this->assertSame(1, $this->service->getVotingClaims('nora')[0]['approveCount'], 'but everyone sees the tally');
 	}
 
 	/** bob's own files hold file 5 (readable) and file 6 (not readable); nothing else. */

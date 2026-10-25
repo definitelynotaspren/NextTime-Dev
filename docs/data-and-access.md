@@ -127,13 +127,15 @@ and all but the last need a Nextcloud account.
   this app:
   - PII (organizers and facilitators): `/index.php/apps/timebank/api/layers/`, `/api/assignments`,
     `/api/schema`, and the Organizer Desk screens that call them.
-  - Admin powers: `/api/adjustments`, `/api/settings/`, `/api/balance/all`, `/api/earnings/pending`, `/api/earnings/{id}/approve`,
+  - Admin powers: `/api/settings/`, `/api/balance/all`, `/api/earnings/{id}/approve`,
     `/reject`, `/send-to-vote`, `POST|PUT|DELETE /api/categories`, and Nextcloud's own `/settings/admin`,
     `/settings/users`, `/settings/apps`, and `/ocs/v2.php/cloud/users` and `/ocs/v2.php/cloud/groups`. The
-    last two matter most: whoever can add a user to `timebank-organizer` can give themselves PII access.
+    last two matter most: whoever can add a user to "National Organizers" can give themselves PII access.
+    (`/api/earnings/pending`, `/api/earnings/voting`, `/api/adjustments` and `/api/chapters/check` are read by every
+    member since claims and roles became public, so they stay outside the tunnel.)
   ```nginx
   # Example only, not run. 10.8.0.0/24 is the WireGuard subnet.
-  location ~ ^/index\.php/apps/timebank/api/(layers|assignments|schema|balance|earnings/pending|earnings/\d+/(approve|reject|send-to-vote)) {
+  location ~ ^/index\.php/apps/timebank/api/(layers|assignments|schema|balance|earnings/\d+/(approve|reject|send-to-vote)) {
       allow 10.8.0.0/24;
       deny all;
       try_files $uri /index.php$request_uri;   # then your usual PHP handling

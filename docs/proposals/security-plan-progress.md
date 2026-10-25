@@ -100,6 +100,17 @@ request notifications are added).
 - Tests: 14 new cases in `AdjustmentServiceTest`; `approver-smoke.sh` "Adjustments by facilitators and votes" (21 checks,
   makes and deletes three voters).
 
+## After Phase 4: what members see (asked for 2026-10-25)
+
+- `Chapter\Electorate`: who votes about a member, for claims and adjustments alike. The chapter members of their
+  states; the national organizers when they have none or the state has fewer than 3 possible voters (Decision 2, and
+  D7 in outstanding-work.md). `EarningService::validateVoterEligibility()` checks it, which completes Phase 3's voting item.
+- `GET /api/earnings/pending` and `/voting` return every claim to every member, with `canDecide` / `canVote`;
+  Approvals & Votes shows buttons only where they are true.
+- `GET /api/chapters/check` is open to every member, with `canManage` for admins and national organizers, who alone
+  see the set-up fixes. `smoke-test.sh` sets up the Oregon voters through Nextcloud's provisioning API, so it still
+  runs on the Docker stack without occ.
+
 The plan's remaining phases (3, 4, 5), its testing checklist and its policy steps are restated in full in
 [outstanding-work.md](outstanding-work.md), since the plan document itself is not in the repository.
 

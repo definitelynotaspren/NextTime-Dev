@@ -66,7 +66,7 @@ expect "bob submits a claim" 201
 BOB_CLAIM="$(jq -r '.id' <<<"$BODY")"
 
 call alice GET /earnings/pending
-[ "$(jq -r --argjson c "$BOB_CLAIM" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 0 ] && pass "someone in no group does not see bob's claim" || fail "alice sees bob's claim: $BODY"
+[ "$(jq -r --argjson c "$BOB_CLAIM" '[.[] | select(.id==$c)][0].canDecide' <<<"$BODY")" = false ] && pass "someone in no group sees bob's claim, view only" || fail "alice's list: $BODY"
 call alice POST "/earnings/$BOB_CLAIM/approve"
 expect "someone in no group cannot approve" 403
 call carol GET /earnings/pending
@@ -74,7 +74,7 @@ call carol GET /earnings/pending
 call bob POST "/earnings/$BOB_CLAIM/send-to-vote"
 expect "belonging to Oregon gives bob no powers" 403
 call bob GET /earnings/pending
-[ "$(jq -r '[.[] | select(.userId=="bob")] | length' <<<"$BODY")" = 0 ] && pass "bob sees none of his own claims to decide" || fail "bob's list: $BODY"
+[ "$(jq -r '[.[] | select(.userId=="bob" and .canDecide)] | length' <<<"$BODY")" = 0 ] && pass "bob may decide none of his own claims" || fail "bob's list: $BODY"
 call bob POST "/earnings/$BOB_CLAIM/approve"
 expect "bob cannot approve his own claim" 403
 
@@ -126,12 +126,12 @@ echo "- Losing the facilitator role takes the ability away at once"
 call bob POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Approver smoke: bob, facilitator removed\"}"
 BOB3="$(jq -r '.id' <<<"$BODY")"
 call carol GET /earnings/pending
-[ "$(jq -r --argjson c "$BOB3" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 1 ] && pass "carol sees the new claim" || fail "carol's list: $BODY"
+[ "$(jq -r --argjson c "$BOB3" '[.[] | select(.id==$c)][0].canDecide' <<<"$BODY")" = true ] && pass "carol may decide the new claim" || fail "carol's list: $BODY"
 occ group:removeuser "Oregon Facilitators" carol
 call carol POST "/earnings/$BOB3/approve"
 expect "once removed from the facilitator group carol can no longer approve" 403
 call carol GET /earnings/pending
-[ "$(jq -r --argjson c "$BOB3" '[.[] | select(.id==$c)] | length' <<<"$BODY")" = 0 ] && pass "and no longer sees the claim" || fail "carol still sees it: $BODY"
+[ "$(jq -r --argjson c "$BOB3" '[.[] | select(.id==$c)][0].canDecide' <<<"$BODY")" = false ] && pass "and it is view only for her now" || fail "carol may still decide it: $BODY"
 call admin POST "/earnings/$BOB3/reject" '{"reason":"Approver smoke: cleaning up this claim"}'
 expect "an admin can still settle it" 200
 
@@ -191,9 +191,11 @@ occ group:removeuser "Oregon Facilitators" carol
 
 echo "- Chapter check page"
 call carol GET /chapters/check
-expect "members cannot open the chapter check" 403
+expect "every member opens the chapter check" 200
+[ "$(jq -r '.canManage' <<<"$BODY")" = false ] && pass "but is not shown the set-up fixes" || fail "carol's check page: $(head -c 200 <<<"$BODY")"
 call admin GET /chapters/check
 expect "admin opens the chapter check" 200
+[ "$(jq -r '.canManage' <<<"$BODY")" = true ] && pass "and may fix what it reports" || fail "admin's check page: $(head -c 200 <<<"$BODY")"
 [ "$(jq -r '[.chapters[] | select(.slug=="oregon")] | length' <<<"$BODY")" = 1 ] && pass "Oregon was found from the group names" || fail "Oregon missing: $BODY"
 
 echo

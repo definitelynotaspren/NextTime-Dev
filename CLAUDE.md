@@ -144,7 +144,8 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   Map pins for everyone else come from `Geo\ZipCenters` (bundled Census table, `scripts/generate-zip-centers.php`).
 - **Smoke scripts must leave users in no groups.** alice/bob/carol are plain members unless a script adds them; a group
   left behind (for example `timebank-organizer`, now a national organizer) changes what the next suite sees.
-  Remove memberships in an exit trap.
+  Remove memberships in an exit trap. Exception: `scripts/demo-data.sh` leaves them in "Oregon" on purpose (demo
+  servers only). `smoke-test.sh` changes groups through Nextcloud's provisioning API, so it also runs on Docker.
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
 

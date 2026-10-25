@@ -120,7 +120,20 @@ must 200 "complete the laptop job"
 claim carol "Tech Support" 1 "Set up bob's laptop for video calls: installed the app and tested camera and microphone." >/dev/null
 echo "  offers, one job in progress, one claim waiting for approval"
 
-# A claim in a community vote: three members other than the claimant settle it.
+# Note for the dev server: unlike the test scripts, this leaves alice, bob, carol and admin in "Oregon" on
+# purpose. The smoke tests expect them in no groups, so run it on a separate server, or remove them before
+# testing (scripts/dev-native.sh occ group:removeuser Oregon <user>).
+# The demo world is one chapter, Oregon (the requests are in Portland): alice, bob, carol and admin are its
+# members, so they vote on each other's claims. Being a member gives no other powers. Set up through the
+# provisioning API so it works on the Docker stack too; adding someone twice changes nothing.
+provision() {
+	curl -s -o /dev/null -u "admin:${ADMIN_PASS:-admin}" -H 'OCS-APIRequest: true' -X POST --data-urlencode "$2" "$BASE/ocs/v2.php/cloud/$1"
+}
+provision groups groupid=Oregon
+provision groups "groupid=Oregon Facilitators"
+for u in alice bob carol admin; do provision "users/$u/groups" groupid=Oregon; done
+
+# A claim in a community vote: three of bob's chapter members settle it.
 VOTE_CLAIM=$(claim bob Gardening 2 "Weeded and watered the community garden beds while the usual volunteers were away.")
 call admin POST "/earnings/$VOTE_CLAIM/send-to-vote"
 must 200 "send bob's claim to a community vote (check ADMIN_PASS)"
@@ -129,4 +142,5 @@ echo "  one claim in a community vote"
 echo "Done. Log in as alice, bob or carol (password <name>-pass-123) or admin and look around:"
 echo "  $BASE/index.php/apps/timebank/"
 echo "  Things to try: as carol, accept an offer on the garden; as alice or admin, vote on bob's claim"
-echo "  (Votes on Claims); as admin, approve carol's claim (Approvals & Votes); offer help on request $MEALS."
+echo "  (Approvals & Votes, as a member of his chapter, Oregon); as admin, approve carol's claim there;"
+echo "  offer help on request $MEALS. Everyone sees every claim; buttons show only where you may act."

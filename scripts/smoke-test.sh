@@ -22,7 +22,19 @@ BASE="${1:-${BASE_URL:-http://127.0.0.1:8081}}"
 API="$BASE/index.php/apps/timebank/api"
 FAILS=0
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# Group changes go through Nextcloud's provisioning API, so this also works where occ is not at hand
+# (the Docker stack). Memberships added here are removed again on exit.
+provision() { # provision METHOD PATH [form fields...]
+	local method="$1" path="$2"; shift 2
+	local args=(-s -o /dev/null -u "admin:${ADMIN_PASS:-admin}" -H 'OCS-APIRequest: true' -X "$method")
+	for field in "$@"; do args+=(--data-urlencode "$field"); done
+	curl "${args[@]}" "$BASE/ocs/v2.php/cloud/$path"
+}
+cleanup() {
+	for u in carol alice bob admin; do provision DELETE "users/$u/groups" groupid=Oregon; done
+	rm -rf "$TMP"
+}
+trap cleanup EXIT
 
 command -v jq >/dev/null || { echo "jq is required (apt install jq / brew install jq)"; exit 99; }
 
@@ -105,7 +117,8 @@ call bob GET /earnings/my
 expect "bob's claims" 200
 
 call bob GET /earnings/pending
-[ "$STATUS" = 200 ] && [ "$(jq -r '[.[] | select(.userId=="bob")] | length' <<<"$BODY")" = 0 ] && pass "a member's pending queue never holds their own claims" || fail "pending queue for bob: $STATUS $BODY"
+[ "$STATUS" = 200 ] && [ "$(jq -r --argjson id "$EARN_BOB" '[.[] | select(.id==$id)][0].canDecide' <<<"$BODY")" = false ] \
+	&& pass "everyone sees pending claims; bob may not decide his own" || fail "pending queue for bob: $STATUS $(head -c 300 <<<"$BODY")"
 
 call admin GET /earnings/pending
 expect "admin pending queue" 200
@@ -119,6 +132,11 @@ BAL="$(json '.balance')"
 awk "BEGIN{exit !($BAL > 0)}" 2>/dev/null && pass "bob's balance is positive ($BAL)" || fail "bob's balance not credited ($BODY)"
 
 echo "- Earnings: community vote path"
+# Votes go to the chapter members of the claimant's state (Decision 2): put carol, alice, bob and admin in
+# Oregon. A state needs a facilitator group to exist; it can be empty.
+provision POST groups groupid=Oregon
+provision POST groups "groupid=Oregon Facilitators"
+for u in carol alice bob admin; do provision POST "users/$u/groups" groupid=Oregon; done
 call carol POST /earnings/claim "{\"categoryId\":$CAT_ID,\"hoursClaimed\":1,\"description\":\"Drove a neighbour to the clinic (smoke test).\"}"
 expect "carol claims 1 hour" 201
 EARN_CAROL="$(json '.id')"
@@ -128,6 +146,9 @@ expect "admin sends carol's claim to vote" 200
 
 call alice GET /earnings/voting
 expect "voting queue" 200
+[ "$(jq -r --argjson id "$EARN_CAROL" '[.[] | select(.id==$id)][0].canVote' <<<"$BODY")" = true ] && pass "alice, in carol's state, may vote" || fail "alice's voting list: $(head -c 300 <<<"$BODY")"
+call carol GET /earnings/voting
+[ "$(jq -r --argjson id "$EARN_CAROL" '[.[] | select(.id==$id)][0].canVote' <<<"$BODY")" = false ] && pass "carol sees her claim in the vote, view only" || fail "carol's voting list: $(head -c 300 <<<"$BODY")"
 
 for voter in alice bob admin; do
 	call "$voter" POST "/earnings/$EARN_CAROL/vote" '{"vote":"approve","comment":"Seen it happen."}'
@@ -137,6 +158,7 @@ done
 call carol GET /earnings/my
 STATE="$(jq -r --argjson id "$EARN_CAROL" '.[] | select(.id==$id) | .status' <<<"$BODY" 2>/dev/null)"
 [ "$STATE" = approved ] && pass "3 votes resolved carol's claim (status=approved)" || fail "carol's claim status after 3 votes is '$STATE'"
+for u in carol alice bob admin; do provision DELETE "users/$u/groups" groupid=Oregon; done
 
 echo "- Ledger"
 call alice GET /ledger
@@ -358,9 +380,15 @@ expect "carol cannot vote on her own claim" 403
 call admin POST "/earnings/$CAROL_CLAIM/approve"
 expect "a claim in a vote cannot also be approved by an admin" 400
 call bob POST "/earnings/$CAROL_CLAIM/vote" '{"vote":"reject"}'
-expect "someone else can vote" 200
+expect "a member outside carol's state cannot vote (she has none, and there are no national organizers)" 403
+provision POST groups groupid=Oregon
+provision POST groups "groupid=Oregon Facilitators"
+for u in carol alice bob admin; do provision POST "users/$u/groups" groupid=Oregon; done
+call bob POST "/earnings/$CAROL_CLAIM/vote" '{"vote":"reject"}'
+expect "once both are in Oregon, bob can vote" 200
 call bob POST "/earnings/$CAROL_CLAIM/vote" '{"vote":"reject"}'
 expect "and only once" 400
+for u in carol alice bob admin; do provision DELETE "users/$u/groups" groupid=Oregon; done
 
 echo "- Categories: archive, guarded delete, public log"
 call carol POST /categories '{"name":"Not allowed"}'
