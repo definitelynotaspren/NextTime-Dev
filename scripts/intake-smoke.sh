@@ -18,7 +18,7 @@ FORMS="$BASE/ocs/v2.php/apps/forms/api/v3"
 FAILS=0
 TMP="$(mktemp -d)"
 cleanup() {
-	for pair in "Colorado Facilitators|bob" "Washington Facilitators|carol"; do
+	for pair in "Colorado Facilitators|bob" "Washington Facilitators|carol" "National Organizers|alice"; do
 		scripts/dev-native.sh occ group:removeuser "${pair%%|*}" "${pair##*|}" >/dev/null 2>&1 || true
 	done
 	# Leave nothing switched on that would keep importing in the background.
@@ -63,6 +63,8 @@ for t in "Need or offer" "Category" "Summary" "ZIP" "Urgency" "Contact route" "r
 	Q[$t]="$(forms admin POST "/forms/$FORM/questions" "{\"type\":\"short\",\"text\":\"$t\"}" | jq -r '.ocs.data.id')"
 done
 for g in "Colorado" "Colorado Facilitators" "Washington" "Washington Facilitators"; do occ group:add "$g"; done
+occ group:add "National Organizers"
+occ group:adduser "National Organizers" alice
 occ group:adduser "Colorado Facilitators" bob
 occ group:adduser "Washington Facilitators" carol
 
