@@ -126,9 +126,10 @@ then `make docker-install-app`. Run the smoke test with
   APIs newer than 29.
 - `vendor-bin/*` holds isolated tool installs (phpunit, psalm, cs-fixer,
   rector); `composer install` populates them via bamarni/composer-bin-plugin.
-- Psalm (`composer psalm`) has ~220 pre-existing findings (mostly
-  `UndefinedDocblockClass` from missing stubs). Don't treat it as a gate; just
-  don't add new ones in files you touch.
+- Psalm (`composer psalm`) is a CI gate. Older findings (~350, mostly unused-code false alarms and
+  strict typing) are recorded in `psalm-baseline.xml`, so only NEW findings fail. Don't add to the
+  baseline to get green; fix the code. Regenerate it only after fixing old findings
+  (`vendor/bin/psalm --set-baseline=psalm-baseline.xml`). CI runs psalm once per Nextcloud 29-35 API.
 - `PublicLedger.vue` renders `getTypeIcon()` via `v-html` - keep that function
   returning fixed strings only, never user data.
 

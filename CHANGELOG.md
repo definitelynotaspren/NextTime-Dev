@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **On Nextcloud 29, NextTime could break every user's notification list.** Its notifier refused other
+  apps' notifications with `UnknownNotificationException`, a class Nextcloud 29 does not have; the
+  resulting error was not caught. It now falls back to `\InvalidArgumentException` there.
+- CI: static analysis (psalm) now runs on PHP 8.3 and checks only for new findings; existing ones are
+  recorded in `psalm-baseline.xml`. It passes against every Nextcloud API from 29 to the current one.
 - Missing spaces in two places: the Governance Log ran the action into the name ("an adjustment foralice",
   "created categoryGardening") and Withdrawn help on a request ran the volunteer into the hours ("carol3 h").
 - The README is rewritten to match the app: working curl examples (they need `/index.php` and the `OCS-APIRequest`

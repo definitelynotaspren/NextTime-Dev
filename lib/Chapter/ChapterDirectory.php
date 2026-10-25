@@ -167,7 +167,7 @@ class ChapterDirectory {
 			return [];
 		}
 
-		return array_values(array_map(fn ($user) => (string)$user->getUID(), $group->getUsers()));
+		return array_values(array_map(fn ($user) => $user->getUID(), $group->getUsers()));
 	}
 
 	private function discover(): void {
