@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Tests\Unit\Service;
 
 use OCA\TimeBank\Chapter\ChapterDirectory;
+use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCA\TimeBank\Service\ApproverPolicy;
 use OCP\IAppConfig;
 use OCP\IGroup;
@@ -13,8 +14,8 @@ use OCP\IUser;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Who may decide about a member. A chapter's facilitator group alone gives the power; the
- * fallback group only covers members without a facilitator.
+ * Who may decide about a member. A chapter's facilitator group alone gives the power; national
+ * organizers (and the legacy GSUS group, until its members move) decide for everyone.
  */
 final class ApproverPolicyTest extends TestCase {
 
@@ -31,6 +32,7 @@ final class ApproverPolicyTest extends TestCase {
 			'Washington' => ['carol'],
 			'Washington Facilitators' => ['gus'],
 			'GSUS' => ['gina', 'fay'],
+			'National Organizers' => ['nora'],
 		];
 		$this->policy = $this->build();
 	}
@@ -50,13 +52,14 @@ final class ApproverPolicyTest extends TestCase {
 		};
 		$manager->method('isAdmin')->willReturnCallback(fn (string $u) => in_array($u, $this->groups['admin'] ?? [], true));
 		$manager->method('isInGroup')->willReturnCallback(fn (string $u, string $g) => in_array($u, $this->groups[$g] ?? [], true));
+		$manager->method('groupExists')->willReturnCallback(fn (string $g) => isset($this->groups[$g]));
 		$manager->method('search')->willReturnCallback(fn () => array_map($make, array_keys($this->groups)));
 		$manager->method('get')->willReturnCallback(fn (string $g) => isset($this->groups[$g]) ? $make($g) : null);
 
 		$config = $this->createMock(IAppConfig::class);
 		$config->method('getValueString')->willReturnArgument(2);
 
-		return new ApproverPolicy(new ChapterDirectory($manager, $config), $manager, $config);
+		return new ApproverPolicy(new ChapterDirectory($manager, $config), $manager, new NationalOrganizers($manager, $config));
 	}
 
 	public function testAdminsMayDecideExceptOnThemselves(): void {
@@ -86,26 +89,32 @@ final class ApproverPolicyTest extends TestCase {
 		$this->assertFalse($this->build()->mayDecide('onlyfac', 'bob'));
 	}
 
-	public function testTheFallbackGroupCoversMembersWithoutAFacilitator(): void {
-		$this->groups['Washington Facilitators'] = [];
-		$policy = $this->build();
-
-		$this->assertSame('fallback', $policy->capacity('gina', 'carol')['as']);
-		$this->assertSame('fallback', $policy->capacity('gina', 'stranger')['as'], 'someone with no chapter at all');
+	public function testNationalOrganizersDecideForEveryoneButThemselves(): void {
+		$this->assertSame(['as' => 'national', 'chapter' => null], $this->policy->capacity('nora', 'bob'));
+		$this->assertSame('national', $this->policy->capacity('nora', 'carol')['as'], 'any state');
+		$this->assertSame('national', $this->policy->capacity('nora', 'stranger')['as'], 'someone with no chapter at all');
+		$this->assertNull($this->policy->capacity('nora', 'nora'));
 	}
 
-	public function testTheFallbackNeverOverridesAChapterThatHasFacilitators(): void {
-		$this->assertNull($this->policy->capacity('gina', 'bob'));
-		$this->assertNull($this->policy->capacity('gina', 'carol'), 'Washington has gus');
+	public function testTheLegacyFallbackGroupCountsAsNationalUntilMoved(): void {
+		$this->assertSame('national', $this->policy->capacity('gina', 'bob')['as']);
+		$this->assertSame('facilitator', $this->policy->capacity('fay', 'bob')['as'], 'the more specific reason is named first');
 	}
 
-	public function testNotificationsGoToFacilitatorsThenFallbackThenAdmins(): void {
+	public function testLosingTheNationalGroupRemovesTheAbilityAtOnce(): void {
+		$this->groups['National Organizers'] = [];
+
+		$this->assertFalse($this->build()->mayDecide('nora', 'bob'));
+	}
+
+	public function testNotificationsGoToFacilitatorsThenNationalOrganizersThenAdmins(): void {
 		$this->assertEqualsCanonicalizing(['fay', 'onlyfac'], $this->policy->recipients('bob'));
 		$this->assertSame(['gus'], $this->policy->recipients('carol'));
-		$this->assertSame(['gina', 'fay'], $this->policy->recipients('stranger'), 'no chapter: the fallback group');
+		$this->assertEqualsCanonicalizing(['nora', 'gina', 'fay'], $this->policy->recipients('stranger'), 'no chapter: national organizers');
 
 		$this->groups['GSUS'] = [];
-		$this->assertSame(['root'], $this->build()->recipients('stranger'), 'no fallback either: admins');
+		$this->groups['National Organizers'] = [];
+		$this->assertSame(['root'], $this->build()->recipients('stranger'), 'no national organizers either: admins');
 	}
 
 	public function testTheClaimantIsNeverTold(): void {

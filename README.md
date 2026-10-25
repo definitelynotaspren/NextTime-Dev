@@ -10,7 +10,7 @@ which can arrive from Nextcloud Forms.
 - **Request Board and map**: post, browse and map service requests; the requester accepts volunteers (several allowed),
   completes the job, and can edit (while open) or cancel it.
 - **Earning claims**: volunteers claim hours for work done. A claim is approved, rejected or sent to a community vote
-  by someone other than the claimant: an admin, the facilitator of the claimant's chapter, or the fallback group.
+  by someone other than the claimant: an admin, the facilitator of the claimant's chapter, or a national organizer.
   Any member except the claimant can vote.
 - **Public ledger and personal balance**: every movement of hours is public; names link to a member's own ledger.
 - **Chapters from your Nextcloud groups**: a group "Colorado" and a group "Colorado Facilitators" make the Colorado
@@ -144,7 +144,8 @@ Set with `occ config:app:set timebank <key> --value=<value>`:
 
 | Key | Default | What it does |
 |-----|---------|--------------|
-| `fallback_approver_group` | `GSUS` | Group id of the people who decide for members whose chapter has no facilitator |
+| `national_organizer_group` | `National Organizers` | Id or name of the national organizer group |
+| `fallback_approver_group` | `GSUS` | Legacy: its members still count as national organizers until moved (see Roles) |
 | `chapter_zip_prefixes` | built-in for New York City | JSON for city chapters, for example `{"Chicago": ["606"]}`. Replaces the default when set |
 | `adjustment_threshold` | `5` | Hours up to which one admin can adjust a balance alone (1 to 20). Change it under **Adjustments**, which records a reason publicly |
 | `forms_intake` | none | Which forms feed the desk. Add and remove them on the **Form Intake** page |
@@ -163,7 +164,7 @@ are seeded at 1.0 to 1.5, and admins can set any rate above 0 and up to 5 under 
   theirs), edit while the request is open, or cancel.
 - **Facilitators and approvers**: **Approvals & Votes** shows only the claims you may decide, and why. You can approve,
   reject (with a reason) or send to a community vote. Facilitators also work their chapter's rows on the **Organizer Desk**.
-- **Organizers**: the desk everywhere, the **Form Intake** and **Chapters** pages, and comment moderation.
+- **National organizers**: claims and adjustments for any member, the desk everywhere, the **Form Intake** and **Chapters** pages, and comment moderation.
 - **Admins**: **Categories**, **Adjustments**, the **Governance Log**, and approval of claims.
 
 Walk-throughs of an offer, a need and a three-person job are in [docs/flows.md](docs/flows.md). What is not built yet is
@@ -177,8 +178,8 @@ Roles come from Nextcloud groups, so an admin creates nothing beyond the groups 
 |-------|---------|
 | `<State>` (for example "Colorado") | Who belongs to that state or chapter. Gives no powers. |
 | `<State> Facilitator` or `<State> Facilitators` | The facilitators of that chapter. **This group alone gives the power**; they need not also be in `<State>`. |
-| `GSUS` | Fallback approvers, for members whose chapter has no facilitator (and members with no chapter). Another group id can be set with `fallback_approver_group`. |
-| `timebank-organizer` | Organizer desk everywhere; also moderates comments. |
+| `National Organizers` | National organizers: decide claims and adjustments for any member (never their own), so also for members whose chapter has no facilitator or who have no chapter; the organizer desk everywhere; comment moderation. Another group can be set with `national_organizer_group`. |
+| `timebank-organizer`, `GSUS` | Legacy groups replaced by `National Organizers`. Their members still count as national organizers until an admin moves them; the **Chapters** page lists who is left. Note this gives former `GSUS` members nationwide decide power, not only for members without a facilitator. |
 | `timebank-facilitator` | Desk access without chapter rows. Does not let anyone approve claims. |
 
 NextTime finds chapters by pairing group names: a facilitator group pairs with the group of the same name minus
@@ -186,24 +187,23 @@ NextTime finds chapters by pairing group names: a facilitator group pairs with t
 when it has none; every role check uses the group id. A pair, or a lone facilitator group named after a US state (or a
 city chapter), is a chapter. A facilitator group that matches nothing (such as "Chapter Facilitators") is ignored. The
 **Chapters** page (admins and organizers) lists what was found, who facilitates each, states that have no facilitator
-group, and groups it ignored, so a spelling mistake shows up. Nextcloud admins are not organizers unless they are also in
-the organizer group.
+group, and groups it ignored, so a spelling mistake shows up. Nextcloud admins are not national organizers unless they are
+also in that group.
 
 A person may decide on a claim, or approve a large balance adjustment, for member U (never their own) when they are a
-Nextcloud admin, or they are in the facilitator group of a chapter U belongs to, or none of U's chapters has a facilitator
-and they are in `GSUS`. `GSUS` never overrides a chapter that has facilitators. Roles are read from the groups on every
+Nextcloud admin, or they are in the facilitator group of a chapter U belongs to, or they are a national organizer. Roles are read from the groups on every
 request and nothing is cached, so removing someone from a facilitator group ends their ability to approve, or to see that
 chapter's rows, on their next click.
 
 A chapter's facilitators work its desk rows: they can add rows for ZIPs in their chapter, assign them to themselves, set
-progress, publish and unpublish. Organizers can do the same anywhere. The privacy rules do not change: a facilitator sees
+progress, publish and unpublish. National organizers can do the same anywhere. The privacy rules do not change: a facilitator sees
 public and chapter fields, not organizer-only ones such as the requester's contact details.
 
 Which chapter reviews a desk row is worked out from its ZIP code each time: the chapter named after the ZIP's state, or a
 city chapter's own prefixes.
 
 When a claim is submitted, the facilitators of the claimant's chapters are told in Nextcloud notifications (else
-`GSUS`, else the admins). The notice names who, hours and category, never the description, and clears for everyone once
+the national organizers, else the admins). The notice names who, hours and category, never the description, and clears for everyone once
 the claim is decided. After 3 days the same people get a reminder, and after 7 days the admins are told too (an hourly
 background job).
 
@@ -288,7 +288,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 - `POST /api/earnings/claim` - claim hours (`categoryId`, `hoursClaimed` up to 1000, `description` 10+ characters)
 - `GET /api/earnings/my` - your claims
-- `GET /api/earnings/pending` - pending claims you may decide, each with `decidingAs` (`admin`, `facilitator`, `fallback`)
+- `GET /api/earnings/pending` - pending claims you may decide, each with `decidingAs` (`admin`, `facilitator`, `national`)
 - `GET /api/earnings/voting` - claims in a community vote
 - `POST /api/earnings/{id}/approve`, `/reject` (`reason` 10+ characters), `/send-to-vote` *(an approver for the claimant;
   never the claimant; a claim is decided once)*
@@ -298,7 +298,7 @@ Moderators are Nextcloud admins and members of `timebank-organizer`.
 
 - `GET /api/balance/my`, `GET /api/balance/all`
 - `GET /api/ledger`, `GET /api/ledger/my`, `GET /api/ledger/user/{userId}` - the public ledger
-- `GET /api/adjustments` - recent adjustments, what you may do to each, the threshold *(admins, facilitators, fallback group)*
+- `GET /api/adjustments` - recent adjustments, what you may do to each, the threshold *(admins, facilitators, national organizers)*
 - `POST /api/adjustments` - `userId`, `hours` (negative to deduct), `reason` (10+ characters, public). Up to the threshold it
   applies at once; larger ones wait for a second person *(admins; nobody adjusts their own balance)*
 - `POST /api/adjustments/{id}/approve`, `/reject` (`note`), `/withdraw` - a second approver (never the proposer or the
@@ -336,7 +336,7 @@ is aggregate-only and has no row endpoints.
 
 ### Roles, chapters and intake (admins and organizers)
 
-- `GET /api/roles` - your own flags (`organizer`, `facilitator`, `moderator`, `admin`, `fallbackApprover`)
+- `GET /api/roles` - your own flags (`member`, `chapterMember`, `facilitatorOf`, `nationalOrganizer`, `facilitator`, `moderator`, `admin`; `organizer` is an alias of `nationalOrganizer`)
 - `GET /api/chapters/check` - chapters found from your groups, their facilitators, and groups that did not pair
 - `GET /api/intake` (the added forms and recent submissions), `POST /api/intake/forms/lookup` (`link`: finds a form and
   shows its mapping, adds nothing), `PUT /api/intake/forms` (the full list of added forms), `GET /api/intake/forms/{id}/preview?layer=needs_offers`,
@@ -388,7 +388,7 @@ NEXTCLOUD_ROOT=../nc-server composer test:unit     # same as make test-native
 # Against a running server (the dev server on port 8081 by default; pass a URL to test another)
 scripts/smoke-test.sh      # the full request, claim, vote and ledger lifecycle
 scripts/desk-smoke.sh      # organizer desk and privacy rules
-scripts/approver-smoke.sh  # who may approve, the GSUS fallback, notifications (uses occ, needs the dev server)
+scripts/approver-smoke.sh  # who may approve, national organizers, notifications (uses occ, needs the dev server)
 scripts/intake-smoke.sh    # Forms intake end to end (needs the Forms app: occ app:enable forms)
 node scripts/ui-smoke.cjs  # the real forms and screens in a headless browser (needs Playwright)
 

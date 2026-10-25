@@ -20,9 +20,9 @@ final class Visibility {
 			self::PUBLIC => true,
 			self::FACILITATOR => $viewer->isStaff(),
 			self::CHAPTER => $viewer->canSeeChapter($rowChapter),
-			self::ORGANIZER => $viewer->organizer,
+			self::ORGANIZER => $viewer->nationalOrganizer,
 			// Unknown or missing visibility fails closed to organizers.
-			default => $viewer->organizer,
+			default => $viewer->nationalOrganizer,
 		};
 	}
 }

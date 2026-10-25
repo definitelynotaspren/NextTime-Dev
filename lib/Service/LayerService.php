@@ -216,7 +216,7 @@ class LayerService {
 		$this->requireReadableLayer($layer);
 
 		$row = $this->findRow($layer, $id);
-		if (!$viewer->organizer) {
+		if (!$viewer->nationalOrganizer) {
 			$this->requireHolder($row, $viewer);
 			$this->requireCanWork($row, $viewer);
 		}

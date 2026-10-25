@@ -141,7 +141,7 @@ class IntakeController extends Controller {
 	 */
 	private function requireManager(): void {
 		if ($this->userId === null
-			|| (!$this->groups->isAdmin($this->uid()) && !$this->viewers->forUser($this->uid())->organizer)) {
+			|| (!$this->groups->isAdmin($this->uid()) && !$this->viewers->forUser($this->uid())->nationalOrganizer)) {
 			throw new NotAuthorizedException('Admin or organizer role required');
 		}
 	}

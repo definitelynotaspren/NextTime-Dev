@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Service;
 
-use OCA\TimeBank\AppInfo\Application;
 use OCA\TimeBank\Chapter\ChapterDirectory;
-use OCA\TimeBank\Schema\SchemaSpec;
-use OCP\IAppConfig;
+use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCP\IGroupManager;
 
 /**
@@ -17,26 +15,20 @@ use OCP\IGroupManager;
  *  1. P is a Nextcloud admin, so the community can never be locked out.
  *  2. P is in the facilitator group of a chapter U belongs to. The facilitator group is enough on its
  *     own; P need not also be in the chapter's member group. Chapters are found by ChapterDirectory.
- *  3. None of U's chapters has a facilitator (or U has no chapter) and P is in the fallback group
- *     (default GSUS). The fallback never overrides a chapter that has its own facilitators.
+ *  3. P is a national organizer (see NationalOrganizers). They act for every member, so members
+ *     whose state has no facilitator, or who have no state, are decided by them.
  */
 class ApproverPolicy {
 
 	public const string AS_ADMIN = 'admin';
 	public const string AS_FACILITATOR = 'facilitator';
-	public const string AS_FALLBACK = 'fallback';
+	public const string AS_NATIONAL = 'national';
 
 	public function __construct(
 		private ChapterDirectory $chapters,
 		private IGroupManager $groups,
-		private IAppConfig $config,
+		private NationalOrganizers $nationalOrganizers,
 	) {
-	}
-
-	public function fallbackGroup(): string {
-		$group = trim($this->config->getValueString(Application::APP_ID, 'fallback_approver_group', SchemaSpec::GROUP_FALLBACK_DEFAULT));
-
-		return $group === '' ? SchemaSpec::GROUP_FALLBACK_DEFAULT : $group;
 	}
 
 	/**
@@ -59,8 +51,8 @@ class ApproverPolicy {
 			}
 		}
 
-		if ($this->groups->isInGroup($deciderId, $this->fallbackGroup()) && !$this->hasFacilitator($memberChapters, $memberId)) {
-			return ['as' => self::AS_FALLBACK, 'chapter' => null];
+		if ($this->nationalOrganizers->isNationalOrganizer($deciderId)) {
+			return ['as' => self::AS_NATIONAL, 'chapter' => null];
 		}
 
 		return null;
@@ -72,7 +64,7 @@ class ApproverPolicy {
 
 	/**
 	 * Who should be told about something waiting for a decision about the member: the
-	 * chapter facilitators, else the fallback group, else the admins. Never the member.
+	 * chapter facilitators, else the national organizers, else the admins. Never the member.
 	 *
 	 * @return list<string>
 	 */
@@ -85,7 +77,7 @@ class ApproverPolicy {
 		}
 		$level = [
 			$facilitators,
-			$this->usersOf($this->fallbackGroup()),
+			$this->nationalOrganizers->users(),
 			$this->usersOf('admin'),
 		];
 		foreach ($level as $users) {
@@ -103,21 +95,6 @@ class ApproverPolicy {
 	 */
 	public function admins(string $exceptUserId): array {
 		return array_values(array_filter($this->usersOf('admin'), fn (string $u) => $u !== $exceptUserId));
-	}
-
-	/**
-	 * @param list<string> $chapters chapter slugs the member belongs to
-	 */
-	private function hasFacilitator(array $chapters, string $memberId): bool {
-		foreach ($chapters as $slug) {
-			foreach ($this->facilitatorsOf($slug) as $user) {
-				if ($user !== $memberId) {
-					return true;
-				}
-			}
-		}
-
-		return false;
 	}
 
 	/**

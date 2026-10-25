@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **One national organizer role** replaces the separate `timebank-organizer` and `GSUS` fallback groups
+  (Phase 1 of the security and permission plan). Everyone in the group "National Organizers" (setting
+  `national_organizer_group`) may decide claims and adjustments for any member but themselves, works the
+  organizer desk everywhere and moderates comments. Members whose state has no facilitator, or who have no
+  state, are decided by national organizers. Members of the two old groups keep the role until an admin moves
+  them; the **Chapters** page lists them. Because the role is nationwide, former `GSUS` members can now also
+  decide for members whose chapter has a facilitator.
+- `GET /api/roles` reports `member`, `chapterMember`, `facilitatorOf` (chapter slugs) and `nationalOrganizer`.
+  `fallbackApprover` is gone; `organizer` remains as an alias of `nationalOrganizer`. A claim's `decidingAs`
+  is now `national` where it was `fallback`.
+
 ### Fixed
 
 - **NextTime could not be installed on the official Nextcloud 33, 34 or 35 Docker images**, which ship PHP 8.4

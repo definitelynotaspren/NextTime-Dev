@@ -36,8 +36,8 @@ workbook yet.
 
 1. **Login is required for everything.** A visitor with no login gets `401` from every endpoint
    (checked: requests, feeds, rows, map, ledger, schema).
-2. **Roles come from Nextcloud groups** (`timebank-organizer`, `timebank-facilitator`,
-   `<State>` and `<State> Facilitators`, and the `GSUS` fallback), read on the server for each request. A plain member gets `403` on the organizer
+2. **Roles come from Nextcloud groups** (`National Organizers`, `timebank-facilitator`,
+   `<State>` and `<State> Facilitators`; the legacy `timebank-organizer` and `GSUS` still count as national organizers), read on the server for each request. A plain member gets `403` on the organizer
    endpoints (checked).
 3. **Fields are filtered on every read of organizer-desk data.** Each field has a visibility level
    (public, facilitator, chapter, organizer). Fields a viewer may not see are removed from the response,

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Chapter\ChapterDirectory;
+use OCA\TimeBank\Chapter\NationalOrganizers;
 use OCA\TimeBank\Schema\SchemaSpec;
-use OCA\TimeBank\Service\ApproverPolicy;
 use OCA\TimeBank\Service\CommentService;
 use OCA\TimeBank\Service\ViewerResolver;
 use OCP\AppFramework\Controller;
@@ -33,7 +33,7 @@ class SchemaController extends Controller {
 		ViewerResolver $viewers,
 		private CommentService $comments,
 		private IGroupManager $groups,
-		private ApproverPolicy $policy,
+		private NationalOrganizers $nationalOrganizers,
 		private ChapterDirectory $chapterDirectory,
 		?string $userId,
 	) {
@@ -86,11 +86,11 @@ class SchemaController extends Controller {
 		if ($this->userId === null) {
 			return new DataResponse(['error' => 'Not logged in'], Http::STATUS_UNAUTHORIZED);
 		}
-		if (!$this->groups->isAdmin($this->uid()) && !$this->viewers->forUser($this->uid())->organizer) {
-			return new DataResponse(['error' => 'Admin or organizer role required'], Http::STATUS_FORBIDDEN);
+		if (!$this->groups->isAdmin($this->uid()) && !$this->viewers->forUser($this->uid())->nationalOrganizer) {
+			return new DataResponse(['error' => 'Admin or national organizer role required'], Http::STATUS_FORBIDDEN);
 		}
 
-		return new DataResponse($this->chapterDirectory->report());
+		return new DataResponse($this->chapterDirectory->report() + ['nationalOrganizers' => $this->nationalOrganizers->report()]);
 	}
 
 	/**
@@ -108,11 +108,15 @@ class SchemaController extends Controller {
 		$viewer = $this->viewers->forUser($this->uid());
 
 		return new DataResponse([
-			'organizer' => $viewer->organizer,
+			'member' => true,
+			'chapterMember' => $viewer->chapterMember,
+			'facilitatorOf' => $viewer->facilitatorOf,
+			'nationalOrganizer' => $viewer->nationalOrganizer,
 			'facilitator' => $viewer->facilitator,
 			'moderator' => $this->comments->isModerator($this->uid()),
 			'admin' => $this->groups->isAdmin($this->uid()),
-			'fallbackApprover' => $this->groups->isInGroup($this->uid(), $this->policy->fallbackGroup()),
+			// Same as nationalOrganizer; kept so older scripts keep reading it.
+			'organizer' => $viewer->nationalOrganizer,
 		]);
 	}
 }

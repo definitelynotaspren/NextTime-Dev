@@ -70,7 +70,7 @@ class EarningService {
 
 	/**
 	 * Pending claims this person may decide on, each with the capacity they would act in:
-	 * admin, facilitator of a chapter, or fallback group. Never their own claims.
+	 * admin, facilitator of a chapter, or national organizer. Never their own claims.
 	 *
 	 * @return list<array<string, mixed>>
 	 */
@@ -284,7 +284,7 @@ class EarningService {
 			throw new NotAuthorizedException('You cannot decide on your own claim. Someone else has to look at it.');
 		}
 		if ($needsApprover && !$this->policy->mayDecide($deciderId, $earning->getUserId())) {
-			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or the fallback group can decide on this claim');
+			throw new NotAuthorizedException('Only an admin, a facilitator of this member\'s state, or a national organizer can decide on this claim');
 		}
 		if ($earning->getStatus() !== $expectedStatus) {
 			throw new InvalidStateException('This claim is ' . $earning->getStatus() . ', so that is not possible now');

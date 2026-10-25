@@ -20,24 +20,21 @@ const isModerator = ref(false)
 const isAdmin = ref(false)
 const isOrganizer = ref(false)
 const isFacilitator = ref(false)
-const isFallbackApprover = ref(false)
 
 const fetchRoles = async () => {
 	try {
-		const { data } = await axios.get<{ organizer: boolean, facilitator: boolean, moderator: boolean, admin: boolean, fallbackApprover: boolean }>(generateUrl('/apps/timebank/api/roles'))
-		isStaff.value = data.organizer || data.facilitator
+		const { data } = await axios.get<{ nationalOrganizer: boolean, chapterMember: boolean, facilitator: boolean, facilitatorOf: string[], moderator: boolean, admin: boolean }>(generateUrl('/apps/timebank/api/roles'))
+		isStaff.value = data.nationalOrganizer || data.facilitator
 		isModerator.value = data.moderator
 		isAdmin.value = data.admin
-		isOrganizer.value = data.organizer
+		isOrganizer.value = data.nationalOrganizer
 		isFacilitator.value = data.facilitator
-		isFallbackApprover.value = data.fallbackApprover
 	} catch {
 		isStaff.value = false
 		isModerator.value = false
 		isAdmin.value = false
 		isOrganizer.value = false
 		isFacilitator.value = false
-		isFallbackApprover.value = false
 	}
 }
 
@@ -93,7 +90,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:name="isAdmin || isFacilitator || isFallbackApprover ? 'Approvals & Votes' : 'Votes on Claims'"
+					:name="isAdmin || isFacilitator || isOrganizer ? 'Approvals & Votes' : 'Votes on Claims'"
 					:to="{ name: 'AdminApprovals' }"
 					:active="route.name === 'AdminApprovals'">
 					<template #icon>
@@ -136,7 +133,7 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					v-if="isAdmin || isFacilitator || isFallbackApprover"
+					v-if="isAdmin || isFacilitator || isOrganizer"
 					:name="'Adjustments'"
 					:to="{ name: 'AdminAdjustments' }"
 					:active="route.name === 'AdminAdjustments'">
