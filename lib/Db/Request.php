@@ -47,6 +47,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method \DateTime getUpdatedAt()
  * @method void setUpdatedAt(\DateTime $updatedAt)
+ * @method string|null getSourceRef()
+ * @method void setSourceRef(?string $sourceRef)
  */
 class Request extends Entity implements JsonSerializable {
 	protected ?string $requesterId = null;
@@ -68,6 +70,7 @@ class Request extends Entity implements JsonSerializable {
 	protected ?string $reviewStatus = 'published';
 	protected ?\DateTime $createdAt = null;
 	protected ?\DateTime $updatedAt = null;
+	protected ?string $sourceRef = null;
 
 	public function __construct() {
 		$this->addType('id', 'integer');

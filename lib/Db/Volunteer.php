@@ -21,6 +21,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setStatus(string $status)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
+ * @method string|null getSourceRef()
+ * @method void setSourceRef(?string $sourceRef)
  */
 class Volunteer extends Entity implements JsonSerializable {
 	protected ?int $requestId = null;
@@ -29,6 +31,7 @@ class Volunteer extends Entity implements JsonSerializable {
 	protected ?string $message = null;
 	protected ?string $status = null;
 	protected ?\DateTime $createdAt = null;
+	protected ?string $sourceRef = null;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
