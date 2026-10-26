@@ -313,7 +313,7 @@ class RequestService {
 			$this->statsMapper->incrementStats(
 				$volunteer->getVolunteerId(),
 				$request->getCategoryId(),
-				(float)$volunteer->getProposedHours()
+				$volunteer->effectiveHours()
 			);
 		}
 

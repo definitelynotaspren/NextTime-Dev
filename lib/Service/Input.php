@@ -26,6 +26,11 @@ final class Input {
 		return is_string($value) && ctype_digit($value) ? (int)$value : null;
 	}
 
+	/** The value as a number if it is one (or numeric text), otherwise null. */
+	public static function float(mixed $value): ?float {
+		return is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)) ? (float)$value : null;
+	}
+
 	/** A page size from 1 to MAX_LIMIT; anything missing or not a whole number gives the default. */
 	public static function limit(mixed $value, int $default = 50): int {
 		return max(1, min(self::MAX_LIMIT, self::int($value) ?? $default));

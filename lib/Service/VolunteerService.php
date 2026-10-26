@@ -125,7 +125,7 @@ class VolunteerService {
 			$entry->setRequestId($request->getId());
 			$entry->setVolunteerId($userId);
 			$entry->setOfferStatus($status);
-			$entry->setProposedHours($volunteer->getProposedHours());
+			$entry->setProposedHours((string)$volunteer->effectiveHours());
 			$entry->setReason($reason);
 			$entry->setCreatedAt(new \DateTime());
 			$this->withdrawalMapper->insert($entry);
@@ -143,7 +143,7 @@ class VolunteerService {
 	 * @throws NotAuthorizedException
 	 * @throws InvalidStateException
 	 */
-	public function accept(int $volunteerId, string $requesterId): Volunteer {
+	public function accept(int $volunteerId, string $requesterId, ?float $agreedHours = null): Volunteer {
 		$volunteer = $this->volunteerMapper->find($volunteerId);
 		$request = $this->requestMapper->find($volunteer->getRequestId());
 
@@ -154,6 +154,17 @@ class VolunteerService {
 			throw new InvalidStateException('Only a pending offer can be accepted');
 		}
 
+		// The requester may settle on hours between what they posted and what the volunteer offered.
+		// Left empty, the offered hours stand.
+		$offered = (float)$volunteer->getProposedHours();
+		$agreed = $agreedHours ?? $offered;
+		$low = min($offered, (float)$request->getHoursBudget());
+		$high = max($offered, (float)$request->getHoursBudget());
+		if ($agreed < $low || $agreed > $high) {
+			throw new InvalidStateException(sprintf('The agreed hours must be between %s (posted or offered, whichever is less) and %s', self::plainNumber($low), self::plainNumber($high)));
+		}
+
+		$volunteer->setAgreedHours((string)$agreed);
 		$volunteer->setStatus('accepted');
 		$updated = $this->volunteerMapper->update($volunteer);
 
@@ -257,5 +268,9 @@ class VolunteerService {
 		$request->setStatus('open');
 		$request->setUpdatedAt(new \DateTime());
 		$this->requestMapper->update($request);
+	}
+
+	private static function plainNumber(float $hours): string {
+		return rtrim(rtrim(number_format($hours, 2, '.', ''), '0'), '.');
 	}
 }

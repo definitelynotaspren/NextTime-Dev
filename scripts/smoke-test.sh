@@ -301,6 +301,29 @@ call carol GET "/requests/$NAMED_ID"
 [ "$(json '.request.requesterId')" = null ] && pass "and she can take it back while the request is open" || fail "carol after opt-out: $(head -c 300 <<<"$BODY")"
 call alice POST "/requests/$NAMED_ID/cancel"
 
+echo "- Agreed hours: between what was posted and what was offered"
+call alice POST /requests "{\"title\":\"Smoke test: agreed hours\",\"description\":\"The requester settles the hours on accepting.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4,\"zip\":\"97055\"}"
+expect "alice posts 4 hours" 201
+AGREE_ID="$(json '.id')"
+call bob POST "/requests/$AGREE_ID/volunteer" '{"proposedHours":2}'
+V_AGREE="$(json '.id')"
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":5}'
+expect "agreed hours above both numbers are refused" 400
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":1}'
+expect "agreed hours below both numbers are refused" 400
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":"lots"}'
+expect "agreed hours must be a number" 400
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":3.5}'
+expect "3.5 hours, between 2 offered and 4 posted, is accepted" 200
+[ "$(json '.agreedHours')" = 3.5 ] && [ "$(json '.proposedHours')" = 2 ] && [ "$(json '.hours')" = 3.5 ] && pass "the offer keeps 2 and the agreement says 3.5" || fail "accepted offer: $BODY"
+call alice POST "/requests/$AGREE_ID/cancel"
+call alice POST /requests "{\"title\":\"Smoke test: default hours\",\"description\":\"Accepting without a number keeps the offer.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4,\"zip\":\"97055\"}"
+AGREE2="$(json '.id')"
+call bob POST "/requests/$AGREE2/volunteer" '{"proposedHours":2}'
+call alice POST "/volunteers/$(json '.id')/accept"
+[ "$(json '.agreedHours')" = 2 ] && pass "accepting with no number keeps the offered hours" || fail "default: $BODY"
+call alice POST "/requests/$AGREE2/cancel"
+
 echo "- Lifecycle rules: withdrawing and the log"
 call alice POST /requests "{\"title\":\"Smoke test: withdraw\",\"description\":\"For the withdrawal log.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\"}"
 expect "alice posts a third request" 201

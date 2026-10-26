@@ -85,7 +85,7 @@ const canOffer = computed(() => isActive.value && !isRequester.value && !myOffer
 const acceptedVolunteers = computed(() => volunteers.value.filter((v) => v.status === 'accepted'))
 // Everyone who helped: accepted while in progress, completed once it is done.
 const helpers = computed(() => volunteers.value.filter((v) => v.status === 'accepted' || v.status === 'completed'))
-const helperSummary = computed(() => helpers.value.map((v) => `${v.volunteerId} (${v.proposedHours} h)`).join(', '))
+const helperSummary = computed(() => helpers.value.map((v) => `${v.volunteerId} (${v.hours ?? v.proposedHours} h)`).join(', '))
 
 const withdrawReasonRequired = computed(() => withdrawTarget.value?.status === 'accepted')
 const canSubmitWithdraw = computed(() => !withdrawReasonRequired.value || withdrawReason.value.trim().length >= MIN_REASON_LENGTH)
@@ -111,9 +111,9 @@ const volunteer = async () => {
 	volunteering.value = false
 }
 
-const accept = async (offer: Volunteer) => {
+const accept = async (offer: Volunteer, agreedHours?: number) => {
 	busyOfferId.value = offer.id
-	await act(() => requestStore.acceptOffer(offer.id, requestId.value))
+	await act(() => requestStore.acceptOffer(offer.id, requestId.value, agreedHours))
 	busyOfferId.value = null
 }
 
@@ -398,6 +398,7 @@ watch(requestId, (id) => {
 							:is-requester="isRequester"
 							:is-mine="vol.volunteerId === currentUserId"
 							:request-active="isActive"
+							:posted-hours="request?.hoursBudget ?? 0"
 							:busy="busyOfferId === vol.id"
 							@accept="accept"
 							@decline="decline"
@@ -410,10 +411,10 @@ watch(requestId, (id) => {
 		<NcModal v-if="showComplete" size="small" @close="showComplete = false">
 			<div class="dialog">
 				<h2>Mark this request complete?</h2>
-				<p>These volunteers will be completed, each for the hours they proposed:</p>
+				<p>These volunteers will be completed, each for the hours agreed when you accepted them:</p>
 				<ul class="dialog-list">
 					<li v-for="vol in acceptedVolunteers" :key="vol.id">
-						<strong>{{ vol.volunteerId }}</strong>: {{ vol.proposedHours }} hours
+						<strong>{{ vol.volunteerId }}</strong>: {{ vol.hours ?? vol.proposedHours }} hours
 					</li>
 				</ul>
 				<p class="hint">

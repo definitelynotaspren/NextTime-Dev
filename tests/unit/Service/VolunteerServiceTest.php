@@ -139,6 +139,56 @@ final class VolunteerServiceTest extends TestCase {
 		$this->assertSame('in_progress', $request->getStatus());
 	}
 
+	public function testAcceptingKeepsTheOfferedHoursUnlessTheRequesterSettlesOnOthers(): void {
+		$request = $this->request('open');
+		$request->setHoursBudget('4');
+		$this->requests->method('find')->willReturn($request);
+		$offer = $this->offer(5);
+		$offer->setProposedHours('2');
+		$this->volunteers->method('find')->willReturn($offer);
+
+		$this->assertSame(2.0, $this->service->accept(5, 'alice')->effectiveHours(), 'offered hours by default');
+
+		$offer->setStatus('offered');
+		$accepted = $this->service->accept(5, 'alice', 3.5);
+		$this->assertSame(3.5, $accepted->effectiveHours());
+		$this->assertSame(2.0, (float)$accepted->getProposedHours(), 'the offer itself is not rewritten');
+	}
+
+	public function testAgreedHoursStayBetweenWhatWasPostedAndWhatWasOffered(): void {
+		$request = $this->request('open');
+		$request->setHoursBudget('4');
+		$this->requests->method('find')->willReturn($request);
+		$offer = $this->offer(5);
+		$offer->setProposedHours('2');
+		$this->volunteers->method('find')->willReturn($offer);
+
+		foreach ([1.5, 4.5, 0.0, -1.0] as $hours) {
+			try {
+				$this->service->accept(5, 'alice', $hours);
+				$this->fail("$hours should be refused");
+			} catch (InvalidStateException $e) {
+				$this->assertStringContainsString('between 2 ', $e->getMessage());
+				$this->assertSame('offered', $offer->getStatus());
+			}
+		}
+		foreach ([2.0, 4.0, 3.0] as $hours) {
+			$offer->setStatus('offered');
+			$this->assertSame($hours, $this->service->accept(5, 'alice', $hours)->effectiveHours());
+		}
+	}
+
+	public function testAnOfferAboveTheBudgetMayBeSettledDownToTheBudget(): void {
+		$request = $this->request('open');
+		$request->setHoursBudget('2');
+		$this->requests->method('find')->willReturn($request);
+		$offer = $this->offer(5);
+		$offer->setProposedHours('5');
+		$this->volunteers->method('find')->willReturn($offer);
+
+		$this->assertSame(2.0, $this->service->accept(5, 'alice', 2.0)->effectiveHours());
+	}
+
 	public function testSeveralVolunteersCanBeAcceptedAndNoOneIsAutoDeclined(): void {
 		$request = $this->request('in_progress');
 		$this->requests->method('find')->willReturn($request);

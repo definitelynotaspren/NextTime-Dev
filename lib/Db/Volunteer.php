@@ -15,6 +15,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setVolunteerId(string $volunteerId)
  * @method string getProposedHours()
  * @method void setProposedHours(string $proposedHours)
+ * @method string|null getAgreedHours()
+ * @method void setAgreedHours(?string $agreedHours)
  * @method string|null getMessage()
  * @method void setMessage(?string $message)
  * @method string getStatus()
@@ -28,6 +30,7 @@ class Volunteer extends Entity implements JsonSerializable {
 	protected ?int $requestId = null;
 	protected ?string $volunteerId = null;
 	protected ?string $proposedHours = null;
+	protected ?string $agreedHours = null;
 	protected ?string $message = null;
 	protected ?string $status = null;
 	protected ?\DateTime $createdAt = null;
@@ -39,6 +42,13 @@ class Volunteer extends Entity implements JsonSerializable {
 		$this->addType('requestId', 'integer');
 	}
 
+	/**
+	 * What this person is credited for: the hours agreed on acceptance, else the hours they offered.
+	 */
+	public function effectiveHours(): float {
+		return (float)($this->agreedHours ?? $this->proposedHours);
+	}
+
 	/** @return array<string, mixed> */
 	public function jsonSerialize(): array {
 		return [
@@ -46,6 +56,8 @@ class Volunteer extends Entity implements JsonSerializable {
 			'requestId' => $this->requestId,
 			'volunteerId' => $this->volunteerId,
 			'proposedHours' => (float)$this->proposedHours,
+			'agreedHours' => $this->agreedHours === null ? null : (float)$this->agreedHours,
+			'hours' => $this->effectiveHours(),
 			'message' => $this->message,
 			'status' => $this->status,
 			'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),

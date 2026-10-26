@@ -170,7 +170,7 @@ onMounted(() => {
 				<div>
 					<a class="offer-title" href="#" @click.prevent="viewRequest(offer.request.id)">{{ offer.request.title }}</a>
 					<div class="offer-meta">
-						{{ OFFER_LABELS[offer.status] ?? offer.status }}, {{ offer.proposedHours }} h proposed,
+						{{ OFFER_LABELS[offer.status] ?? offer.status }}, {{ offer.agreedHours != null ? `${offer.agreedHours} h agreed` : `${offer.proposedHours} h proposed` }},
 						request {{ offer.request.status.replace('_', ' ') }}
 					</div>
 				</div>
