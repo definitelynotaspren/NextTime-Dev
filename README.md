@@ -85,6 +85,10 @@ make docker-install-app      # enables NextTime
 make docker-seed-users       # alice, bob, carol with passwords <name>-pass-123
 ```
 
+The database is a separate stack on volumes that `docker compose down -v` does not remove, and `make docker-backup`
+copies it to a folder outside the repo; see [docs/isolated-data.md](docs/isolated-data.md), including how to move
+a stack made with the older compose file over without losing its data.
+
 Log in at http://localhost:8080 as `admin` with the password from `.env`. The image's password policy rejects
 `admin` as a password, so the scripts take it from `ADMIN_PASS`, for example
 `ADMIN_PASS='your-admin-password' make smoke BASE_URL=http://localhost:8080`. Nextcloud 29's image is not used
@@ -128,6 +132,8 @@ make demo              # demo data to click through (BASE_URL=..., ADMIN_PASS=..
 make appstore          # build/timebank.tar.gz for installing
 make native-setup / native-start / native-stop
 make docker-up / docker-down / docker-logs / docker-shell / docker-rebuild / docker-install-app / docker-seed-users
+make docker-data-init / docker-data-up / docker-data-down / docker-data-logs   # the database stack
+BACKUP_DIR=/e/backups make docker-backup   # database + files to a folder outside the repo
 make clean             # removes js/, node_modules/ and vendor/
 ```
 

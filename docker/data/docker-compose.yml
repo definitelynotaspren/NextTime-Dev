@@ -1,0 +1,46 @@
+# NextTime's database, as its own stack.
+#
+# Nothing in the app folder is needed to keep the data: the database files live in an
+# external Docker volume (created once with `make docker-data-init`, never by Compose), so
+# `docker compose down -v`, re-cloning this repo or wiping custom_apps cannot delete them.
+# Run it from the repo root with the same .env as the app stack:
+#
+#   docker compose --env-file .env -f docker/data/docker-compose.yml up -d
+#
+# `make docker-up` does this for you, data stack first.
+# See docs/isolated-data.md.
+
+name: nexttime-data
+
+services:
+  db:
+    image: postgres:15-alpine # pinned: a volume made by 15 will not start under another major version
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nextcloud}
+      POSTGRES_USER: ${POSTGRES_USER:-nextcloud}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    # No ports are published on purpose: only containers on the nexttime_data network can reach
+    # it. Replication to another server (over WireGuard) would publish 5432 on the tunnel's
+    # address only, never on all interfaces.
+    networks:
+      nexttime_data:
+        aliases:
+          - nexttime-db
+          - db # the name an install made before this split has stored in config.php (dbhost)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+    external: true
+    name: ${NEXTTIME_DB_VOLUME:-nexttime_pgdata}
+
+networks:
+  nexttime_data:
+    name: nexttime_data

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Docker: the database is its own stack, on volumes Compose never deletes.** Postgres moved out of
+  `docker-compose.yml` into `docker/data/docker-compose.yml`, and both it and Nextcloud's folder
+  (`config.php`, claim evidence) use external volumes, so `down -v`, re-cloning the repo or wiping the app
+  folder cannot remove the community's data. `make docker-up` starts the database first. A stack made with the
+  older single compose file keeps its data by pointing `NEXTTIME_DB_VOLUME` and `NEXTTIME_FILES_VOLUME` at its
+  existing volumes; the steps are in `docs/isolated-data.md`. `make docker-backup` (`scripts/backup.sh`) writes
+  a database dump, a files archive and checksums to a folder outside the repo. It runs from Git Bash, WSL or
+  Linux, not PowerShell. The compose files and the script's logic are tested; the move and a restore have not
+  been run against real Docker yet.
 - **Everyone sees every claim; only people who may act get buttons.** **Approvals & Votes** (one name for
   everyone now) lists all pending claims and all claims in a vote for every member. Approve, reject and send to a
   vote appear only for approvers; vote buttons only for people who may vote. The API marks each claim with
