@@ -23,9 +23,9 @@ services using hours as currency, with map-based coordination of requests and of
     <namespace>TimeBank</namespace>
     <category>organization</category>
     <category>social</category>
-    <website>https://github.com/definitelynotaspren/NextTime-Dev</website>
-    <bugs>https://github.com/definitelynotaspren/NextTime-Dev/issues</bugs>
-    <repository type="git">https://github.com/definitelynotaspren/NextTime-Dev.git</repository>
+    <website>https://github.com/inputloop/NextTime-Dev</website>
+    <bugs>https://github.com/inputloop/NextTime-Dev/issues</bugs>
+    <repository type="git">https://github.com/inputloop/NextTime-Dev.git</repository>
 
     <dependencies>
         <php min-version="8.3" max-version="8.5"/>
