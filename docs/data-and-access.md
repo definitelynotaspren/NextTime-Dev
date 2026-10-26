@@ -31,6 +31,8 @@ workbook yet.
 | `oc_timebank_earnings`, `oc_timebank_votes` | hour claims, approvals, community votes | Your own claims; admins see pending ones; claims in a vote are visible so members can vote |
 | `oc_timebank_balances`, `oc_timebank_transactions` | balances and the public ledger | Public to members by design |
 | `oc_timebank_user_stats`, `oc_timebank_categories` | per-category history, service categories | Members |
+| `oc_timebank_imports` | one row per import from another NextTime: the name an admin gave the source, who staged and who decided it, when, totals, and a report naming the accounts and categories that did not match | Admins only. The totals (no names) are also in the public governance log. Never holds a host, file name or password |
+| `oc_timebank_import_staged` | the rows of a staged import, as JSON, until a second admin finalizes, cancels or it expires; then deleted | Contains people's words (descriptions, locations); read only by the import code, for admins |
 | `oc_timebank_layer_rows` | organizer-desk rows: needs, offers, actions, reports. One JSON column, `data`, holds the fields | **The most sensitive table.** Contact details and exact coordinates live here. |
 
 ## How the data is protected

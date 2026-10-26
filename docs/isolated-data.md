@@ -221,6 +221,56 @@ The `nextcloud` database already on the server (from an older stack) is a differ
 into the new one. Bringing its requests across is what the planned import is for
 ([proposals/data-sources.md](proposals/data-sources.md)).
 
+## Bringing an older instance's data across
+
+The import (**Import** in NextTime's menu, admins only) reads an older NextTime's database and brings its requests,
+offers and hour claims into the running instance. Read [the README section](../README.md#importing-from-another-nexttime)
+for what it does and does not carry. **Keep the old database, volume and container until you have checked the result:**
+the import only reads them.
+
+Before you start, in the repo folder (these are the Docker commands; `nextcloud` is the compose service):
+
+1. **Create the accounts the old data names.** The import matches people by identical user name and creates none. List them
+   (for the old `nextcloud` database on `nexttime-db`, with your own database user):
+   ```
+   docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -d nextcloud -c "select uid from oc_users"
+   ```
+   and add each one that does not exist here (one command each; choose the password):
+   ```
+   docker compose exec -u www-data -e OC_PASS=ChooseAPassword1! nextcloud php occ user:add --password-from-env cupcaketrainer
+   ```
+2. **Make a second admin.** An import is staged by one admin and finalized by another:
+   ```
+   docker compose exec -u www-data -e OC_PASS=ChooseAnotherPassword2! nextcloud php occ user:add --password-from-env --display-name "Second admin" admin2
+   docker compose exec -u www-data nextcloud php occ group:adduser admin admin2
+   ```
+
+Then, as the first admin, open **Import**:
+
+**From the old PostgreSQL database** (for example the `nextcloud` database an earlier stack left on the server): kind
+*PostgreSQL*, host `nexttime-db`, port blank, database `nextcloud`, your `POSTGRES_USER` and `POSTGRES_PASSWORD`, prefix `oc_`.
+The app container is on the same network as the database, so the name resolves. Press **Preview**, read it, then **Stage**.
+
+**From an old SQLite instance** (the `NextTime-Dev-sqlite-old` container): copy its database file into this instance's
+data folder, then give the form only the file name.
+```
+docker cp NextTime-Dev-sqlite-old:/var/www/html/data/owncloud.db .\old-sqlite.db
+docker compose cp .\old-sqlite.db nextcloud:/var/www/html/data/old-sqlite.db
+docker compose exec nextcloud chown www-data:www-data /var/www/html/data/old-sqlite.db
+```
+Kind *SQLite file*, file name `old-sqlite.db`, prefix `oc_`. Delete the copy when you are done
+(`docker compose exec nextcloud rm /var/www/html/data/old-sqlite.db`).
+
+Give each source its **own, steady name** ("Old NC31 database", "Old SQLite"): the name is how rows already imported are
+recognised, so the same name each time means nothing is added twice.
+
+Then sign in as `admin2`, open **Import**, and press **Finalize**. The claims arrive **pending**; the approvers decide on
+them in **Approvals & Votes**, where the ones the old system had approved say so. Check the **Governance log**: it shows
+who staged and who finalized, with totals.
+
+Tested on a native instance (SQLite and PostgreSQL sources, two admins, the expiry job); the Docker commands above are
+not yet run on real Docker.
+
 ## Backing up
 
 ```bash

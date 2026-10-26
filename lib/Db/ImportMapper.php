@@ -66,7 +66,7 @@ class ImportMapper extends QBMapper {
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('status', $qb->createNamedParameter(Import::STAGED)))
-			->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_DATETIME_MUTABLE)));
+			->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($now, 'datetime')));
 
 		return $this->findEntities($qb);
 	}

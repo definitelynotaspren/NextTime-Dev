@@ -1,7 +1,11 @@
 # Data sources: importing from an older NextTime (proposal, nothing built)
 
-Status: proposal. Phase 1 (the isolated database stack and backups, `docs/isolated-data.md`) is built; this is
-Phase 2. Per the working style, nothing here is built until it is agreed.
+Status: **built** (app 0.11.0): preview, staging, the second-admin finalize, cancel, expiry, the admin page and
+`scripts/import-smoke.sh`, for an older NextTime in PostgreSQL, MySQL or a SQLite file. Phase 1 (the isolated database
+stack and backups) is in `docs/isolated-data.md`. Where the build differs from the plan below: rejected claims are left
+out (the plan did not say); imported claims are written as already notified so the reminder job stays quiet; the
+`source_ref` is the source's name plus the old id, so one name must be used per source; and the open questions
+below keep the defaults they were given. Not built: spreadsheets, other systems, matching people by email.
 
 ## What it is for
 

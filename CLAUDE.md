@@ -20,6 +20,7 @@ lib/Db/*                Entities + QBMappers (tables prefixed oc_timebank_)
 lib/Migration/          schema migration + SeedCategories repair step
 lib/Schema/             organizer-desk spec (SchemaSpec), visibility rules (FieldPolicy), row validation
 lib/Geo/                coordinate parsing and rounding for map output
+lib/Import/             import from another NextTime (Source, ImportPlanner, ImportService; two admins)
 lib/Settings/           admin settings page (display-only, see Known gaps)
 src/                    Vue 3 + Pinia + vue-router (hash history) + MapLibre GL
   stores/               API calls via @nextcloud/axios + generateUrl()
@@ -125,6 +126,12 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   send-to-vote and vote; `AdjustmentService` refuses the proposer and the member for approve, reject and vote. Keep that rule in any new path.
 - **Admin changes are logged publicly.** Call `GovernanceLog::record()` for any new admin power. Categories in
   active use cannot be deleted; archive instead. `GET /api/categories` includes archived ones, so pickers filter them.
+- **Imports** (`lib/Import/`, `docs/proposals/data-sources.md`): an admin stages, a *different* admin finalizes
+  (`ImportService`; keep that rule in any new path). Claims are written `pending`, never credited, and with
+  `notified_stage` 2 so `ClaimReminders` stays quiet about old claims. Imported rows carry `source_ref` (unique) so a
+  rerun skips them; people are matched by exact uid and none is created. Connection details are never stored or
+  logged; the SQLite source must be a bare file name in the data folder. Public-log details must stay flat
+  (`GovernanceLog` details are shown as `key: value`).
 - Schema changes go in a NEW migration class (`VersionXXXXXXDateYYYYMMDDHHMMSS`)
   and a version bump in info.xml - never edit the shipped migration.
 - The app folder must be named `timebank` (matches the app id).

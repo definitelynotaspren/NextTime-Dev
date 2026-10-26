@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Import from another NextTime** (admins, from **Import** in the menu). Preview an older NextTime database
+  (PostgreSQL, MySQL, or a SQLite file in the data folder), stage it, and a *different* admin finalizes or cancels it.
+  Preview writes nothing; staging holds the rows and logs totals in the public Governance Log; finalizing writes
+  requests, offers and claims all or none, and logs who finalized. People are matched by identical user name (no
+  account is created) and categories by name. Claims come in **pending** with their hours as they were, and one the
+  old system had approved shows an **"approved before"** note to approvers; rejected claims are left out. Rows carry a
+  source reference, so importing twice never adds a row twice. Connection details are never stored or logged. A staged
+  import nobody decides expires after 14 days. Migration `Version000010`, app 0.11.0. `scripts/import-smoke.sh`.
+
 - **The governance log notes, as "system", when NextTime's setup changes.** The first time NextTime is recorded,
   when its version changes (an update that finished its migrations) and when the kind of database under it
   changes (for example SQLite to PostgreSQL), one line is added with the version and the kind of database, never a
