@@ -4,9 +4,9 @@
 	"license": "AGPL-3.0-or-later",
 	"authors": [
 		{
-			"name": "Community Time Bank",
-			"email": "community@timebank.org",
-			"homepage": "https://github.com/timebank"
+			"name": "InputLoop",
+			"email": "humans@beyondconventions.com"
+			"homepage": "https://github.com/inputloop/NextTime-Dev"
 		}
 	],
 	"autoload": {
