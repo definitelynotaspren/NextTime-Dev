@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Notification;
 
 use OCA\TimeBank\AppInfo\Application;
+use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 use OCP\Notification\INotification;
@@ -35,12 +36,16 @@ class Notifier implements INotifier {
 		if ($notification->getApp() !== Application::APP_ID) {
 			throw $this->unknown();
 		}
+		$l = $this->l10nFactory->get(Application::APP_ID, $languageCode);
+		$p = $notification->getSubjectParameters();
+
+		if ($notification->getObjectType() === 'offer') {
+			return $this->prepareOffer($notification, $l, $p);
+		}
 		if ($notification->getObjectType() !== 'claim') {
 			throw $this->unknown();
 		}
 
-		$l = $this->l10nFactory->get(Application::APP_ID, $languageCode);
-		$p = $notification->getSubjectParameters();
 		$who = (string)($p['user'] ?? '');
 		$hours = (string)($p['hours'] ?? '');
 		$category = (string)($p['category'] ?? '');
@@ -54,6 +59,26 @@ class Notifier implements INotifier {
 
 		$notification->setParsedSubject($subject);
 		$notification->setLink($this->urlGenerator->linkToRouteAbsolute('timebank.page.index') . '#/admin/approvals');
+
+		return $notification;
+	}
+
+	/**
+	 * @param array<array-key, mixed> $p
+	 */
+	private function prepareOffer(INotification $notification, IL10N $l, array $p): INotification {
+		$who = (string)($p['user'] ?? '');
+		$hours = (string)($p['hours'] ?? '');
+		$title = (string)($p['title'] ?? '');
+
+		$subject = match ($notification->getSubject()) {
+			'offer_made' => $l->t('%1$s offered %2$s hours on "%3$s"', [$who, $hours, $title]),
+			'offer_accepted' => $l->t('Your offer on "%1$s" was accepted for %2$s hours', [$title, $hours]),
+			default => throw $this->unknown(),
+		};
+
+		$notification->setParsedSubject($subject);
+		$notification->setLink($this->urlGenerator->linkToRouteAbsolute('timebank.page.index') . '#/request/' . (int)($p['request'] ?? 0));
 
 		return $notification;
 	}

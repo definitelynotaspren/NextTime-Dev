@@ -10,6 +10,7 @@ use OCA\TimeBank\Db\Volunteer;
 use OCA\TimeBank\Db\VolunteerMapper;
 use OCA\TimeBank\Db\Withdrawal;
 use OCA\TimeBank\Db\WithdrawalMapper;
+use OCA\TimeBank\Notification\OfferNotifier;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
@@ -32,15 +33,18 @@ class VolunteerService {
 	private VolunteerMapper $volunteerMapper;
 	private RequestMapper $requestMapper;
 	private WithdrawalMapper $withdrawalMapper;
+	private OfferNotifier $notifier;
 
 	public function __construct(
 		VolunteerMapper $volunteerMapper,
 		RequestMapper $requestMapper,
 		WithdrawalMapper $withdrawalMapper,
+		OfferNotifier $notifier,
 	) {
 		$this->volunteerMapper = $volunteerMapper;
 		$this->requestMapper = $requestMapper;
 		$this->withdrawalMapper = $withdrawalMapper;
+		$this->notifier = $notifier;
 	}
 
 	/**
@@ -79,7 +83,10 @@ class VolunteerService {
 		$volunteer->setStatus('offered');
 		$volunteer->setCreatedAt(new \DateTime());
 
-		return $this->volunteerMapper->insert($volunteer);
+		$volunteer = $this->volunteerMapper->insert($volunteer);
+		$this->notifier->offered($volunteer, $request);
+
+		return $volunteer;
 	}
 
 	/**
@@ -132,6 +139,7 @@ class VolunteerService {
 		}
 
 		$this->volunteerMapper->delete($volunteer);
+		$this->notifier->answered($volunteer);
 		$this->reopenIfNoAcceptedVolunteers($request);
 	}
 
@@ -174,6 +182,9 @@ class VolunteerService {
 			$this->requestMapper->update($request);
 		}
 
+		$this->notifier->answered($updated);
+		$this->notifier->accepted($updated, $request);
+
 		return $updated;
 	}
 
@@ -194,7 +205,10 @@ class VolunteerService {
 		}
 
 		$volunteer->setStatus('declined');
-		return $this->volunteerMapper->update($volunteer);
+		$declined = $this->volunteerMapper->update($volunteer);
+		$this->notifier->answered($declined);
+
+		return $declined;
 	}
 
 	/**
