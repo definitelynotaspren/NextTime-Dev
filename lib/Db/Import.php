@@ -61,15 +61,23 @@ class Import extends Entity implements JsonSerializable {
 	/** @return array<string, mixed> */
 	public function countsData(): array {
 		$data = json_decode($this->counts ?? '[]', true);
+		if (!is_array($data)) {
+			return [];
+		}
+		/** @var array<string, mixed> $data */
 
-		return is_array($data) ? $data : [];
+		return $data;
 	}
 
 	/** @return array<string, mixed> */
 	public function reportData(): array {
 		$data = json_decode($this->report ?? '[]', true);
+		if (!is_array($data)) {
+			return [];
+		}
+		/** @var array<string, mixed> $data */
 
-		return is_array($data) ? $data : [];
+		return $data;
 	}
 
 	/** @return array<string, mixed> without the report, which names accounts */

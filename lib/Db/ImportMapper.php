@@ -44,6 +44,19 @@ class ImportMapper extends QBMapper {
 	}
 
 	/**
+	 * @return Import[] imports still waiting for a second admin
+	 */
+	public function findStaged(): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('status', $qb->createNamedParameter(Import::STAGED)))
+			->orderBy('id', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Staged imports nobody has decided by the time they expire.
 	 *
 	 * @return Import[]

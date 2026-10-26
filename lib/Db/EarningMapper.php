@@ -13,6 +13,7 @@ use OCP\IDBConnection;
  * @template-extends QBMapper<Earning>
  */
 class EarningMapper extends QBMapper {
+	use SourceRefs;
 
 	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'timebank_earnings', Earning::class);

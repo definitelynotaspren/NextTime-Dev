@@ -13,6 +13,7 @@ use OCP\IDBConnection;
  * @template-extends QBMapper<Request>
  */
 class RequestMapper extends QBMapper {
+	use SourceRefs;
 
 	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'timebank_requests', Request::class);
@@ -85,6 +86,21 @@ class RequestMapper extends QBMapper {
 			->setMaxResults($limit);
 
 		return $this->findEntities($qb);
+	}
+
+	/**
+	 * The request an import brought in from this source reference, if any.
+	 */
+	public function findBySourceRef(string $ref): ?Request {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('source_ref', $qb->createNamedParameter($ref)));
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException) {
+			return null;
+		}
 	}
 
 	/**

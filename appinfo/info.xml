@@ -38,6 +38,7 @@ services using hours as currency, with map-based coordination of requests and of
     <background-jobs>
         <job>OCA\TimeBank\BackgroundJob\ClaimReminders</job>
         <job>OCA\TimeBank\BackgroundJob\FormsIntakeJob</job>
+        <job>OCA\TimeBank\BackgroundJob\ExpireImports</job>
     </background-jobs>
 
     <repair-steps>

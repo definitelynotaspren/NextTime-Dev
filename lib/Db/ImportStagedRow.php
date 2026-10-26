@@ -34,7 +34,11 @@ class ImportStagedRow extends Entity {
 	/** @return array<string, mixed> */
 	public function dataArray(): array {
 		$data = json_decode($this->data ?? '[]', true);
+		if (!is_array($data)) {
+			return [];
+		}
+		/** @var array<string, mixed> $data */
 
-		return is_array($data) ? $data : [];
+		return $data;
 	}
 }
