@@ -4,7 +4,12 @@ import { generateUrl } from '@nextcloud/router'
 
 export interface Request {
 	id: number
-	requesterId: string
+	/** Who posted it: null unless they chose to show it, or you are staff, an admin, the poster, or accepted. */
+	requesterId: string | null
+	/** True when you posted it. */
+	isMine?: boolean
+	/** The poster chose to show their username to every member. */
+	showUsername?: boolean
 	title: string
 	description: string
 	categoryId: number
@@ -60,7 +65,9 @@ export interface CommentFlag {
 export interface RequestComment {
 	id: number
 	requestId: number
-	userId: string
+	/** null when the poster keeps their username private and you may not see it (authorLabel is then set). */
+	userId: string | null
+	authorLabel?: string
 	/** null when the comment is hidden by flags or removed, unless you are a moderator */
 	comment: string | null
 	createdAt: string

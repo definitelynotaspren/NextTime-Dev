@@ -117,6 +117,15 @@ class RequestService {
 	}
 
 	/**
+	 * The poster's id if this viewer may not be told it, else null (for masking comments).
+	 *
+	 * @throws DoesNotExistException
+	 */
+	public function hiddenPoster(int $id, string $viewerId): ?string {
+		return $this->presenter->hiddenPoster($this->requestMapper->find($id), $viewerId);
+	}
+
+	/**
 	 * @param array<string, mixed> $data
 	 */
 	public function createRequest(string $userId, array $data): Request {
@@ -130,6 +139,7 @@ class RequestService {
 		$request->setPriority(Input::string($data['priority'] ?? null) ?? 'normal');
 		$request->setMode('in_person');
 		$request->setReviewStatus('published');
+		$request->setShowUsername(filter_var($data['showUsername'] ?? false, FILTER_VALIDATE_BOOLEAN));
 		$this->applyZip($request, $data);
 
 		$deadline = Input::string($data['deadline'] ?? null);
@@ -192,6 +202,9 @@ class RequestService {
 				throw new InvalidStateException('Priority must be low, normal, high, or urgent');
 			}
 			$request->setPriority($data['priority']);
+		}
+		if (isset($data['showUsername'])) {
+			$request->setShowUsername(filter_var($data['showUsername'], FILTER_VALIDATE_BOOLEAN));
 		}
 		$deadline = Input::string($data['deadline'] ?? null);
 		if ($deadline !== null && $deadline !== '') {

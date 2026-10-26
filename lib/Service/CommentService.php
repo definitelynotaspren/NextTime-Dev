@@ -63,19 +63,26 @@ class CommentService {
 
 	/**
 	 * Comments of a request as this viewer may see them. Hidden and removed comments keep
-	 * their place in the thread but not their text, except for moderators.
+	 * their place in the thread but not their text, except for moderators. $hiddenPoster is the
+	 * poster's id when this viewer may not be told it (see RequestPresenter::hiddenPoster).
 	 *
 	 * @return list<array<string, mixed>>
 	 */
-	public function getForViewer(int $requestId, string $viewerId): array {
+	public function getForViewer(int $requestId, string $viewerId, ?string $hiddenPoster = null): array {
 		$comments = $this->commentMapper->findByRequest($requestId);
 		$moderator = $this->isModerator($viewerId);
 		$flags = $this->groupFlags($comments);
 
-		return array_values(array_map(
-			fn (Comment $c) => $this->view($c, $flags[$c->getId()] ?? [], $viewerId, $moderator),
-			$comments,
-		));
+		return array_values(array_map(function (Comment $c) use ($flags, $viewerId, $moderator, $hiddenPoster) {
+			$view = $this->view($c, $flags[$c->getId()] ?? [], $viewerId, $moderator);
+			// A poster who keeps their username private is "Requester" in their own thread too.
+			if ($hiddenPoster !== null && $c->getUserId() === $hiddenPoster) {
+				$view['userId'] = null;
+				$view['authorLabel'] = 'Requester';
+			}
+
+			return $view;
+		}, $comments));
 	}
 
 	/**

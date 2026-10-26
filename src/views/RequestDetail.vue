@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getCurrentUser } from '@nextcloud/auth'
 import { useRequestStore, errorMessage, type RequestComment, type Volunteer } from '../stores/requestStore'
 import { useCategoryStore } from '../stores/categoryStore'
@@ -76,7 +76,7 @@ const category = computed(() => {
 const request = computed(() => requestStore.currentRequest?.request ?? null)
 const volunteers = computed(() => requestStore.currentRequest?.volunteers ?? [])
 const withdrawals = computed(() => requestStore.currentRequest?.withdrawals ?? [])
-const isRequester = computed(() => !!request.value && request.value.requesterId === currentUserId)
+const isRequester = computed(() => !!request.value && (request.value.isMine ?? request.value.requesterId === currentUserId))
 const canEdit = computed(() => isRequester.value && request.value?.status === 'open')
 const isActive = computed(() => request.value?.status === 'open' || request.value?.status === 'in_progress')
 const myOffer = computed(() => volunteers.value.find((v) => v.volunteerId === currentUserId) ?? null)
@@ -235,6 +235,14 @@ watch(requestId, (id) => {
 				</div>
 
 				<h1>{{ requestStore.currentRequest.request.title }}</h1>
+				<p class="poster">
+					Posted by
+					<strong v-if="request?.isMine">you</strong>
+					<RouterLink v-else-if="request?.requesterId" :to="{ name: 'UserLedger', params: { userId: request.requesterId } }">
+						{{ request.requesterId }}
+					</RouterLink>
+					<em v-else>a member who keeps their username private</em>
+				</p>
 
 				<div v-if="request?.status === 'in_progress' && helpers.length" class="status-banner banner-progress" role="status">
 					In progress with {{ helperSummary }}.

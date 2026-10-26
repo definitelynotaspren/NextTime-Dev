@@ -67,7 +67,7 @@ class RequestController extends Controller {
 		try {
 			$data = $this->requestService->getRequestDetails($id, $this->uid());
 			// Comments go through moderation: hidden and removed ones lose their text.
-			$data['comments'] = $this->commentService->getForViewer($id, $this->uid());
+			$data['comments'] = $this->commentService->getForViewer($id, $this->uid(), $this->requestService->hiddenPoster($id, $this->uid()));
 			$data['canModerate'] = $this->commentService->isModerator($this->uid());
 			// States it could be moved to; empty for people who may never move a request.
 			$data['stateChoices'] = $this->reassignment->choicesFor($this->uid());
@@ -127,6 +127,7 @@ class RequestController extends Controller {
 			'latitude' => $this->request->getParam('latitude'),
 			'longitude' => $this->request->getParam('longitude'),
 			'zip' => $this->request->getParam('zip'),
+			'showUsername' => $this->request->getParam('showUsername', false),
 		];
 
 		try {
@@ -154,6 +155,7 @@ class RequestController extends Controller {
 			'latitude' => $this->request->getParam('latitude'),
 			'longitude' => $this->request->getParam('longitude'),
 			'zip' => $this->request->getParam('zip'),
+			'showUsername' => $this->request->getParam('showUsername'),
 		];
 
 		$data = array_filter($data, fn ($v) => $v !== null);

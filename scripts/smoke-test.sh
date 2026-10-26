@@ -267,6 +267,40 @@ call bob GET "/requests/$LOC_ID"
 [ "$(json '.request.latitude')" = null ] && pass "after withdrawing, bob is back to the ZIP only" || fail "bob still sees it after withdrawing"
 call alice POST "/requests/$LOC_ID/cancel"
 
+echo "- Poster privacy: the username is hidden unless the poster opts in"
+call alice POST /requests "{\"title\":\"Smoke test: private poster\",\"description\":\"The poster keeps their username private.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\"}"
+expect "alice posts without showing her username" 201
+PRIV_ID="$(json '.id')"
+[ "$(json '.requesterId')" = alice ] && [ "$(json '.isMine')" = true ] && pass "the poster sees herself" || fail "alice's own view: $BODY"
+call alice POST "/requests/$PRIV_ID/comments" '{"comment":"A note from the poster"}'
+call bob GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = null ] && [ "$(json '.request.isMine')" = false ] && pass "another member is not told who posted" || fail "bob's view: $(head -c 300 <<<"$BODY")"
+grep -q alice <<<"$BODY" && fail "alice's name appears in bob's detail response (comments included)" || pass "her name is nowhere in it, comments included"
+[ "$(json '.comments[0].authorLabel')" = Requester ] && pass "her comment is labelled Requester" || fail "comment label: $(json '.comments[0]')"
+call bob GET "/requests?limit=100"
+jq -e --argjson id "$PRIV_ID" '[.requests[] | select(.id==$id)][0].requesterId == null' <<<"$BODY" >/dev/null && pass "the list hides her too" || fail "the list names the poster"
+call bob POST "/requests/$PRIV_ID/volunteer" '{"proposedHours":1}'
+V_PRIV="$(json '.id')"
+call bob GET /volunteers/my
+grep -q alice <<<"$BODY" && fail "my offers names the poster" || pass "my offers does not name the poster"
+call admin GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = alice ] && pass "an admin sees who posted" || fail "admin's view: $(head -c 300 <<<"$BODY")"
+call alice POST "/volunteers/$V_PRIV/accept"
+call bob GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = alice ] && [ "$(json '.comments[0].userId')" = alice ] && pass "once accepted, bob sees who posted" || fail "bob after acceptance: $(head -c 300 <<<"$BODY")"
+call carol GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = null ] && pass "carol still does not" || fail "carol sees the poster"
+call alice POST "/requests/$PRIV_ID/cancel"
+call alice POST /requests "{\"title\":\"Smoke test: named poster\",\"description\":\"The poster shows their username.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1,\"zip\":\"97055\",\"showUsername\":true}"
+expect "alice posts with her username shown" 201
+NAMED_ID="$(json '.id')"
+call carol GET "/requests/$NAMED_ID"
+[ "$(json '.request.requesterId')" = alice ] && [ "$(json '.request.showUsername')" = true ] && pass "when she opts in, everyone sees it" || fail "carol's view: $(head -c 300 <<<"$BODY")"
+call alice PUT "/requests/$NAMED_ID" '{"showUsername":false}'
+call carol GET "/requests/$NAMED_ID"
+[ "$(json '.request.requesterId')" = null ] && pass "and she can take it back while the request is open" || fail "carol after opt-out: $(head -c 300 <<<"$BODY")"
+call alice POST "/requests/$NAMED_ID/cancel"
+
 echo "- Lifecycle rules: withdrawing and the log"
 call alice POST /requests "{\"title\":\"Smoke test: withdraw\",\"description\":\"For the withdrawal log.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\"}"
 expect "alice posts a third request" 201

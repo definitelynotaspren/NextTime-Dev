@@ -23,11 +23,11 @@ interface Request {
 	location: string | null
 	volunteerCount?: number
 	commentCount?: number
-	requesterId: string
+	requesterId?: string | null
 }
 
 interface MyOffer extends Volunteer {
-	request: { id: number, title: string, status: string, requesterId: string }
+	request: { id: number, title: string, status: string }
 }
 
 type Tab = 'requests' | 'offers' | 'withdrawn'

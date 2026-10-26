@@ -205,7 +205,6 @@ class VolunteerService {
 				'id' => $request->getId(),
 				'title' => $request->getTitle(),
 				'status' => $request->getStatus(),
-				'requesterId' => $request->getRequesterId(),
 			];
 			$rows[] = $row;
 		}

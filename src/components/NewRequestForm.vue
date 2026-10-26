@@ -40,6 +40,7 @@ const zipValid = computed(() => /^\d{5}(-\d{4})?$/.test(zip.value.trim()))
 // The exact location (address text or pin) is sent only when this is ticked. Unticked, a dropped
 // pin is used in the browser to fill in the ZIP and never leaves the device.
 const saveExact = ref(!!props.request?.location)
+const showUsername = ref(props.request?.showUsername ?? false)
 const zipHint = ref<string | null>(null)
 let zipFromPin = false
 
@@ -107,6 +108,7 @@ const submit = async () => {
 		priority: priority.value,
 		deadline: deadline.value || undefined,
 		zip: zip.value.trim(),
+		showUsername: showUsername.value,
 		// Unticked: nothing exact is sent; an edit sends '' so a saved location is removed.
 		location: saveExact.value ? (location.value || undefined) : (editing.value ? '' : undefined),
 	}
@@ -234,6 +236,19 @@ const submit = async () => {
 			<p v-if="!saveExact && location" class="hint">
 				Not saved: only the ZIP is sent. Your pin stays on this device.
 			</p>
+		</div>
+
+		<div class="form-group">
+			<label class="save-exact">
+				<input
+					id="show-username"
+					v-model="showUsername"
+					type="checkbox"
+					:disabled="submitting">
+				Show my username on this request. Unticked, other members see "a member who keeps their username
+				private". Facilitators of your state, national organizers, admins and the volunteers you accept
+				can always see it.
+			</label>
 		</div>
 
 		<div class="form-actions">

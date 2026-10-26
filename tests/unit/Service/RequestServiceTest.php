@@ -206,6 +206,14 @@ final class RequestServiceTest extends TestCase {
 
 	// ---- editing -------------------------------------------------------------
 
+	public function testThePosterCanShowOrHideTheirUsernameWhileOpen(): void {
+		$this->requests->method('find')->willReturn($this->request('open'));
+
+		$this->assertFalse($this->service->updateRequest(1, 'alice', ['title' => 'New title'])->getShowUsername(), 'private unless asked');
+		$this->assertTrue($this->service->updateRequest(1, 'alice', ['showUsername' => true])->getShowUsername());
+		$this->assertFalse($this->service->updateRequest(1, 'alice', ['showUsername' => false])->getShowUsername());
+	}
+
 	public function testARequestCanBeEditedOnlyWhileOpen(): void {
 		$this->requests->method('find')->willReturn($this->request('open'));
 		$this->assertSame('New title', $this->service->updateRequest(1, 'alice', ['title' => 'New title'])->getTitle());
