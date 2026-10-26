@@ -140,6 +140,8 @@ class RequestService {
 		$request->setMode('in_person');
 		$request->setReviewStatus('published');
 		$request->setShowUsername(filter_var($data['showUsername'] ?? false, FILTER_VALIDATE_BOOLEAN));
+		// Set by the server only (the desk bridge), never from request input.
+		$request->setSourceRef(Input::string($data['sourceRef'] ?? null));
 		$this->applyZip($request, $data);
 
 		$deadline = Input::string($data['deadline'] ?? null);

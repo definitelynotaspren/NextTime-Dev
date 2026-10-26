@@ -89,6 +89,29 @@ class RequestMapper extends QBMapper {
 	}
 
 	/**
+	 * Requests an organizer put on the board from a desk row, by the row's source reference
+	 * ("desk:" and the row's uid), so the desk can show which rows are already on the board.
+	 *
+	 * @return array<string, int> source reference => request id
+	 */
+	public function deskRequestIds(): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id', 'source_ref')
+			->from($this->getTableName())
+			->where($qb->expr()->like('source_ref', $qb->createNamedParameter('desk:%')));
+		$result = $qb->executeQuery();
+		$ids = [];
+		while (($row = $result->fetch()) !== false) {
+			if (is_array($row) && is_scalar($row['source_ref'] ?? null) && is_numeric($row['id'] ?? null)) {
+				$ids[(string)$row['source_ref']] = (int)$row['id'];
+			}
+		}
+		$result->closeCursor();
+
+		return $ids;
+	}
+
+	/**
 	 * The request an import brought in from this source reference, if any.
 	 */
 	public function findBySourceRef(string $ref): ?Request {

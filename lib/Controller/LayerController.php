@@ -6,6 +6,8 @@ namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Schema\LayerException;
 use OCA\TimeBank\Schema\Viewer;
+use OCA\TimeBank\Service\DeskBridge;
+use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\LayerService;
 use OCA\TimeBank\Service\StateReassignment;
 use OCA\TimeBank\Service\ViewerResolver;
@@ -14,6 +16,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 
@@ -37,6 +40,7 @@ class LayerController extends Controller {
 		LayerService $layerService,
 		ViewerResolver $viewers,
 		private StateReassignment $reassignment,
+		private DeskBridge $bridge,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -111,6 +115,27 @@ class LayerController extends Controller {
 		try {
 			return new DataResponse($this->reassignment->moveDeskRow($layer, $id, $this->uid(), $this->optionalTextParam('chapter')));
 		} catch (\Exception $e) {
+			return $this->errorResponse($e);
+		}
+	}
+
+	/**
+	 * Puts a need on the request board. The facilitator types the public title and description; the
+	 * ZIP comes from the row and nothing else does. See DeskBridge.
+	 */
+	#[NoAdminRequired]
+	#[UserRateLimit(limit: 50, period: 600)]
+	#[FrontpageRoute(verb: 'POST', url: '/api/layers/{layer}/rows/{id}/board', requirements: ['layer' => '[a-z_]+', 'id' => '\\d+'])]
+	public function board(string $layer, int $id): DataResponse {
+		try {
+			return $this->run(fn (Viewer $viewer) => $this->bridge->putOnBoard($viewer, $layer, $id, [
+				'title' => $this->request->getParam('title'),
+				'description' => $this->request->getParam('description'),
+				'categoryId' => $this->request->getParam('categoryId'),
+				'hoursBudget' => $this->request->getParam('hoursBudget'),
+				'priority' => $this->request->getParam('priority'),
+			]), Http::STATUS_CREATED);
+		} catch (InvalidStateException $e) {
 			return $this->errorResponse($e);
 		}
 	}

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Adjustments lists only open items** (waiting for an approval or a vote). Decided adjustments live in the public
+  governance log, which now also carries the reason for rejected and withdrawn ones, so nothing is shown twice.
 - **The Docker dev image is Nextcloud 35** (`nextcloud:35-apache`, pinned to the major version), the version
   production and development run, instead of 31. The instance's database name has its own setting,
   `NEXTTIME_DB_NAME`, so a second instance can use its own database on the same server without editing
@@ -17,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Poster privacy.** A request's poster is hidden from other members unless they tick **Show my username** when
+  posting (default off, also for requests posted before). Facilitators of the request's state, national organizers,
+  admins and accepted volunteers always see who posted. The server no longer sends the poster's id to anyone else:
+  not in the request, in "my offers", in the poster's own comments (shown as "Requester"), or in the public log when
+  a request is moved. Migration `Version000011`.
+- **Agreed hours.** When accepting an offer the requester can settle on hours between what they posted and what the
+  volunteer offered (offered hours by default). The offer keeps its own number; a completed request counts the
+  agreed hours. Migration `Version000012`; app 0.12.0.
+- **Offer notices.** The requester is notified when someone offers to help, and the volunteer when they are
+  accepted. The notice carries the request title, the volunteer and the hours, never the volunteer's message.
+- **Put a desk need on the request board.** On the organizer desk, a facilitator of the row's state (or a national
+  organizer) can open a row's **Details** and use **Put on the board** for a *need*. The facilitator types the public
+  title and description; only the ZIP comes from the row, so contact details never travel. The facilitator becomes
+  the request's contact and the board says "posted for the desk". A row goes on once; the desk shows which rows are
+  on the board; each is logged in the governance log. Rows from Nextcloud Forms show which form and submission
+  they came from.
+- **My activity hides finished items** (completed and cancelled requests, completed offers) behind a **Show completed
+  and cancelled** tick.
 - **Import from another NextTime** (admins, from **Import** in the menu). Preview an older NextTime database
   (PostgreSQL, MySQL, or a SQLite file in the data folder), stage it, and a *different* admin finalizes or cancels it.
   Preview writes nothing; staging holds the rows and logs totals in the public Governance Log; finalizing writes

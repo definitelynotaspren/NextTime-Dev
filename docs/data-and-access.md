@@ -19,8 +19,8 @@ workbook yet.
 
 | Table | Holds | Sensitivity |
 |-------|-------|-------------|
-| `oc_timebank_requests` | title, description, `zip`, state, free-text `location`, `latitude`/`longitude`, requester | Visible to every logged-in member, except `location` and the point: only the requester, the facilitators of the request's state and accepted volunteers get those (`RequestPresenter`). |
-| `oc_timebank_volunteers` | who offered, hours, message, status | Visible to members on the request page |
+| `oc_timebank_requests` | title, description, `zip`, state, free-text `location`, `latitude`/`longitude`, requester, `show_username` | Visible to every logged-in member, except `location` and the point: only the requester, the facilitators of the request's state and accepted volunteers get those. The requester's name follows `show_username` (off by default); without it only the requester, the request's state facilitators, national organizers, admins and accepted volunteers get it (`RequestPresenter`). A request put on the board from the desk has `source_ref` `desk:<row uid>` and the facilitator as requester. |
+| `oc_timebank_volunteers` | who offered, hours offered, hours agreed on acceptance, message, status | Visible to members on the request page |
 | `oc_timebank_comments` | comments on requests | Members, except flagged-hidden or removed ones: the server withholds their text, moderators still see it |
 | `oc_timebank_adjustments` | manual balance adjustments: member, hours, reason, proposer, approver | Admins and national organizers; facilitators for their states; chapter members for votes open to them. The result is public in the ledger and governance log |
 | `oc_timebank_adjustment_votes` | who voted for or against an adjustment | Public by design: shown with the adjustment and in the governance log |

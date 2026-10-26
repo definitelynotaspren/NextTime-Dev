@@ -122,6 +122,15 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   `national_organizer_group`); the legacy `timebank-organizer` and `GSUS` groups still count until their members move.
   Ask "is this person a national organizer" only through that class or `Viewer::$nationalOrganizer`. Desk rows get their chapter from the ZIP (`lib/Geo/ZipStates.php`). Tests need
   group names with spaces; `scripts/approver-smoke.sh` and `desk-smoke.sh` create "Oregon" groups with occ.
+- **The poster's id is private unless `show_username`.** `Request::jsonSerialize()` no longer has `requesterId`; the
+  presenter adds it (`maySeePoster`) for the poster, the request's state facilitators, national organizers, admins,
+  accepted volunteers, or everyone when the poster opted in, and always sends `isMine`. Any new output that names a
+  request's poster (comments use `CommentService::getForViewer($hiddenPoster)`, the governance log, notices) must go
+  through that rule; the frontend uses `isMine`, never `requesterId === me`.
+- **Desk to board** (`DeskBridge`): only a `need` row, once (`source_ref` `desk:<uid>`); the facilitator types the title
+  and description and only the ZIP is copied from the row, so organizer-only fields never reach the board.
+- **Hours on an offer:** `Volunteer::effectiveHours()` (agreed, else offered) is what a completed request counts and
+  what the notices and withdrawal log show.
 - **Nobody decides on their own claim or adjustment.** `EarningService::requireDecidable` covers approve, reject,
   send-to-vote and vote; `AdjustmentService` refuses the proposer and the member for approve, reject and vote. Keep that rule in any new path.
 - **Admin changes are logged publicly.** Call `GovernanceLog::record()` for any new admin power. Categories in

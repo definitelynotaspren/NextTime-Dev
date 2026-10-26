@@ -236,12 +236,14 @@ watch(requestId, (id) => {
 
 				<h1>{{ requestStore.currentRequest.request.title }}</h1>
 				<p class="poster">
-					Posted by
+					Posted <strong v-if="request?.postedForDesk">for the desk</strong><template v-if="!request?.postedForDesk || request?.requesterId">
+						by
+					</template>
 					<strong v-if="request?.isMine">you</strong>
 					<RouterLink v-else-if="request?.requesterId" :to="{ name: 'UserLedger', params: { userId: request.requesterId } }">
 						{{ request.requesterId }}
 					</RouterLink>
-					<em v-else>a member who keeps their username private</em>
+					<em v-else-if="!request?.postedForDesk">a member who keeps their username private</em>
 				</p>
 
 				<div v-if="request?.status === 'in_progress' && helpers.length" class="status-banner banner-progress" role="status">

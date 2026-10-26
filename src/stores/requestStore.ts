@@ -10,6 +10,8 @@ export interface Request {
 	isMine?: boolean
 	/** The poster chose to show their username to every member. */
 	showUsername?: boolean
+	/** An organizer put it on the board from the desk. */
+	postedForDesk?: boolean
 	title: string
 	description: string
 	categoryId: number

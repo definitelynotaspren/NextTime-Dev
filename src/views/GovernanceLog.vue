@@ -37,6 +37,7 @@ const LABELS: Record<string, string> = {
 	'adjustment.expired': 'adjustment expired for',
 	'setting.adjustment_threshold': 'changed the second-approval threshold',
 	'import.staged': 'staged an import from',
+	'desk_row.put_on_board': 'put a desk need on the request board',
 	'import.finalized': 'finalized an import from',
 	'import.cancelled': 'cancelled an import from',
 	'import.expired': 'marked an import as expired, from',

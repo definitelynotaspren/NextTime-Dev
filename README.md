@@ -523,9 +523,17 @@ Where the data lives, who can read it, what is not protected and how to get raw 
   groups; the Chapters page shows what was found but does not edit it.
 - **ZIP-to-state uses a built-in table** (generated October 2026). A few prefixes that straddle a state line are handled by
   exact ZIP; military and unassigned prefixes have no chapter; city chapters need their prefixes set.
-- **Only claim notices exist.** Nobody is told when a request is cancelled, a flag hides a comment or an offer is accepted.
-- **Claims are not tied to a request or to co-workers**, and a desk row is not a board request. See
+- **Only claim and offer notices exist.** A requester is told when someone offers, and a volunteer when they are
+  accepted. Nobody is told when a request is cancelled, a flag hides a comment or an offer is declined.
+- **Claims are not tied to a request or to co-workers.** A facilitator can put a desk *need* on the request board
+  (one way: the desk row is not updated when the request finishes). See
   [docs/proposals/next-steps.md](docs/proposals/next-steps.md).
+- **A request's poster is private unless they tick "show my username".** Requests posted before that setting
+  existed are private too. Facilitators of the request's state, national organizers, admins and accepted
+  volunteers always see the poster. The poster can change the setting only while the request is open.
+- **Agreed hours are set once, on acceptance.** The requester picks them between the hours they posted and the
+  hours offered; to change them later the volunteer withdraws and offers again. Completing a request counts the
+  agreed hours; claiming and approving hours is still a separate step.
 - **Approving a claim creates hours; nothing charges the person helped.** How hours are spent is still to be designed.
 - **A facilitator working a row cannot see the requester's contact details** (organizer-only).
 - **A member can flag a comment once, ever**: after a moderator keeps it, those members cannot flag it again.

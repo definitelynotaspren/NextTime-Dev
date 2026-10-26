@@ -93,6 +93,7 @@ class RequestPresenter {
 			'requesterId' => $this->maySeePoster($request, $viewer, $acceptedVolunteer) ? $request->getRequesterId() : null,
 			'isMine' => $viewer->userId === $request->getRequesterId(),
 			'showUsername' => $request->getShowUsername(),
+			'postedForDesk' => str_starts_with((string)$request->getSourceRef(), DeskBridge::SOURCE_PREFIX),
 			'chapter' => $this->chapterOf($request),
 			'exactLocation' => $exact,
 			'location' => $exact ? $request->getLocation() : null,
