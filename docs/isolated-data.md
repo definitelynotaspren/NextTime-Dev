@@ -109,6 +109,80 @@ copying. Do these in order, and do the first two **before** you pull this change
 If anything is wrong, run `make docker-down` and `make docker-data-down`; your volumes are unchanged. You can
 go back to the previous commit and its compose file and start again from the same volumes.
 
+## Giving a Nextcloud instance its database inside nexttime-db
+
+Nextcloud, not NextTime, owns the database connection: it reads it from the instance's `config.php` on every
+request. NextTime has no database setting; whatever database the instance points at is where its tables are. So
+"NextTime's data is in `nexttime-db`" means *the Nextcloud instance that runs NextTime uses a database on
+`nexttime-db`*. Two rules:
+
+- **One database per Nextcloud instance** (for example `nexttime35`), created inside the server. Never point a
+  second instance at a database another one has used: Nextcloud only upgrades one major version at a time, so it
+  refuses a database last used by an older release, and trying can damage the older instance.
+- **A change is written to the public governance log.** When NextTime is first seen, when its version changes (an
+  update that finished its migrations) and when the kind of database under it changes (SQLite to PostgreSQL), it adds
+  a line as "system": the version and the kind of database, never the host, name or password.
+
+### A new instance on PostgreSQL from the start (recommended)
+
+No conversion, and the only way that has no hand-made steps. Use the same `.env` as the stack:
+
+```
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "CREATE DATABASE nexttime35 OWNER nextcloud"
+docker volume create nexttime35_files
+docker run -d --name NextTime-Dev35 --network nexttime_data -p 8081:80 -v nexttime35_files:/var/www/html --env-file .env -e POSTGRES_HOST=nexttime-db -e POSTGRES_DB=nexttime35 nextcloud:35-apache
+```
+
+(Use your own `POSTGRES_USER` instead of `nextcloud` if `.env` sets another. `-e` after `--env-file` wins, so the
+database name above replaces the one in `.env`. Pin the image to a major version, `35`, not `latest`.) When
+`http://localhost:8081/status.php` says `"installed": true`, add NextTime as described in the install steps
+(copy the six folders, `chown`, `occ app:enable timebank`). Not yet run against real Docker; the same
+PostgreSQL install was run natively.
+
+### An instance that already has data on SQLite
+
+`occ db:convert-type` copies an instance into PostgreSQL, but on Nextcloud 35.0.2 it **stops at its last step**
+(`SELECT MAX() FROM`, a similar report: nextcloud/server#26465) *after* all tables are copied, before it saves the
+new database settings. That was reproduced on a native test instance (35.0.2, PostgreSQL 16): the row counts of
+every NextTime table and of users matched afterwards, the API smoke test passed on the result, and the governance
+log showed `sqlite → postgres`. It has not been run on real Docker or PostgreSQL 15. Take a copy first:
+
+1. **Copy the SQLite file out** (the converter never changes it, so it is also your way back):
+   `docker cp NextTime-Dev:/var/www/html/data/owncloud.db .\owncloud-before.db`
+2. **Create the empty database and join the network:**
+   ```
+   docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "CREATE DATABASE nexttime35 OWNER nextcloud"
+   docker network connect nexttime_data NextTime-Dev
+   ```
+3. **Convert** (it asks for the database password, and puts Nextcloud in maintenance mode while it works):
+   ```
+   docker exec -it -u www-data NextTime-Dev php occ db:convert-type --all-apps --clear-schema pgsql nextcloud nexttime-db nexttime35
+   ```
+   If it finishes and prints no error, you are done: skip to step 5.
+4. **If it stops with `SELECT MAX() FROM`,** the copy is complete but two steps are left. Do them with these files, in this order.
+   The counters (`scripts\pg-resync-sequences.sql`) so new rows do not reuse old ids:
+   ```
+   docker compose --env-file .env -f docker/data/docker-compose.yml exec -T db psql -v ON_ERROR_STOP=1 -U nextcloud -d nexttime35 < scripts\pg-resync-sequences.sql
+   ```
+   Then the settings, all in one write (`occ config:system:set` cannot do this: with SQLite, `dbname` is the name of
+   the database *file*, so changing it first leaves Nextcloud looking at an empty file):
+   ```
+   docker cp scripts\nextcloud-switch-to-pgsql.php NextTime-Dev:/tmp/
+   set NEXTTIME_DB_PASSWORD=the-database-password
+   docker exec -u www-data -e NEXTTIME_DB_PASSWORD NextTime-Dev php /tmp/nextcloud-switch-to-pgsql.php /var/www/html/config/config.php nexttime-db nexttime35 nextcloud
+   ```
+   It keeps `config.php.before-pgsql` next to `config.php` and refuses to run twice.
+5. **Check it:** open the app. In the Governance log there should be a line "changed the kind of database NextTime runs on:
+   database: sqlite → postgres". Count rows and compare with what the board showed:
+   ```
+   docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -d nexttime35 -c "select count(*) from oc_timebank_requests"
+   ```
+6. **To undo,** copy `config.php.before-pgsql` back over `config.php` inside the container. Nothing was deleted from SQLite.
+
+The `nextcloud` database already on the server (from an older stack) is a different instance's data and is not merged
+into the new one. Bringing its requests across is what the planned import is for
+([proposals/data-sources.md](proposals/data-sources.md)).
+
 ## Backing up
 
 ```bash
@@ -121,7 +195,8 @@ BACKUP_DIR=/e/nexttime-backups scripts/backup.sh
 created for you, so a drive that is not plugged in is an error, not a backup into the wrong place. Each run
 writes four files that belong together:
 
-- `nexttime-db-<time>.dump`: the database (`pg_dump -Fc`)
+- `nexttime-db-<time>-<database>.dump`: one per database on the server (`pg_dump -Fc`), so a second
+  instance's database is never left out (`BACKUP_DATABASES="a b"` limits it)
 - `nexttime-files-<time>.tgz`: Nextcloud's folder, including `config.php` and claim evidence
 - `nexttime-<time>.info`: the app version and commit, so you know which code matches
 - `nexttime-<time>.sha256`: checksums, checked with `sha256sum -c`
@@ -153,7 +228,7 @@ it at the stack you are using. For a rehearsal, use different volume names and p
 2. Load the dump into it:
    ```bash
    docker compose --env-file .env -f docker/data/docker-compose.yml exec -T db \
-     pg_restore -U nextcloud -d nextcloud --clean --if-exists --no-owner < /e/nexttime-backups/nexttime-db-<time>.dump
+     pg_restore -U nextcloud -d <database> --clean --if-exists --no-owner < /e/nexttime-backups/nexttime-db-<time>-<database>.dump
    ```
 3. Unpack the files into the files volume:
    ```bash

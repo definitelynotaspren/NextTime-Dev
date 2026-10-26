@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Back up everything NextTime keeps, from the Docker stack (docs/isolated-data.md):
 #
-#   nexttime-db-<time>.dump      the database (pg_dump custom format; restore with pg_restore)
+#   nexttime-db-<time>-<name>.dump  one per database on the server (pg_dump custom format; restore
+#                                   with pg_restore)
 #   nexttime-files-<time>.tgz    Nextcloud's folder: config.php, uploaded files such as claim evidence
 #   nexttime-<time>.info         app version and when, so a restore can pick matching code
 #   nexttime-<time>.sha256       checksums of the three files above
@@ -14,6 +15,8 @@
 #               so a drive that is not plugged in is an error, not a backup into the wrong place.
 #   KEEP        how many backup sets to keep (default 7); older ones are deleted only after a new
 #               set has been written and checked
+#   BACKUP_DATABASES  space-separated database names to dump. Default: every database on the server
+#               except the system ones, so a database added later is never silently left out
 #   ENV_FILE    the compose .env (default .env)
 #
 # Nextcloud is put in maintenance mode while the files are copied, so the database and the files
@@ -52,7 +55,6 @@ case "$DEST/" in "$REPO"/*) die "BACKUP_DIR is inside the repo; a backup next to
 case "$KEEP" in '' | *[!0-9]* | 0) die "KEEP must be a whole number of at least 1" ;; esac
 
 PGUSER="$(envval POSTGRES_USER nextcloud)"
-PGDB="$(envval POSTGRES_DB nextcloud)"
 FILES_VOLUME="$(envval NEXTTIME_FILES_VOLUME nexttime_files)"
 DATA=(docker compose --env-file "$ENV_FILE" -f docker/data/docker-compose.yml)
 APP=(docker compose)
@@ -62,8 +64,20 @@ app_running() { "${APP[@]}" ps --status running --services 2>/dev/null | grep -q
 
 db_running || die "the database is not running (start it with: make docker-data-up)"
 
+DBS=()
+if [ -n "${BACKUP_DATABASES:-}" ]; then
+	read -r -a DBS <<<"$BACKUP_DATABASES"
+else
+	while IFS= read -r name; do
+		[ -n "$name" ] && DBS+=("$name")
+	done < <("${DATA[@]}" exec -T db psql -U "$PGUSER" -d postgres -Atc "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY 1")
+fi
+[ "${#DBS[@]}" -gt 0 ] || die "found no database to back up"
+for name in "${DBS[@]}"; do
+	case "$name" in '' | *[!A-Za-z0-9_]*) die "database name '$name' has characters this script does not handle" ;; esac
+done
+
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
-DUMP="nexttime-db-$TS.dump"
 FILES="nexttime-files-$TS.tgz"
 INFO="nexttime-$TS.info"
 SUMS="nexttime-$TS.sha256"
@@ -71,13 +85,13 @@ SUMS="nexttime-$TS.sha256"
 TURNED_ON=0
 cleanup() {
 	local rc=$?
-	rm -f "$DEST/$DUMP.partial" "$DEST/$FILES.partial"
+	rm -f "$DEST"/nexttime-db-"$TS"-*.dump.partial "$DEST/$FILES.partial"
 	if [ "$TURNED_ON" = 1 ]; then
 		"${APP[@]}" exec -T -u www-data nextcloud php occ maintenance:mode --off >/dev/null 2>&1 \
 			|| echo "backup: COULD NOT turn maintenance mode off; run: docker compose exec -u www-data nextcloud php occ maintenance:mode --off" >&2
 	fi
 	if [ "$rc" != 0 ]; then
-		rm -f "$DEST/$DUMP" "$DEST/$FILES" "$DEST/$INFO" "$DEST/$SUMS"
+		rm -f "$DEST"/nexttime-db-"$TS"-*.dump "$DEST/$FILES" "$DEST/$INFO" "$DEST/$SUMS"
 		echo "backup: FAILED, no new backup set was kept (older sets are untouched)" >&2
 	fi
 }
@@ -98,10 +112,15 @@ else
 	echo "backup: Nextcloud is not running; the files are copied without pausing it"
 fi
 
-echo "backup: database -> $DEST/$DUMP"
-"${DATA[@]}" exec -T db pg_dump -U "$PGUSER" -d "$PGDB" -Fc >"$DEST/$DUMP.partial"
-[ -s "$DEST/$DUMP.partial" ] || die "the database dump is empty"
-[ "$(head -c 5 "$DEST/$DUMP.partial")" = "PGDMP" ] || die "the database dump is not a pg_dump file"
+DUMPS=()
+for name in "${DBS[@]}"; do
+	dump="nexttime-db-$TS-$name.dump"
+	echo "backup: database $name -> $DEST/$dump"
+	"${DATA[@]}" exec -T db pg_dump -U "$PGUSER" -d "$name" -Fc >"$DEST/$dump.partial"
+	[ -s "$DEST/$dump.partial" ] || die "the dump of $name is empty"
+	[ "$(head -c 5 "$DEST/$dump.partial")" = "PGDMP" ] || die "the dump of $name is not a pg_dump file"
+	DUMPS+=("$dump")
+done
 
 echo "backup: files   -> $DEST/$FILES (volume $FILES_VOLUME)"
 docker volume inspect "$FILES_VOLUME" >/dev/null 2>&1 || die "volume $FILES_VOLUME does not exist"
@@ -110,21 +129,23 @@ docker run --rm -v "$FILES_VOLUME":/data:ro --entrypoint tar "$TOOL_IMAGE" czf -
 gzip -t "$DEST/$FILES.partial" || die "the files archive is damaged"
 tar tzf "$DEST/$FILES.partial" >/dev/null || die "the files archive cannot be read back"
 
-mv "$DEST/$DUMP.partial" "$DEST/$DUMP"
+for dump in "${DUMPS[@]}"; do
+	mv "$DEST/$dump.partial" "$DEST/$dump"
+done
 mv "$DEST/$FILES.partial" "$DEST/$FILES"
 
 {
 	echo "taken: $TS"
 	echo "app_version: $(sed -n 's/.*<version>\(.*\)<\/version>.*/\1/p' appinfo/info.xml | head -n 1)"
 	echo "git_commit: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-	echo "database: $PGDB (user $PGUSER)"
+	echo "databases: ${DBS[*]} (user $PGUSER)"
 	echo "files_volume: $FILES_VOLUME"
 } >"$DEST/$INFO"
 
 if command -v sha256sum >/dev/null 2>&1; then
-	(cd "$DEST" && sha256sum "$DUMP" "$FILES" "$INFO" >"$SUMS")
+	(cd "$DEST" && sha256sum "${DUMPS[@]}" "$FILES" "$INFO" >"$SUMS")
 else
-	(cd "$DEST" && shasum -a 256 "$DUMP" "$FILES" "$INFO" >"$SUMS")
+	(cd "$DEST" && shasum -a 256 "${DUMPS[@]}" "$FILES" "$INFO" >"$SUMS")
 fi
 
 # Retention: only after the new set is complete, drop the sets beyond KEEP (newest first by name)
@@ -132,7 +153,7 @@ while IFS= read -r sums; do
 	[ -n "$sums" ] || continue
 	stamp="${sums##*/nexttime-}"
 	stamp="${stamp%.sha256}"
-	rm -f "$DEST/nexttime-db-$stamp.dump" "$DEST/nexttime-files-$stamp.tgz" "$DEST/nexttime-$stamp.info" "$sums"
+	rm -f "$DEST"/nexttime-db-"$stamp"-*.dump "$DEST/nexttime-files-$stamp.tgz" "$DEST/nexttime-$stamp.info" "$sums"
 	echo "backup: removed old set $stamp"
 done < <(ls -1 "$DEST"/nexttime-*.sha256 2>/dev/null | sort -r | tail -n +$((KEEP + 1)) || true)
 

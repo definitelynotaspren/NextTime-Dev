@@ -487,6 +487,9 @@ call carol GET "/governance?limit=100"
 [ "$(jq -r '[.entries[] | select(.action=="setting.adjustment_threshold" and .details.to==6)] | length' <<<"$BODY")" -ge 1 ] && pass "setting changes are public, with old and new values" || fail "threshold change not logged: $BODY"
 call admin POST /balance/adjust '{"userId":"bob","hours":5,"reason":"The old route is gone"}'
 expect "the old unguarded adjust route is gone" 404
+call carol GET "/governance?limit=100"
+[ "$(jq -r '[.entries[] | select(.actorId=="system" and (.action|startswith("system.")))] | length' <<<"$BODY")" -ge 1 ] && pass "the log notes, as system, that NextTime is running" || fail "no system line in the log: $BODY"
+[ "$(jq -r '[.entries[] | select(.action|startswith("system.")) | .details | keys[]] | unique | map(select(. != "appVersion" and . != "database")) | length' <<<"$BODY")" = 0 ] && pass "system lines carry only the version and the kind of database" || fail "system lines carry more than that: $BODY"
 
 echo "- Frontend page"
 code="$(curl -s -o "$TMP/page" -w '%{http_code}' -u alice:alice-pass-123 "$BASE/index.php/apps/timebank/")"

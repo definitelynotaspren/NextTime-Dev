@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The governance log notes, as "system", when NextTime's setup changes.** The first time NextTime is recorded,
+  when its version changes (an update that finished its migrations) and when the kind of database under it
+  changes (for example SQLite to PostgreSQL), one line is added with the version and the kind of database, never a
+  host, database name or credential. Nextcloud owns the database connection and reads it on every request, so there
+  is no "reconnect" to log; these are the moments the setup actually changed.
+- **Backups cover every database on the server.** `scripts/backup.sh` writes one dump per database
+  (`nexttime-db-<time>-<name>.dump`) instead of only the one named in `.env`, so an instance whose data lives in a
+  second database is not silently left out; `BACKUP_DATABASES` limits it.
+- **Moving an instance into `nexttime-db`.** `docs/isolated-data.md` now says how to give a Nextcloud instance its own
+  database there, for a new instance and for one that has data on SQLite. On Nextcloud 35.0.2 `occ db:convert-type`
+  stops at its last step, so two helpers finish it: `scripts/pg-resync-sequences.sql` and
+  `scripts/nextcloud-switch-to-pgsql.php`. Tested on a native instance (PostgreSQL 16); not yet on real Docker.
+
 ### Fixed
 
 - **The map showed one pin where there were many.** Every request in a ZIP is drawn at that ZIP area's center (so

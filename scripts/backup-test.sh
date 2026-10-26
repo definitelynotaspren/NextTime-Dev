@@ -31,6 +31,7 @@ case "$1" in
 	compose)
 		case " $* " in
 			*" ps "*) case " $* " in *"docker/data"*) echo db ;; *) [ -f "$S/app-down" ] || echo nextcloud ;; esac ;;
+			*" psql "*) printf 'nextcloud\nnexttime35\n' ;;
 			*" pg_dump "*) [ -f "$S/dump-fails" ] && exit 3; printf 'PGDMP\001\002fake database'; ;;
 			*"maintenance:mode --on"*) echo on >"$S/maint"; echo "Maintenance mode enabled" ;;
 			*"maintenance:mode --off"*) echo off >"$S/maint"; echo "Maintenance mode disabled" ;;
@@ -49,9 +50,10 @@ echo off >"$TMP/state/maint"
 mkdir "$TMP/drive one"
 run "$TMP/drive one" env
 check "it succeeds, even with a space in the folder name" '[ $? -eq 0 ] && grep -q "backup: done" "$TMP/out"'
-check "it wrote a dump, a files archive, an info file and checksums" '[ "$(ls -1 "$TMP/drive one" | wc -l | tr -d " ")" = 4 ]'
+check "it wrote a dump for each database, a files archive, an info file and checksums" '[ "$(ls -1 "$TMP/drive one" | wc -l | tr -d " ")" = 5 ]'
+check "the dumps are named for their databases" 'ls "$TMP/drive one" | grep -q -- "-nextcloud.dump$" && ls "$TMP/drive one" | grep -q -- "-nexttime35.dump$"'
 check "the checksums verify" '(cd "$TMP/drive one" && sha256sum -c nexttime-*.sha256 >/dev/null 2>&1)'
-check "the dump starts like a pg_dump file" '[ "$(head -c 5 "$TMP/drive one"/nexttime-db-*.dump)" = PGDMP ]'
+check "each dump starts like a pg_dump file" 'for f in "$TMP/drive one"/nexttime-db-*.dump; do [ "$(head -c 5 "$f")" = PGDMP ] || exit 1; done'
 check "the files archive holds config.php" 'tar tzf "$TMP/drive one"/nexttime-files-*.tgz | grep -q config.php'
 check "the info file names the app version" 'grep -q "^app_version: [0-9]" "$TMP/drive one"/nexttime-*.info'
 check "maintenance mode is off again" '[ "$(cat "$TMP/state/maint")" = off ]'
@@ -60,7 +62,7 @@ check "no half-written files are left" '! ls "$TMP/drive one" | grep -q partial'
 echo "- Retention keeps the newest sets"
 for i in 1 2 3; do sleep 1; run "$TMP/drive one" env KEEP=2; done
 check "four runs with KEEP=2 leave two sets" '[ "$(sets "$TMP/drive one")" = 2 ]'
-check "and no orphaned files from the removed sets" '[ "$(ls -1 "$TMP/drive one" | wc -l | tr -d " ")" = 8 ]'
+check "and no orphaned files from the removed sets" '[ "$(ls -1 "$TMP/drive one" | wc -l | tr -d " ")" = 10 ]'
 
 echo "- A failed dump keeps what was already there"
 before="$(ls -1 "$TMP/drive one")"
@@ -80,6 +82,13 @@ run "$TMP/drive one" env
 check "the backup still works" 'grep -q "backup: done" "$TMP/out"'
 check "and it left maintenance mode on" '[ "$(cat "$TMP/state/maint")" = on ]'
 echo off >"$TMP/state/maint"
+
+echo "- Choosing the databases"
+mkdir "$TMP/drive two"
+run "$TMP/drive two" env BACKUP_DATABASES=nexttime35
+check "BACKUP_DATABASES limits the dumps to the one named" '[ "$(ls "$TMP/drive two"/nexttime-db-*.dump | wc -l | tr -d " ")" = 1 ] && ls "$TMP/drive two" | grep -q -- "-nexttime35.dump$"'
+run "$TMP/drive two" env 'BACKUP_DATABASES=ok;rm -rf x'
+check "a database name with odd characters is refused" 'grep -q "has characters this script does not handle" "$TMP/out"'
 
 echo "- Refusals"
 run "$TMP/not-there" env
