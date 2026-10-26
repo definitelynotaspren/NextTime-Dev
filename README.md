@@ -91,6 +91,8 @@ make docker-seed-users       # alice, bob, carol with passwords <name>-pass-123
 The database is a separate stack on volumes that `docker compose down -v` does not remove, and `make docker-backup`
 copies it to a folder outside the repo; see [docs/isolated-data.md](docs/isolated-data.md), including how to move
 a stack made with the older compose file over without losing its data.
+For the day-to-day jobs (a fresh install, using data you already have, updating, and checking or stopping the database),
+with both Docker and non-Docker Nextcloud, see [docs/operations.md](docs/operations.md).
 
 Log in at http://localhost:8080 as `admin` with the password from `.env`. The image's password policy rejects
 `admin` as a password, so the scripts take it from `ADMIN_PASS`, for example
