@@ -125,19 +125,57 @@ request. NextTime has no database setting; whatever database the instance points
 
 ### A new instance on PostgreSQL from the start (recommended)
 
-No conversion, and the only way that has no hand-made steps. Use the same `.env` as the stack:
+No conversion, and no hand-made steps. It also replaces an instance that runs on SQLite: Nextcloud installs itself
+only into an **empty** `/var/www/html`, and an old volume already holds a `config.php` that says "installed, SQLite",
+so installing "over" it does nothing. Use a new volume, keep the old container until the new one works, then delete it.
+
+From the repo folder, with the data stack running (`docker compose --env-file .env -f docker/data/docker-compose.yml ps`
+says healthy):
+
+1. **Park the old container** (nothing is deleted yet): `docker stop NextTime-Dev` if it runs, then
+   `docker rename NextTime-Dev NextTime-Dev-sqlite-old`. Note its volumes for later:
+   `docker inspect NextTime-Dev-sqlite-old --format "{{json .Mounts}}"`.
+2. **Update the code** (this also moves the image to Nextcloud 35) and rebuild the frontend: `git pull`, `npm run build`.
+3. **Edit `.env`** (set a strong `NEXTCLOUD_ADMIN_PASSWORD`; the image rejects weak ones such as `admin`):
+   ```
+   NEXTTIME_DB_NAME=nexttime35
+   NEXTTIME_FILES_VOLUME=nexttime35_files
+   ```
+   Leave `POSTGRES_DB` and `NEXTTIME_DB_VOLUME` alone: the database server and its volume are not changing, only
+   which database this instance uses. (`NEXTTIME_FILES_VOLUME` must be new: the default `nexttime_files` may hold an
+   older Nextcloud, and Nextcloud only upgrades one major version at a time.)
+4. **Create the database and the volume** (use your own `POSTGRES_USER` if `.env` sets another):
+   ```
+   docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "CREATE DATABASE nexttime35 OWNER nextcloud"
+   docker volume create nexttime35_files
+   ```
+5. **Start it:** `docker compose up -d --build`. The first time it downloads Nextcloud 35 and builds the image.
+6. **Watch the install:** `docker compose logs -f nextcloud` (stop watching with `Ctrl+C`). You want
+   `Installing with PostgreSQL database`, then `Nextcloud was successfully installed`. Then
+   `http://localhost:8080/status.php` shows `"installed": true`.
+7. **Check it is on PostgreSQL:** `docker compose exec -u www-data nextcloud php occ config:system:get dbtype` prints
+   `pgsql`, and `... get dbname` prints `nexttime35`.
+8. **Turn NextTime on.** The repo folder is mounted into the container, so nothing is copied:
+   `docker compose exec -u www-data nextcloud php occ app:enable timebank`. The Governance log then shows a line from
+   "system": "first recorded the running setup", with `database: postgres`.
+9. **Delete the old instance** once you are happy: `docker rm -v NextTime-Dev-sqlite-old` (`-v` also removes its
+   anonymous volumes). If step 1 showed a *named* volume for it, remove that with `docker volume rm <name>`.
+
+What this leaves alone: `nexttime_pgdata` (the server's files, with the new database in it), and the older instance's
+`nextcloud` database and `nexttime_files` volume. They hold a different instance's data (not merged into the new one;
+the planned import is for that, [proposals/data-sources.md](proposals/data-sources.md)); delete them yourself, on
+purpose, when you no longer want them.
+
+Without the repo's compose file, a plain `docker run` does the same, with the app copied in as described in the install
+steps:
 
 ```
-docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "CREATE DATABASE nexttime35 OWNER nextcloud"
-docker volume create nexttime35_files
-docker run -d --name NextTime-Dev35 --network nexttime_data -p 8081:80 -v nexttime35_files:/var/www/html --env-file .env -e POSTGRES_HOST=nexttime-db -e POSTGRES_DB=nexttime35 nextcloud:35-apache
+docker run -d --name NextTime-Dev --restart unless-stopped --network nexttime_data -p 8080:80 -v nexttime35_files:/var/www/html --env-file .env -e POSTGRES_HOST=nexttime-db -e POSTGRES_DB=nexttime35 nextcloud:35-apache
 ```
 
-(Use your own `POSTGRES_USER` instead of `nextcloud` if `.env` sets another. `-e` after `--env-file` wins, so the
-database name above replaces the one in `.env`. Pin the image to a major version, `35`, not `latest`.) When
-`http://localhost:8081/status.php` says `"installed": true`, add NextTime as described in the install steps
-(copy the six folders, `chown`, `occ app:enable timebank`). Not yet run against real Docker; the same
-PostgreSQL install was run natively.
+(`-e` after `--env-file` wins. Pin the image to a major version, not `latest`.) The installer makes its own database
+role for the instance (`oc_admin`, numbered if one exists) and accepts a database you created first. The PostgreSQL
+install itself was run natively; this Docker route is not yet run on real Docker.
 
 ### An instance that already has data on SQLite
 

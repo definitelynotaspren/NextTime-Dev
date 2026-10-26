@@ -65,7 +65,7 @@ Logins on the dev server: `admin/admin`, `alice/alice-pass-123`,
 `../nc-server/data/nextcloud.log` (JSON lines; debug + loglevel 0 are on).
 
 Docker alternative: `make dev` / `make docker-up` (Postgres 15 + Redis 7 +
-`nextcloud:31-apache`, PHP 8.3, port 8080, auto-installs from `.env`; the database is its own stack on external
+`nextcloud:35-apache`, port 8080, auto-installs from `.env`; the database is its own stack on external
 volumes, see `docs/isolated-data.md`; `make docker-backup` needs `BACKUP_DIR`), then
 `make docker-install-app` and `make docker-seed-users`. The image's password
 policy rejects `admin`, so scripts read the admin password from `ADMIN_PASS`:

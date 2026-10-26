@@ -22,7 +22,7 @@ services:
       - ./:/var/www/html/custom_apps/timebank:ro
     environment:
       POSTGRES_HOST: ${NEXTTIME_DB_HOST:-nexttime-db}
-      POSTGRES_DB: ${POSTGRES_DB:-nextcloud}
+      POSTGRES_DB: ${NEXTTIME_DB_NAME:-${POSTGRES_DB:-nextcloud}}
       POSTGRES_USER: ${POSTGRES_USER:-nextcloud}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       REDIS_HOST: redis

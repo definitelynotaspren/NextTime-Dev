@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The Docker dev image is Nextcloud 35** (`nextcloud:35-apache`, pinned to the major version), the version
+  production and development run, instead of 31. The instance's database name has its own setting,
+  `NEXTTIME_DB_NAME`, so a second instance can use its own database on the same server without editing
+  `POSTGRES_DB`, which the database server also reads. A volume already used by Nextcloud 31 cannot be opened by 35
+  (Nextcloud upgrades one major version at a time): use a new `NEXTTIME_FILES_VOLUME`; see `docs/isolated-data.md`.
+
 ### Added
 
 - **The governance log notes, as "system", when NextTime's setup changes.** The first time NextTime is recorded,

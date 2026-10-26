@@ -79,7 +79,7 @@ Needs Docker with the `docker compose` command, Node.js >= 20 and Composer on yo
 
 ```bash
 cp .env.example .env         # then change the passwords in .env
-make dev                     # dependencies, frontend build, then Postgres 15 + Redis 7 + Nextcloud 31 (PHP 8.3)
+make dev                     # dependencies, frontend build, then Postgres 15 + Redis 7 + Nextcloud 35
 # wait until http://localhost:8080/status.php shows "installed":true (a minute or two the first time)
 make docker-install-app      # enables NextTime
 make docker-seed-users       # alice, bob, carol with passwords <name>-pass-123
