@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The map showed one pin where there were many.** Every request in a ZIP is drawn at that ZIP area's center (so
+  exact places stay private), which put them all on the same spot, and only one could be seen or clicked. Requests
+  at the same point are now one pin with a count; choosing it lists them, and choosing one opens that request.
+  `scripts/ui-smoke.cjs` now checks this, and that every pin is inside the visible map.
+
 ### Changed
 
 - **Docker: the database is its own stack, on volumes Compose never deletes.** Postgres moved out of

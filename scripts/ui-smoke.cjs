@@ -167,6 +167,44 @@ const pickFirstOption = async (page, placeholder) => {
 	}
 	check('map loads its style and draws markers', markers > 0, 'no markers; check the Content-Security-Policy and the style URL')
 
+	// Requests in one ZIP share a single map point, so they must read as one pin with a count,
+	// not lie on top of each other where only one can be seen or clicked. Miami Beach is far from
+	// every other ZIP the tests use, so a click on its pin cannot land on a neighbour.
+	const stackTitles = [1, 2, 3].map((n) => `Map stack ${n} ${stamp}`)
+	for (const title of stackTitles) {
+		await alice.evaluate(async ({ app, categoryId, title }) => {
+			await fetch(`${app}/api/requests`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', requesttoken: document.head.dataset.requesttoken, 'OCS-APIRequest': 'true' },
+				body: JSON.stringify({ title, description: 'Another request in the same ZIP, for the map.', categoryId, hoursBudget: 1, zip: '33139' }),
+			})
+		}, { app: APP, categoryId: created.categoryId, title })
+	}
+	await go(alice, '/')
+	await alice.getByRole('button', { name: 'Map View' }).click()
+	// The map zooms to fit its pins after it loads; measure once it reports it has settled.
+	await alice.locator('.map-wrapper[data-settled="true"]').waitFor({ timeout: 60000 })
+	const pins = await alice.locator('.custom-marker').evaluateAll((els) => {
+		const box = document.querySelector('.map-container').getBoundingClientRect()
+		return els.map((el) => {
+			const r = el.getBoundingClientRect()
+			return { count: Number(el.dataset.count || 1), at: `${Math.round(r.x)},${Math.round(r.y)}`, inside: r.left >= box.left - 2 && r.right <= box.right + 2 && r.top >= box.top - 2 && r.bottom <= box.bottom + 2 }
+		})
+	})
+	check('requests in the same ZIP are one pin with a count', pins.some((p) => p.count >= 3), JSON.stringify(pins))
+	check('every pin is inside the visible map', pins.length > 0 && pins.every((p) => p.inside), JSON.stringify(pins))
+	const groupPins = alice.locator('.marker-group')
+	for (let i = 0, found = false; i < await groupPins.count() && !found; i++) {
+		await groupPins.nth(i).click({ force: true })
+		await alice.waitForTimeout(300)
+		found = await alice.locator('.maplibregl-popup .popup-item', { hasText: stackTitles[0] }).count() > 0
+	}
+	const listed = await alice.locator('.maplibregl-popup .popup-item').allTextContents()
+	check('the pin opens a list of the requests in it', stackTitles.every((t) => listed.some((l) => l.startsWith(t))), JSON.stringify(listed))
+	await alice.locator('.maplibregl-popup .popup-item', { hasText: stackTitles[0] }).click()
+	await alice.waitForTimeout(1200)
+	check('choosing one opens that request', alice.url().includes('/request/') && await alice.getByText(stackTitles[0]).count() > 0, alice.url())
+
 	console.log('- Volunteer, then earn')
 	const bob = await login(browser, 'bob', 'bob-pass-123')
 	await go(bob, `/request/${created?.id}`)
