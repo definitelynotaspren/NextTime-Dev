@@ -70,10 +70,11 @@ $db->exec("CREATE TABLE oc_timebank_volunteers (id INTEGER PRIMARY KEY, request_
 $db->exec("CREATE TABLE oc_timebank_earnings (id INTEGER PRIMARY KEY, user_id TEXT, category_id INTEGER, hours_claimed TEXT, actual_hours_earned TEXT, description TEXT, status TEXT, created_at TEXT, approved_at TEXT)");
 $c = $db->prepare("INSERT INTO oc_timebank_categories VALUES (1, ?)"); $c->execute([getenv("CATEGORY")]);
 $s = getenv("STAMP");
+$now = gmdate("Y-m-d H:i:s"); // today, so the requests sort to the top of a busy board
 $r = $db->prepare("INSERT INTO oc_timebank_requests VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)");
-$r->execute([1, "alice", "Import smoke A $s", "Needs a hand with the garden.", "2.00", "open", "normal", "97055", "2026-10-01 09:00:00"]);
-$r->execute([2, "bob", "Import smoke B $s", "A ride to the clinic on Friday.", "1.50", "completed", "normal", "97030", "2026-10-02 09:00:00"]);
-$r->execute([3, "ghost", "Import smoke C $s", "Posted by someone with no account here.", "1.00", "open", "normal", "97214", "2026-10-03 09:00:00"]);
+$r->execute([1, "alice", "Import smoke A $s", "Needs a hand with the garden.", "2.00", "open", "normal", "97055", $now]);
+$r->execute([2, "bob", "Import smoke B $s", "A ride to the clinic on Friday.", "1.50", "completed", "normal", "97030", $now]);
+$r->execute([3, "ghost", "Import smoke C $s", "Posted by someone with no account here.", "1.00", "open", "normal", "97214", $now]);
 $v = $db->prepare("INSERT INTO oc_timebank_volunteers VALUES (?, ?, ?, ?, ?, ?, ?)");
 $v->execute([1, 1, "bob", "3.00", "I can help", "accepted", "2026-10-01 10:00:00"]);
 $v->execute([2, 3, "bob", "1.00", "On the request of someone with no account", "offered", "2026-10-03 10:00:00"]);
