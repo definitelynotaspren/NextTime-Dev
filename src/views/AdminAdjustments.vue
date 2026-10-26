@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 NextTime-Dev contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
@@ -43,6 +43,7 @@ interface Adjustment {
 const daysLeft = (when: string) => Math.max(0, Math.ceil((new Date(when.replace(' ', 'T')).getTime() - Date.now()) / 86400000))
 
 const adjustments = ref<Adjustment[]>([])
+const openAdjustments = computed(() => adjustments.value.filter((a) => ['pending', 'voting'].includes(a.status)))
 const threshold = ref(5)
 const canPropose = ref(false)
 const isAdmin = ref(false)
@@ -191,11 +192,18 @@ onMounted(load)
 			</section>
 
 			<section>
-				<h2>Recent adjustments</h2>
-				<p v-if="adjustments.length === 0" class="subtitle">
-					None yet.
+				<h2>Open adjustments</h2>
+				<p class="subtitle">
+					Only adjustments still waiting for an approval or a vote are listed here. Decided ones, with who
+					decided and why, stay in the
+					<RouterLink :to="{ name: 'GovernanceLog' }">
+						governance log
+					</RouterLink>.
 				</p>
-				<div v-for="a in adjustments"
+				<p v-if="openAdjustments.length === 0" class="subtitle">
+					Nothing is waiting.
+				</p>
+				<div v-for="a in openAdjustments"
 					:key="a.id"
 					class="item"
 					:data-status="a.status">

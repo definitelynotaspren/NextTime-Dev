@@ -489,6 +489,7 @@ class AdjustmentService {
 
 		$this->log->record($deciderId ?? ($status === 'withdrawn' ? $adjustment->getProposerId() : 'system'), 'adjustment.' . $status, $adjustment->getUserId(), [
 			'hours' => (float)$adjustment->getHours(),
+			'reason' => $adjustment->getReason(),
 			'proposedBy' => $adjustment->getProposerId(),
 			'note' => $note,
 		]);

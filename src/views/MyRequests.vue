@@ -49,6 +49,9 @@ const OFFER_LABELS: Record<string, string> = {
 	completed: 'Completed',
 }
 
+const FINISHED = ['completed', 'cancelled']
+const showFinished = ref(false)
+
 const reasonRequired = computed(() => withdrawTarget.value?.status === 'accepted')
 const canWithdraw = computed(() => !reasonRequired.value || withdrawReason.value.trim().length >= MIN_REASON_LENGTH)
 const canWithdrawOffer = (offer: MyOffer) =>
@@ -57,6 +60,12 @@ const canWithdrawOffer = (offer: MyOffer) =>
 const requests = ref<Request[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+const visibleRequests = computed(() => showFinished.value ? requests.value : requests.value.filter((r) => !FINISHED.includes(r.status)))
+const visibleOffers = computed(() => showFinished.value ? offers.value : offers.value.filter((o) => !FINISHED.includes(o.request.status) && o.status !== 'completed'))
+const hiddenCount = computed(() => tab.value === 'offers'
+	? offers.value.length - visibleOffers.value.length
+	: requests.value.length - visibleRequests.value.length)
 
 const fetchMyRequests = async () => {
 	loading.value = true
@@ -131,25 +140,30 @@ onMounted(() => {
 				My requests
 			</NcButton>
 			<NcButton :variant="tab === 'offers' ? 'primary' : 'tertiary'" role="tab" @click="tab = 'offers'">
-				My offers ({{ offers.length }})
+				My offers ({{ visibleOffers.length }})
 			</NcButton>
 			<NcButton :variant="tab === 'withdrawn' ? 'primary' : 'tertiary'" role="tab" @click="tab = 'withdrawn'">
 				Withdrawn help ({{ withdrawals.length }})
 			</NcButton>
 		</div>
 
+		<label v-if="tab !== 'withdrawn'" class="show-finished">
+			<input v-model="showFinished" type="checkbox">
+			Show completed and cancelled<template v-if="!showFinished && hiddenCount > 0"> ({{ hiddenCount }} hidden)</template>
+		</label>
+
 		<p v-if="actionError" class="action-error" role="alert">
 			{{ actionError }}
 		</p>
 
 		<div v-if="tab === 'offers'" class="offers">
-			<NcEmptyContent v-if="offers.length === 0" name="No offers">
+			<NcEmptyContent v-if="visibleOffers.length === 0" name="No offers">
 				<template #description>
-					You haven't offered to help with anything yet.
+					Nothing active. You haven't offered to help with anything yet, or all of it is finished (tick "Show completed and cancelled").
 				</template>
 			</NcEmptyContent>
 			<div
-				v-for="offer in offers"
+				v-for="offer in visibleOffers"
 				:key="offer.id"
 				class="offer-row"
 				:data-status="offer.status">
@@ -198,9 +212,9 @@ onMounted(() => {
 			</template>
 		</NcEmptyContent>
 
-		<NcEmptyContent v-else-if="requests.length === 0" name="No Requests">
+		<NcEmptyContent v-else-if="visibleRequests.length === 0" name="No Requests">
 			<template #description>
-				You haven't posted any requests yet.
+				No active requests. Tick "Show completed and cancelled" to see finished ones.
 			</template>
 			<template #action>
 				<NcButton variant="primary" @click="router.push({ name: 'Board' })">
@@ -211,7 +225,7 @@ onMounted(() => {
 
 		<div v-else class="requests-grid">
 			<RequestCard
-				v-for="request in requests"
+				v-for="request in visibleRequests"
 				:key="request.id"
 				:request="request"
 				@click="viewRequest(request.id)" />
@@ -254,6 +268,11 @@ onMounted(() => {
 	display: flex;
 	gap: 8px;
 	margin-bottom: 16px;
+}
+
+.show-finished {
+	display: block;
+	margin-bottom: 12px;
 }
 
 .action-error {
