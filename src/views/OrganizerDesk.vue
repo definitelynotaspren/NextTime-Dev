@@ -436,19 +436,42 @@ onMounted(async () => {
 	margin: 8px 0 0;
 }
 
+.details dt,
+.details dd {
+	margin: 0;
+	padding: 0;
+	min-height: 0;
+	text-align: start;
+}
+
 .details dt {
 	font-weight: 600;
 }
 
 .details dd {
-	margin: 0;
 	overflow-wrap: anywhere;
+}
+
+.details .meta {
+	grid-column: 1 / -1;
 }
 
 .board-dialog {
 	display: grid;
 	gap: 10px;
 	padding: 20px;
+}
+
+.board-dialog .field {
+	display: grid;
+	gap: 4px;
+}
+
+.board-dialog input,
+.board-dialog textarea,
+.board-dialog select {
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .dialog-actions {

@@ -401,7 +401,7 @@ const pickFirstOption = async (page, placeholder) => {
 	check('a facilitator of the member\'s chapter sees it and can approve', await forBob.getByRole('button', { name: 'Approve' }).count() === 1)
 	await forBob.getByRole('button', { name: 'Approve' }).click()
 	await bob.waitForTimeout(1500)
-	check('approving applies it', await bob.locator('.item[data-status="approved"]', { hasText: `UI smoke ${stamp}` }).count() === 1)
+	check('approving moves it out of the open list', await bob.locator('.item', { hasText: `UI smoke ${stamp}` }).count() === 0)
 	await go(bob, '/ledger')
 	check('the ledger names both people', await bob.getByText(new RegExp(`proposed by admin, approved by bob: UI smoke ${stamp}`)).count() > 0)
 	await go(bob, '/governance')
