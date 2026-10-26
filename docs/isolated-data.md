@@ -4,6 +4,20 @@ The goal: wiping the app folder, `custom_apps`, the containers, or this whole re
 community's data. This page says where the data lives, how to set it up, how to move an existing stack
 over without losing anything, and how to back it up.
 
+## Where to type the commands
+
+In a terminal on your own computer, in the repo folder, **not** in Docker Desktop's *Exec* tab. Exec opens a shell
+*inside* one container: it has no `docker` command, no repo and no backup drive.
+
+- **Windows:** Git Bash (right-click the repo folder, *Open Git Bash here*) or a WSL terminal. For WSL, turn on
+  *Docker Desktop, Settings, Resources, WSL integration* for your distribution, or `docker` will not be found
+  there. Not PowerShell for the backup (see below).
+- **`make` is not part of Git for Windows.** Check with `make --version`. If it is missing, use the plain
+  commands shown beside each `make` target in this page, or install make in WSL (`sudo apt install make`).
+- Check Docker answers from the terminal you chose: `docker version` shows both a Client and a Server. Images,
+  containers and volumes are three different lists: `docker images`, `docker ps -a` and `docker volume ls`. A
+  Nextcloud *image* never appears among the volumes.
+
 ## Where everything lives
 
 | What | Where | Survives |
@@ -96,6 +110,8 @@ go back to the previous commit and its compose file and start again from the sam
 
 ```bash
 BACKUP_DIR=/e/nexttime-backups make docker-backup
+# without make:
+BACKUP_DIR=/e/nexttime-backups scripts/backup.sh
 ```
 
 `BACKUP_DIR` must be a folder outside this repo; on Windows in Git Bash a drive is `/e/...`. The folder is never
