@@ -96,17 +96,13 @@ class RequestMapper extends QBMapper {
 	 */
 	public function deskRequestIds(): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('id', 'source_ref')
+		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->like('source_ref', $qb->createNamedParameter('desk:%')));
-		$result = $qb->executeQuery();
 		$ids = [];
-		while (($row = $result->fetch()) !== false) {
-			if (is_array($row) && is_scalar($row['source_ref'] ?? null) && is_numeric($row['id'] ?? null)) {
-				$ids[(string)$row['source_ref']] = (int)$row['id'];
-			}
+		foreach ($this->findEntities($qb) as $request) {
+			$ids[(string)$request->getSourceRef()] = $request->getId();
 		}
-		$result->closeCursor();
 
 		return $ids;
 	}
