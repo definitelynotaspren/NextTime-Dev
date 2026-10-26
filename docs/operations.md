@@ -25,20 +25,27 @@ Background and the reasoning are in [isolated-data.md](isolated-data.md); this p
 
 ### Commands used below
 
-Type them in a terminal on the machine that runs Docker (Windows: Git Bash or WSL, not Docker Desktop's *Exec* tab),
-in the repo folder. To keep the commands short, paste these two lines once per terminal:
+Type them in a terminal on the machine that runs Docker (Windows: Git Bash or WSL, not cmd, not PowerShell, and not
+Docker Desktop's *Exec* tab), in the repo folder.
+
+**Database-stack commands are written out in full** (`docker compose --env-file .env -f docker/data/docker-compose.yml ...`),
+so you can copy any of them as they are.
+
+**`occ` is shorthand.** It is Nextcloud's command line, and it is not a program on your computer. Wherever this page
+shows a line starting with `occ`, it means one of these, depending on how Nextcloud is installed:
+
+| Nextcloud runs in | `occ upgrade` means, in full |
+|---|---|
+| Docker | `docker compose exec -u www-data nextcloud php occ upgrade` |
+| A server you manage | `sudo -u www-data php /var/www/nextcloud/occ upgrade` (your Nextcloud folder, and your web server's user: `www-data` on Debian and Ubuntu, `apache` or `nginx` elsewhere) |
+
+To type just `occ`, paste one of these into the terminal first. It lasts only until you close that terminal and works
+only in Git Bash, WSL or another bash shell; if `occ` later says "command not found", that is why.
 
 ```bash
 # Docker
-data() { docker compose --env-file .env -f docker/data/docker-compose.yml "$@"; }   # the database stack
-occ()  { docker compose exec -u www-data nextcloud php occ "$@"; }                  # Nextcloud's command line
-```
-
-On a non-Docker server, define `occ` as below instead (adjust the path to your Nextcloud folder; the web server's user
-is `www-data` on Debian and Ubuntu, `apache` or `nginx` elsewhere), and run commands as a user who may use `sudo`:
-
-```bash
-# Non-Docker
+occ() { docker compose exec -u www-data nextcloud php occ "$@"; }
+# Non-Docker (instead)
 occ() { sudo -u www-data php /var/www/nextcloud/occ "$@"; }
 ```
 
@@ -76,7 +83,7 @@ npm ci && npm run build          # the frontend; without it NextTime opens as an
 make dev                         # creates the volumes, starts the database, then Nextcloud
 # without make:
 #   docker volume create nexttime_pgdata && docker volume create nexttime_files
-#   data up -d --wait && docker compose up -d
+#   docker compose --env-file .env -f docker/data/docker-compose.yml up -d --wait && docker compose up -d
 ```
 
 Wait for the install (the first start downloads Nextcloud and installs it; it takes a few minutes):
@@ -89,9 +96,9 @@ curl http://localhost:8080/status.php   # "installed":true
 Then turn NextTime on and check it:
 
 ```bash
-occ app:enable timebank                 # also: make docker-install-app
-occ config:system:get dbtype            # pgsql
-occ config:system:get dbhost            # nexttime-db
+docker compose exec -u www-data nextcloud php occ app:enable timebank        # also: make docker-install-app
+docker compose exec -u www-data nextcloud php occ config:system:get dbtype      # pgsql
+docker compose exec -u www-data nextcloud php occ config:system:get dbhost      # nexttime-db
 ```
 
 Open `http://localhost:8080`, log in as `NEXTCLOUD_ADMIN_USER`, open **NextTime**. The **Governance log** shows a line from
@@ -104,7 +111,7 @@ into an empty volume, once. If it started first, see "installed: false" in [isol
 database and files volume. In `.env` set `NEXTTIME_DB_NAME=nexttime35` and `NEXTTIME_FILES_VOLUME=nexttime35_files`, then:
 
 ```bash
-data exec db psql -U nextcloud -c "CREATE DATABASE nexttime35 OWNER nextcloud"
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "CREATE DATABASE nexttime35 OWNER nextcloud"
 docker volume create nexttime35_files
 docker compose up -d --build
 ```
@@ -181,8 +188,8 @@ the backup's `config/config.php` holds the instance's `secret`, `passwordsalt` a
 
 **Docker** (the step-by-step with every command is in [isolated-data.md, "Restoring"](isolated-data.md#restoring)):
 
-1. Create empty volumes (`make docker-data-init`) and start only the database: `data up -d --wait`.
-2. Load the dump: `data exec -T db pg_restore -U nextcloud -d <database> --clean --if-exists --no-owner < <dump file>`.
+1. Create empty volumes (`make docker-data-init`) and start only the database: `docker compose --env-file .env -f docker/data/docker-compose.yml up -d --wait`.
+2. Load the dump: `docker compose --env-file .env -f docker/data/docker-compose.yml exec -T db pg_restore -U nextcloud -d <database> --clean --if-exists --no-owner < <dump file>`.
 3. Unpack the files archive into the files volume (the `docker run ... tar xzf` line in that page).
 4. Start the app (`docker compose up -d`). If the backup's version is older than your code: `occ upgrade`.
 5. `occ config:system:get dbhost` and `dbname` should name the database you restored into.
@@ -214,8 +221,8 @@ is the same or newer by one step. If you do not have the old `config.php`, use A
 
 ```bash
 docker volume ls                          # nexttime_pgdata (the database) and your files volume are listed
-data up -d --wait                         # the database comes up with its data
-data ps                                   # State: healthy
+docker compose --env-file .env -f docker/data/docker-compose.yml up -d --wait                         # the database comes up with its data
+docker compose --env-file .env -f docker/data/docker-compose.yml ps                                   # State: healthy
 ```
 
 Set `NEXTTIME_FILES_VOLUME` in `.env` to the existing files volume (it holds `config.php`), then `docker compose up -d`. Nextcloud sees an
@@ -236,6 +243,9 @@ PostgreSQL to PostgreSQL this is safe), then `occ maintenance:mode --off` and `o
 ## 3. Updating NextTime and repairing a broken data source
 
 ### Update NextTime (Nextcloud itself stays on the same major version)
+
+Commands starting with `occ` in this section mean Docker's `docker compose exec -u www-data nextcloud php occ ...` or a server's
+`sudo -u www-data php /var/www/nextcloud/occ ...`: see [Commands used below](#commands-used-below).
 
 1. **Back up** (Docker: `make docker-backup`; non-Docker: the backup box above).
 2. **Get the new code** and rebuild the frontend:
@@ -265,7 +275,7 @@ Symptoms: "Internal Server Error", a maintenance-mode page, "Can't connect to th
 
 Work from the bottom up and stop at the first thing that is wrong.
 
-**1. Is the database running?** See [section 4](#4-checking-the-database-is-running-and-taking-it-offline-safely). If not, start it (Docker: `data up -d --wait`;
+**1. Is the database running?** See [section 4](#4-checking-the-database-is-running-and-taking-it-offline-safely). If not, start it (Docker: `docker compose --env-file .env -f docker/data/docker-compose.yml up -d --wait`;
 non-Docker: `sudo systemctl start postgresql`) and reload.
 
 **2. What does Nextcloud think the database is?**
@@ -315,16 +325,16 @@ Then **Governance log** should show a "system" line for whatever changed.
 **Docker**
 
 ```bash
-data ps                                                            # State "running", Health "healthy"
-data exec db pg_isready -U nextcloud -d nextcloud                  # "accepting connections"
+docker compose --env-file .env -f docker/data/docker-compose.yml ps                                                            # State "running", Health "healthy"
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db pg_isready -U nextcloud -d nextcloud                  # "accepting connections"
 docker volume ls                                                   # nexttime_pgdata and your files volume are listed
 docker network inspect nexttime_data --format '{{range .Containers}}{{.Name}} {{end}}'   # the database and the app
-occ status                                                         # installed: true, maintenance: false
+docker compose exec -u www-data nextcloud php occ status      # installed: true, maintenance: false
 curl -s http://localhost:8080/status.php                           # "installed":true,"maintenance":false
 ```
 
 `healthy` is the check that matters; `starting` means wait a minute. The volume being listed does not mean the database is up: they are separate.
-The `psql` list of what is inside is: `data exec db psql -U nextcloud -c "\l"`.
+The `psql` list of what is inside is: `docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "\l"`.
 
 **Non-Docker**
 
@@ -349,18 +359,18 @@ The order is always: **stop the writers (Nextcloud), back up, stop the database,
 # 1. Back up, with the database still running
 BACKUP_DIR=/e/nexttime-backups make docker-backup
 # 2. Stop Nextcloud (keeps volumes; do not add -v)
-occ maintenance:mode --on                  # optional: ends open sessions' writes first
+docker compose exec -u www-data nextcloud php occ maintenance:mode --on    # optional: stops new writes first
 docker compose down                        # or: make docker-down
 # 3. Check no one else is connected
-data exec db psql -U nextcloud -c "select datname, state, count(*) from pg_stat_activity where datname is not null and pid <> pg_backend_pid() group by 1,2"
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "select datname, state, count(*) from pg_stat_activity where datname is not null and pid <> pg_backend_pid() group by 1,2"
 #    (no rows, or only idle ones: fine)
 # 4. Stop the database (it shuts down cleanly and finishes writing; a longer wait is allowed with -t)
-data down -t 60                            # or: make docker-data-down
+docker compose --env-file .env -f docker/data/docker-compose.yml down -t 60                            # or: make docker-data-down
 # 5. Confirm the data is still there
 docker volume ls | grep nexttime_pgdata
 ```
 
-Starting again: `data up -d --wait`, then `docker compose up -d`, then `occ maintenance:mode --off` if you turned it on.
+Starting again: `docker compose --env-file .env -f docker/data/docker-compose.yml up -d --wait`, then `docker compose up -d`, then `docker compose exec -u www-data nextcloud php occ maintenance:mode --off` if you turned it on.
 
 **Never**, for a database you want to keep: `docker volume rm`, `docker volume prune`, `docker system prune --volumes`, `docker compose down -v` on
 any stack, Docker Desktop's *Clean / Purge data* or *Reset to factory defaults*, or uninstalling Docker Desktop. The volumes are marked
