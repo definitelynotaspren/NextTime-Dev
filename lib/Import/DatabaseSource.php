@@ -40,6 +40,9 @@ final class DatabaseSource implements Source {
 		if (preg_match('/^[A-Za-z0-9_]{0,20}$/', $prefix) !== 1) {
 			throw new InvalidStateException('The table prefix may only hold letters, digits and underscores (Nextcloud\'s default is oc_)');
 		}
+		if (preg_match('/timebank_?$/i', $prefix) === 1) {
+			throw new InvalidStateException('The table prefix is what comes before "timebank_requests" in the table names, usually oc_. It should not include "timebank".');
+		}
 		// exactly as typed: a password may begin or end with a space
 		$password = is_scalar($params['password'] ?? null) ? (string)$params['password'] : '';
 
@@ -73,7 +76,7 @@ final class DatabaseSource implements Source {
 				}
 			}
 		} catch (PDOException $e) {
-			throw new InvalidStateException('Could not open the source: ' . self::withoutSecret($e->getMessage(), $password));
+			throw new InvalidStateException('Could not open the source: ' . self::withoutSecret($e->getMessage(), $password) . self::hint($e->getMessage()));
 		}
 
 		return new self($pdo, $prefix);
@@ -121,7 +124,7 @@ final class DatabaseSource implements Source {
 			$statement = $this->pdo->query('SELECT * FROM ' . $name . ' ORDER BY id');
 			$rows = $statement === false ? [] : $statement->fetchAll(PDO::FETCH_ASSOC);
 		} catch (PDOException) {
-			throw new InvalidStateException("The source has no table $name. Is this a NextTime database, and is the table prefix right?");
+			throw new InvalidStateException("The source has no table $name. Is this a NextTime database? The table prefix is what comes before \"timebank_requests\" in the table names, usually oc_.");
 		}
 
 		/** @var list<array<string, mixed>> $rows */
@@ -153,6 +156,18 @@ final class DatabaseSource implements Source {
 
 	private static function plain(mixed $value): string {
 		return is_scalar($value) ? trim((string)$value) : '';
+	}
+
+	/**
+	 * A plain next step for the two mistakes people make most: a Nextcloud login in place of the database's own
+	 * user, and a table prefix in place of the database name.
+	 */
+	private static function hint(string $message): string {
+		return match (true) {
+			str_contains($message, 'authentication failed'), str_contains($message, 'Access denied') => ' The user and password are the database\'s own, not a Nextcloud login (for the Docker stack, POSTGRES_USER and POSTGRES_PASSWORD in the .env file).',
+			str_contains($message, 'does not exist'), str_contains($message, 'Unknown database') => ' Check the database name; the table prefix has its own field.',
+			default => '',
+		};
 	}
 
 	private static function withoutSecret(string $message, string $secret): string {

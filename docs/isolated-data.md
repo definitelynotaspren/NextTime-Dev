@@ -249,7 +249,24 @@ Then, as the first admin, open **Import**:
 
 **From the old PostgreSQL database** (for example the `nextcloud` database an earlier stack left on the server): kind
 *PostgreSQL*, host `nexttime-db`, port blank, database `nextcloud`, your `POSTGRES_USER` and `POSTGRES_PASSWORD`, prefix `oc_`.
-The app container is on the same network as the database, so the name resolves. Press **Preview**, read it, then **Stage**.
+The user and password are the **database's own**, not a Nextcloud login: for the Docker stack they are `POSTGRES_USER` and
+`POSTGRES_PASSWORD` in your `.env` file, and the table prefix is `oc_` (the text before `timebank_requests` in the table
+names), not `oc_timebank`. The app container is on the same network as the database, so the host name resolves. Press
+**Preview**, read it, then **Stage**.
+
+**No password to hand, or you would rather give the import read-only access?** Make a user inside the database's own
+container; that needs no password (use your own `POSTGRES_USER` for `-U`):
+```
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "CREATE ROLE importer LOGIN PASSWORD 'choose-a-password'"
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "GRANT CONNECT ON DATABASE nextcloud TO importer"
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -d nextcloud -c "GRANT SELECT ON ALL TABLES IN SCHEMA public TO importer"
+```
+Then in the form use user `importer` and that password. It can read the old tables and nothing else: any write is refused.
+When you are done, remove it:
+```
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -d nextcloud -c "DROP OWNED BY importer"
+docker compose --env-file .env -f docker/data/docker-compose.yml exec db psql -U nextcloud -c "DROP ROLE importer"
+```
 
 **From an old SQLite instance** (the `NextTime-Dev-sqlite-old` container): copy its database file into this instance's
 data folder, then give the form only the file name.

@@ -183,16 +183,31 @@ onMounted(loadRuns)
 				</p>
 			</template>
 			<template v-else>
+				<p class="hint">
+					These are the <strong>database's own</strong> details, not your Nextcloud login. For this Docker setup:
+					host <code>nexttime-db</code>, database <code>nextcloud</code> (or the name of the older instance's database),
+					and the user and password are <code>POSTGRES_USER</code> and <code>POSTGRES_PASSWORD</code> in the
+					<code>.env</code> file, or a read-only database user you made for this.
+				</p>
 				<NcTextField v-model="host" label="Host" placeholder="nexttime-db" />
 				<NcTextField v-model="port" label="Port (blank for the usual one)" />
-				<NcTextField v-model="database" label="Database name" placeholder="nextcloud" />
-				<NcTextField v-model="user" label="User" />
+				<NcTextField v-model="database"
+					label="Database name"
+					placeholder="nextcloud"
+					helper-text="The database itself, not a table prefix." />
+				<NcTextField v-model="user"
+					label="Database user"
+					placeholder="nextcloud"
+					helper-text="Not your Nextcloud login." />
 				<NcTextField v-model="password"
 					type="password"
-					label="Password"
+					label="Database password"
 					autocomplete="off" />
 			</template>
-			<NcTextField v-model="prefix" label="Table prefix" />
+			<NcTextField v-model="prefix"
+				label="Table prefix"
+				placeholder="oc_"
+				helper-text="What comes before timebank_requests in the table names: almost always oc_." />
 			<NcButton variant="primary" :disabled="!canAsk || busy" @click="ask">
 				Preview (writes nothing)
 			</NcButton>

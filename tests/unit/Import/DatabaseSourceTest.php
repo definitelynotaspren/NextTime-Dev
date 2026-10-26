@@ -131,6 +131,32 @@ final class DatabaseSourceTest extends TestCase {
 		$this->source('link.db');
 	}
 
+	/**
+	 * @return array<string, array{0: string}>
+	 */
+	public static function prefixesThatIncludeTheTableName(): array {
+		return ['oc_timebank' => ['oc_timebank'], 'oc_timebank_' => ['oc_timebank_'], 'timebank' => ['timebank'], 'upper case' => ['OC_TIMEBANK']];
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('prefixesThatIncludeTheTableName')]
+	public function testAPrefixThatIncludesTheTableNameIsRefusedWithAnExplanation(string $prefix): void {
+		$this->expectException(InvalidStateException::class);
+		$this->expectExceptionMessage('what comes before "timebank_requests"');
+
+		DatabaseSource::connect('sqlite', ['file' => 'old.db', 'prefix' => $prefix], $this->dir . '/data');
+	}
+
+	public function testTheCommonMistakesGetAPlainHint(): void {
+		$hint = new \ReflectionMethod(DatabaseSource::class, 'hint');
+		$wrongUser = (string)$hint->invoke(null, 'FATAL: password authentication failed for user "admin"');
+		$wrongDatabase = (string)$hint->invoke(null, 'FATAL: database "oc_timebank" does not exist');
+
+		$this->assertStringContainsString('not a Nextcloud login', $wrongUser);
+		$this->assertStringContainsString('table prefix has its own field', $wrongDatabase);
+		$this->assertSame('', $hint->invoke(null, 'connection refused'));
+		$this->assertStringContainsString('not a Nextcloud login', (string)$hint->invoke(null, 'Access denied for user \'x\'@\'y\''));
+	}
+
 	public function testAPasswordNeverAppearsInAnErrorMessage(): void {
 		if (!extension_loaded('pdo_pgsql')) {
 			$this->markTestSkipped('pdo_pgsql is not installed');
