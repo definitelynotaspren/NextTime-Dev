@@ -56,9 +56,12 @@ make dev                 # dependencies, frontend build, volumes, database, app
 make docker-install-app
 ```
 
-`make docker-up` on its own does the volumes, the database, then the app. Without `make`, the same steps are:
+`make docker-up` on its own does the volumes, the database, then the app. Without `make`, the same steps are
+(the first two build the frontend, which is not stored in git; without it NextTime opens as an empty page):
 
 ```bash
+npm ci
+npm run build
 docker volume create nexttime_pgdata
 docker volume create nexttime_files
 docker compose --env-file .env -f docker/data/docker-compose.yml up -d --wait
@@ -158,6 +161,24 @@ it at the stack you are using. For a rehearsal, use different volume names and p
    ```
 4. Start the app (`docker compose up -d`). Use code at the version in the `.info` file; if it is older than the code
    you run, finish with `docker compose exec -u www-data nextcloud php occ upgrade`.
+
+## If something does not work
+
+- **NextTime is enabled but its page is empty** (Nextcloud's top bar and background, nothing else). The
+  frontend has not been built: `dir js` (or `ls js`) should list `timebank-main.mjs`. If it does not, run
+  `npm ci` then `npm run build` in the repo folder, with Node 20 or newer, and reload with Ctrl+F5. The app
+  folder is mounted into the container, so no restart is needed. If `npm ci` complains that `package.json` and
+  the lock file disagree, `git stash push package.json package-lock.json` sets your local changes aside
+  (`git stash pop` brings them back). Still empty with the file present: open the browser's developer tools
+  (F12), reload, and read the Console and Network tabs for red entries.
+- **`status.php` says `"installed": false` after the first start.** Nextcloud could not reach the database when
+  it first started. Check that the database stack is running and healthy before starting the app
+  (`docker compose --env-file .env -f docker/data/docker-compose.yml ps`), and that the app container is on the
+  `nexttime_data` network (`docker network inspect nexttime_data`). The official image only installs itself the
+  first time it fills its volume, so after fixing the database finish the install in the browser at
+  `http://localhost:8080` (PostgreSQL, host `nexttime-db`), or start over with a new, empty files volume.
+- **`docker compose exec` says a service is not running.** The service name is `nextcloud`, not the folder name,
+  and the app stack must be up (`docker compose ps`).
 
 ## What has and has not been tested
 
