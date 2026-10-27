@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`docs/operations.md`**: a checklist for a fresh install, an install that uses existing data (import, restore or
+  reconnect), updating and repairing the data source, and checking or safely stopping the database, for Docker and
+  non-Docker Nextcloud.
 - **Poster privacy.** A request's poster is hidden from other members unless they tick **Show my username** when
   posting (default off, also for requests posted before). Facilitators of the request's state, national organizers,
   admins and accepted volunteers always see who posted. The server no longer sends the poster's id to anyone else:
