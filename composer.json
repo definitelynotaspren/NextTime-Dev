@@ -5,8 +5,8 @@
 	"authors": [
 		{
 			"name": "Community Time Bank",
-			"email": "community@timebank.org",
-			"homepage": "https://github.com/timebank"
+			"email": "humans@beyondconventions.com",
+			"homepage": "https://github.com/inputloop/NextTime-Dev"
 		}
 	],
 	"autoload": {
