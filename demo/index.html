@@ -24,7 +24,7 @@
       --border:         #dbdbdb;
       --text:           #222222;
       --text-light:     #767676;
-      --sidebar-width:  220px;
+      --sidebar-width:  230px;
       --radius:         8px;
     }
 
@@ -63,7 +63,21 @@
     .user-name { font-size: 13px; font-weight: 600; }
     .user-balance { font-size: 11px; color: var(--text-light); }
 
+    .role-switch { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    .role-switch .label { font-size: 11px; color: var(--text-light); margin-bottom: 6px; text-transform: uppercase; }
+    .role-buttons { display: flex; gap: 4px; }
+    .role-btn {
+      flex: 1; padding: 5px 6px; font-size: 11px; text-align: center;
+      border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+      background: var(--surface); color: var(--text);
+    }
+    .role-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
     nav { padding: 8px 0; flex: 1; }
+    .nav-section-label {
+      padding: 12px 16px 4px; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; color: var(--text-light); letter-spacing: .04em;
+    }
     .nav-item {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 16px; cursor: pointer;
@@ -97,7 +111,9 @@
     .btn-default:hover:not(:disabled) { background: var(--bg-hover); }
     .btn-danger  { background: var(--error); color: white; border-color: var(--error); }
     .btn-success { background: var(--success); color: white; border-color: var(--success); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .link-btn { background: none; border: none; color: var(--primary); cursor: pointer; font-size: inherit; padding: 0; text-decoration: underline; }
 
     input, textarea, select {
       width: 100%; padding: 8px 10px; border: 1px solid var(--border);
@@ -115,6 +131,9 @@
     .form-row { display: flex; gap: 14px; }
     .form-row .form-group { flex: 1; }
     .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; }
+    .checkbox-row input { width: auto; }
+    .checkbox-row label { margin-bottom: 0; }
 
     .badge {
       display: inline-flex; align-items: center; gap: 4px;
@@ -124,14 +143,19 @@
     .badge-open    { background: var(--success); color: white; }
     .badge-progress { background: var(--warning); color: white; }
     .badge-completed { background: var(--bg-dark); color: white; }
+    .badge-cancelled { background: var(--text-light); color: white; }
     .badge-pending  { background: var(--primary); color: white; }
+    .badge-offered  { background: var(--primary); color: white; }
     .badge-approved { background: var(--success); color: white; }
+    .badge-accepted { background: var(--success); color: white; }
+    .badge-declined { background: var(--error); color: white; }
     .badge-rejected { background: var(--error); color: white; }
     .badge-voting   { background: var(--warning); color: white; }
     .badge-urgent   { background: var(--error); color: white; }
     .badge-normal   { background: var(--primary); color: white; }
     .badge-flexible { background: var(--success); color: white; }
     .badge-cat      { background: var(--bg-hover); color: var(--text); }
+    .badge-admin    { background: #6b3fa0; color: white; }
 
     .card {
       background: var(--surface); border: 1px solid var(--border);
@@ -148,6 +172,10 @@
     .alert { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
     .alert-success { background: #d7f5df; color: #1a5c2a; border: 1px solid #a5dbb5; }
     .alert-error   { background: #fde8e8; color: #7a1a1a; border: 1px solid #f5b8b8; }
+    .note-box {
+      background: #fff8e1; border: 1px solid #f0d585; color: #6b5514;
+      padding: 10px 14px; border-radius: 6px; margin: 14px 0; font-size: 12.5px; line-height: 1.5;
+    }
 
     .pagination {
       display: flex; align-items: center; justify-content: center; gap: 16px;
@@ -234,13 +262,14 @@
     .tx-desc { flex: 1; }
     .tx-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-light); }
 
-    /* ── Ledger table ── */
-    .ledger-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
-    .ledger-table th, .ledger-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-    .ledger-table th { background: var(--bg-hover); font-weight: 600; }
-    .ledger-table tr:hover td { background: var(--bg-hover); }
-    .ledger-table .hours-col { font-weight: 700; color: var(--primary); }
-    .ledger-table .desc-col { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* ── Tables (ledger + categories) ── */
+    .data-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .data-table th, .data-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    .data-table th { background: var(--bg-hover); font-weight: 600; }
+    .data-table tr:hover td { background: var(--bg-hover); }
+    .data-table .hours-col { font-weight: 700; color: var(--primary); }
+    .data-table .desc-col { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .data-table .actions-col { white-space: nowrap; display: flex; gap: 6px; }
 
     /* ── Claims / approvals ── */
     .claim-card {
@@ -256,22 +285,36 @@
     .detail-layout { display: flex; gap: 28px; margin-top: 18px; }
     .detail-main  { flex: 2; min-width: 0; }
     .detail-sidebar { flex: 1; min-width: 260px; }
-    .detail-header { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .detail-header { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
     .request-meta-row { display: flex; flex-wrap: wrap; gap: 16px; color: var(--text-light); margin: 10px 0 18px; font-size: 13px; }
     .description-box { background: var(--bg-hover); padding: 14px; border-radius: 6px; margin-bottom: 18px; font-size: 14px; line-height: 1.6; }
     .comment { background: var(--bg-hover); padding: 12px; border-radius: 6px; margin-bottom: 8px; }
-    .comment-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: var(--text-light); }
+    .comment-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: var(--text-light); align-items: center; }
+    .comment-header .who { display: flex; gap: 8px; align-items: center; }
     .comment p { font-size: 13px; line-height: 1.5; }
     .add-comment { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
     .vol-card { background: var(--surface); border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-bottom: 8px; }
-    .vol-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .vol-header { display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center; }
     .vol-stats { font-size: 11px; color: var(--text-light); margin-top: 6px; display: flex; gap: 12px; }
+    .vol-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .owner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     /* ── Submit earning ── */
     .earning-layout { display: flex; gap: 32px; }
     .earning-form { flex: 1; max-width: 480px; }
     .earning-history { flex: 1; }
     .hours-calc { margin-top: 6px; font-size: 13px; color: var(--success); }
+
+    /* ── Admin pages ── */
+    .settings-item {
+      margin-bottom: 16px; padding: 14px; background: var(--bg-hover); border-radius: 6px;
+    }
+    .settings-item label { font-weight: 600; }
+    .settings-hint { color: var(--text-light); font-size: 12px; margin-top: 4px; }
+    .settings-item input[type="number"] { width: 100px; }
+    .category-row-form {
+      display: grid; grid-template-columns: 2fr 3fr 1fr 1fr auto; gap: 8px; align-items: center;
+    }
 
     /* ── Misc ── */
     .section-title { margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
@@ -281,10 +324,14 @@
     .no-items { color: var(--text-light); padding: 20px; text-align: center; background: var(--bg-hover); border-radius: 6px; }
     .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .user-link { color: var(--primary); cursor: pointer; font-weight: 600; }
+    .user-link:hover { text-decoration: underline; }
 
     @media (max-width: 700px) {
-      .sidebar { width: 48px; }
-      .sidebar .label, .sidebar-header h2, .sidebar-header small, .sidebar-user .user-info { display: none; }
+      .sidebar { width: 52px; }
+      .sidebar .label, .sidebar-header h2, .sidebar-header small, .sidebar-user .user-info,
+      .role-switch .label, .nav-section-label { display: none; }
+      .role-buttons { flex-direction: column; }
       .detail-layout, .earning-layout { flex-direction: column; }
     }
   </style>
@@ -298,46 +345,53 @@ const { createRouter, createWebHashHistory, useRouter, useRoute, RouterLink } = 
 
 /* ══════════════════════════════════════════════
    MOCK DATA
+   Everything below lives only in memory for the lifetime of the page —
+   reload the page (or close the tab) and it all resets to these defaults.
+   There is no server, no database, and no network calls except to fetch
+   Vue/Vue Router/MapLibre GL themselves and (if you switch to Map view)
+   map tiles from a public demo tile server.
 ══════════════════════════════════════════════ */
-const CATEGORIES = [
-  { id: 1, name: 'Gardening',    earnRate: 1.0 },
-  { id: 2, name: 'Tech Support', earnRate: 1.5 },
-  { id: 3, name: 'Medical Care', earnRate: 2.0 },
-  { id: 4, name: 'Childcare',    earnRate: 1.5 },
-  { id: 5, name: 'Transport',    earnRate: 1.0 },
-  { id: 6, name: 'Home Repair',  earnRate: 1.25 },
-  { id: 7, name: 'Cooking',      earnRate: 1.0 },
-  { id: 8, name: 'Language',     earnRate: 1.5 },
-];
+const CURRENT_USER_ID = 'demo.user';
+
+const CATEGORIES = reactive([
+  { id: 1, name: 'Gardening',    description: 'Yard work, planting, and general garden upkeep.', earnRate: 1.0, icon: '🌱' },
+  { id: 2, name: 'Tech Support', description: 'Computer, network, and device troubleshooting.', earnRate: 1.5, icon: '💻' },
+  { id: 3, name: 'Medical Care', description: 'Non-emergency health monitoring and assistance.', earnRate: 2.0, icon: '🩺' },
+  { id: 4, name: 'Childcare',    description: 'Tutoring, babysitting, and homework help.', earnRate: 1.5, icon: '🧒' },
+  { id: 5, name: 'Transport',    description: 'Rides to appointments, errands, and stores.', earnRate: 1.0, icon: '🚗' },
+  { id: 6, name: 'Home Repair',  description: 'Basic fixes, assembly, and small repairs.', earnRate: 1.25, icon: '🔧' },
+  { id: 7, name: 'Cooking',      description: 'Meal prep and cooking assistance.', earnRate: 1.0, icon: '🍳' },
+  { id: 8, name: 'Language',     description: 'Conversation practice and tutoring.', earnRate: 1.5, icon: '🗣️' },
+]);
 
 const REQUESTS = reactive([
   { id: 1, requesterId: 'alice', title: 'Help with spring garden cleanup',
     description: 'My backyard needs a thorough cleanup after winter. Lots of dead leaves, some light pruning needed for the rose bushes, and general tidying up. I have all the tools.',
-    categoryId: 1, hoursBudget: 4, status: 'open', priority: 'normal',
+    categoryId: 1, hoursBudget: 4, status: 'in_progress', priority: 'normal',
     deadline: '2026-04-15', location: '45.5152,-122.6784',
     volunteerCount: 2, commentCount: 3 },
   { id: 2, requesterId: 'bob', title: 'Set up home network & WiFi',
-    description: 'My new router arrived but I'm confused by the mesh network setup. Also need help moving files from old laptop to new one. Would take maybe 2–3 hours total.',
+    description: "My new router arrived but I am confused by the mesh network setup. Also need help moving files from old laptop to new one. Would take maybe 2 to 3 hours total.",
     categoryId: 2, hoursBudget: 3, status: 'open', priority: 'urgent',
     deadline: '2026-03-20', location: '45.5225,-122.6702',
     volunteerCount: 1, commentCount: 1 },
-  { id: 3, requesterId: 'carol', title: 'Weekly grocery runs for elderly neighbor',
+  { id: 3, requesterId: 'demo.user', title: 'Weekly grocery runs for elderly neighbor',
     description: 'My neighbor Mrs. Chen (85) can no longer drive. Needs rides to the grocery store and pharmacy twice a week. She is very sweet and always has tea ready!',
     categoryId: 5, hoursBudget: 2, status: 'in_progress', priority: 'urgent',
     deadline: null, location: '45.5080,-122.6900',
     volunteerCount: 1, commentCount: 5 },
   { id: 4, requesterId: 'demo.user', title: 'Need help learning Spanish conversation',
-    description: 'I've been using Duolingo for 6 months but struggle with actual conversation. Looking for a fluent or native speaker to practice with weekly, 1 hour sessions.',
+    description: "I have been using a language app for 6 months but struggle with actual conversation. Looking for a fluent or native speaker to practice with weekly, 1 hour sessions.",
     categoryId: 8, hoursBudget: 6, status: 'open', priority: 'flexible',
     deadline: '2026-06-01', location: null,
     volunteerCount: 3, commentCount: 2 },
   { id: 5, requesterId: 'demo.user', title: 'Fix leaking kitchen faucet',
-    description: 'The kitchen faucet has a slow drip that's gotten worse. I think it needs new washers or cartridge. I have basic tools but not the expertise.',
+    description: "The kitchen faucet has a slow drip that has gotten worse. I think it needs new washers or a cartridge. I have basic tools but not the expertise.",
     categoryId: 6, hoursBudget: 2, status: 'completed', priority: 'normal',
     deadline: '2026-03-01', location: '45.5150,-122.6800',
     volunteerCount: 1, commentCount: 4 },
   { id: 6, requesterId: 'eve', title: 'After-school homework help — math',
-    description: 'My 10-year-old struggles with fractions and long division. Looking for a patient helper 2 hours a week (after school). We're flexible on schedule.',
+    description: "My 10 year old struggles with fractions and long division. Looking for a patient helper 2 hours a week (after school). We are flexible on schedule.",
     categoryId: 4, hoursBudget: 4, status: 'open', priority: 'normal',
     deadline: null, location: '45.5300,-122.6600',
     volunteerCount: 0, commentCount: 1 },
@@ -351,66 +405,87 @@ const REQUESTS = reactive([
     categoryId: 3, hoursBudget: 1, status: 'open', priority: 'normal',
     deadline: null, location: '45.5050,-122.7000',
     volunteerCount: 1, commentCount: 0 },
+  { id: 9, requesterId: 'demo.user', title: 'Cancelled: extra hands for yard sale',
+    description: 'Originally needed help setting up tables and pricing items for a yard sale, but the sale was rained out and rescheduled to a date I can handle alone.',
+    categoryId: 1, hoursBudget: 2, status: 'cancelled', priority: 'flexible',
+    deadline: null, location: null,
+    volunteerCount: 0, commentCount: 0 },
 ]);
 
-const VOLUNTEERS = {
+const VOLUNTEERS = reactive({
   1: [
-    { id: 1, volunteerId: 'henry', proposedHours: 4, message: 'I love gardening! Have been doing it for 10 years.', status: 'offered', completedInCategory: 8, totalHoursProvided: 22 },
-    { id: 2, volunteerId: 'demo.user', proposedHours: 3, message: 'Happy to help out on a weekend.', status: 'offered', completedInCategory: 2, totalHoursProvided: 7 },
+    { id: 1, requestId: 1, volunteerId: 'henry', proposedHours: 4, message: 'I love gardening! Have been doing it for 10 years.', status: 'accepted', completedInCategory: 8, totalHoursProvided: 22 },
+    { id: 2, requestId: 1, volunteerId: 'demo.user', proposedHours: 3, message: 'Happy to help out on a weekend.', status: 'offered', completedInCategory: 2, totalHoursProvided: 7 },
   ],
   2: [
-    { id: 3, volunteerId: 'irene', proposedHours: 3, message: 'I'm a network engineer, can definitely help.', status: 'accepted', completedInCategory: 15, totalHoursProvided: 40 },
+    { id: 3, requestId: 2, volunteerId: 'irene', proposedHours: 3, message: "I am a network engineer, can definitely help.", status: 'offered', completedInCategory: 15, totalHoursProvided: 40 },
   ],
   3: [
-    { id: 4, volunteerId: 'jane', proposedHours: 2, message: '', status: 'accepted', completedInCategory: 5, totalHoursProvided: 18 },
+    { id: 4, requestId: 3, volunteerId: 'jane', proposedHours: 2, message: 'Happy to help with the grocery runs — I have a car and free Tuesdays.', status: 'offered', completedInCategory: 5, totalHoursProvided: 18 },
   ],
   4: [
-    { id: 5, volunteerId: 'karl', proposedHours: 2, message: 'Native Spanish speaker, happy to practice!', status: 'offered', completedInCategory: 3, totalHoursProvided: 9 },
-    { id: 6, volunteerId: 'lisa', proposedHours: 1, message: 'Lived in Mexico for 5 years.', status: 'offered', completedInCategory: 7, totalHoursProvided: 21 },
-    { id: 7, volunteerId: 'maria', proposedHours: 2, message: '', status: 'offered', completedInCategory: 10, totalHoursProvided: 30 },
+    { id: 5, requestId: 4, volunteerId: 'karl', proposedHours: 2, message: 'Native Spanish speaker, happy to practice!', status: 'offered', completedInCategory: 3, totalHoursProvided: 9 },
+    { id: 6, requestId: 4, volunteerId: 'lisa', proposedHours: 1, message: 'Lived in Mexico for 5 years.', status: 'offered', completedInCategory: 7, totalHoursProvided: 21 },
+    { id: 7, requestId: 4, volunteerId: 'maria', proposedHours: 2, message: '', status: 'offered', completedInCategory: 10, totalHoursProvided: 30 },
   ],
-};
+  5: [
+    { id: 8, requestId: 5, volunteerId: 'oscar', proposedHours: 2, message: '', status: 'completed', completedInCategory: 4, totalHoursProvided: 11 },
+  ],
+});
 
-const COMMENTS = {
+const COMMENTS = reactive({
   1: [
-    { id: 1, userId: 'henry', comment: 'I can bring my own leaf blower if that helps!', createdAt: '2026-03-10T09:00:00Z' },
-    { id: 2, userId: 'alice', comment: 'That would be amazing, thank you!', createdAt: '2026-03-10T10:30:00Z' },
-    { id: 3, userId: 'irene', comment: 'Is early morning okay? Around 8am?', createdAt: '2026-03-11T08:15:00Z' },
+    { id: 1, requestId: 1, userId: 'henry', comment: 'I can bring my own leaf blower if that helps!', createdAt: '2026-03-10T09:00:00Z' },
+    { id: 2, requestId: 1, userId: 'alice', comment: 'That would be amazing, thank you!', createdAt: '2026-03-10T10:30:00Z' },
+    { id: 3, requestId: 1, userId: 'demo.user', comment: 'Is early morning okay? Around 8am?', createdAt: '2026-03-11T08:15:00Z' },
   ],
   2: [
-    { id: 4, userId: 'bob', comment: 'Router model is Eero 6+, if that helps.', createdAt: '2026-03-12T14:00:00Z' },
+    { id: 4, requestId: 2, userId: 'bob', comment: 'Router model is Eero 6+, if that helps.', createdAt: '2026-03-12T14:00:00Z' },
   ],
   3: [
-    { id: 5, userId: 'carol', comment: 'Tuesdays and Fridays would work best.', createdAt: '2026-03-09T10:00:00Z' },
-    { id: 6, userId: 'jane', comment: 'I'm free those days! Will confirm.', createdAt: '2026-03-09T11:00:00Z' },
-    { id: 7, userId: 'carol', comment: 'Great — she prefers the 10am slot.', createdAt: '2026-03-10T09:30:00Z' },
-    { id: 8, userId: 'mrs_chen_neighbor', comment: 'This service is wonderful, thank you!', createdAt: '2026-03-12T15:00:00Z' },
-    { id: 9, userId: 'carol', comment: '❤️', createdAt: '2026-03-12T15:30:00Z' },
+    { id: 5, requestId: 3, userId: 'demo.user', comment: 'Tuesdays and Fridays would work best.', createdAt: '2026-03-09T10:00:00Z' },
+    { id: 6, requestId: 3, userId: 'demo.user', comment: "I am free those days! Will confirm.", createdAt: '2026-03-09T11:00:00Z' },
+    { id: 7, requestId: 3, userId: 'demo.user', comment: 'Great — she prefers the 10am slot.', createdAt: '2026-03-10T09:30:00Z' },
+    { id: 8, requestId: 3, userId: 'mrs_chen_neighbor', comment: 'This service is wonderful, thank you!', createdAt: '2026-03-12T15:00:00Z' },
+    { id: 9, requestId: 3, userId: 'demo.user', comment: 'Glad it is working out so well.', createdAt: '2026-03-12T15:30:00Z' },
   ],
-};
+});
 
 const EARNINGS = reactive([
   { id: 1, userId: 'henry',     categoryId: 1, hoursClaimed: 4, actualHoursEarned: 4.0,  description: 'Completed spring cleanup for Alice — 4 hours, removed all debris and pruned roses.', status: 'pending', createdAt: '2026-03-13T10:00:00Z', approveCount: 0, rejectCount: 0 },
   { id: 2, userId: 'irene',     categoryId: 2, hoursClaimed: 3, actualHoursEarned: 4.5,  description: 'Set up mesh WiFi and migrated all files for Bob. Took about 3 hours.', status: 'pending', createdAt: '2026-03-12T16:00:00Z', approveCount: 0, rejectCount: 0 },
-  { id: 3, userId: 'jane',      categoryId: 5, hoursClaimed: 2, actualHoursEarned: 2.0,  description: 'Grocery run + pharmacy visit with Mrs. Chen (Tuesday)', status: 'voting', createdAt: '2026-03-11T12:00:00Z', approveCount: 3, rejectCount: 1 },
-  { id: 4, userId: 'demo.user', categoryId: 6, hoursClaimed: 2, actualHoursEarned: 2.5,  description: 'Fixed faucet cartridge for Frank — purchased part, ~2hrs total.', status: 'approved', createdAt: '2026-03-08T14:00:00Z', approveCount: 0, rejectCount: 0 },
-  { id: 5, userId: 'demo.user', categoryId: 2, hoursClaimed: 1.5, actualHoursEarned: 2.25, description: 'Helped Eve setup her laptop and email. 1.5 hours.', status: 'rejected', createdAt: '2026-03-05T11:00:00Z', approveCount: 0, rejectCount: 0 },
+  { id: 3, userId: 'jane',      categoryId: 5, hoursClaimed: 2, actualHoursEarned: 2.0,  description: 'Grocery run + pharmacy visit with Mrs. Chen (Tuesday)', status: 'voting', createdAt: '2026-03-11T12:00:00Z', approveCount: 2, rejectCount: 1 },
+  { id: 4, userId: 'demo.user', categoryId: 6, hoursClaimed: 2, actualHoursEarned: 2.5,  description: 'Fixed faucet cartridge for Frank — purchased part, about 2 hours total.', status: 'approved', createdAt: '2026-03-08T14:00:00Z', approveCount: 0, rejectCount: 0 },
+  { id: 5, userId: 'demo.user', categoryId: 2, hoursClaimed: 1.5, actualHoursEarned: 2.25, description: 'Helped Eve set up her laptop and email. 1.5 hours.', status: 'rejected', createdAt: '2026-03-05T11:00:00Z', approveCount: 0, rejectCount: 0 },
 ]);
 
-const TRANSACTIONS = [
+const TRANSACTIONS = reactive([
   { id: 1, fromUserId: null,        toUserId: 'demo.user', hours: 10,   description: 'Welcome bonus — new member credit', transactionType: 'adjusted', referenceType: 'system', createdAt: '2026-01-01T00:00:00Z' },
-  { id: 2, fromUserId: 'carol',     toUserId: 'henry',     hours: 4,    description: 'Garden cleanup — request #1', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-02-15T11:00:00Z' },
-  { id: 3, fromUserId: 'bob',       toUserId: 'irene',     hours: 4.5,  description: 'Network setup & file transfer', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-02-20T14:00:00Z' },
-  { id: 4, fromUserId: null,        toUserId: 'demo.user', hours: 2.5,  description: 'Home repair service — faucet fix', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-03-08T15:00:00Z' },
+  { id: 2, fromUserId: 'alice',     toUserId: 'henry',     hours: 4,    description: 'Garden cleanup — request #1', transactionType: 'spent', referenceType: 'request', createdAt: '2026-02-15T11:00:00Z' },
+  { id: 3, fromUserId: null,        toUserId: 'irene',     hours: 4.5,  description: 'Earned: Network setup & file transfer', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-02-20T14:00:00Z' },
+  { id: 4, fromUserId: null,        toUserId: 'demo.user', hours: 2.5,  description: 'Earned: Home repair service — faucet fix', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-03-08T15:00:00Z' },
   { id: 5, fromUserId: 'demo.user', toUserId: 'karl',      hours: 1,    description: 'Spanish conversation session #1', transactionType: 'spent',  referenceType: 'request', createdAt: '2026-03-09T18:00:00Z' },
-  { id: 6, fromUserId: 'demo.user', toUserId: 'eve',       hours: 2,    description: 'Laptop setup and email help', transactionType: 'spent',  referenceType: 'earning', createdAt: '2026-03-10T12:00:00Z' },
-  { id: 7, fromUserId: 'frank',     toUserId: 'lisa',      hours: 3,    description: 'Meal prep — 3 sessions', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-03-11T19:00:00Z' },
-  { id: 8, fromUserId: null,        toUserId: 'grace',     hours: 2,    description: 'Admin adjustment — data correction', transactionType: 'adjusted', referenceType: 'system', createdAt: '2026-03-12T09:00:00Z' },
-];
-
-const MY_TRANSACTIONS = TRANSACTIONS.filter(t => t.fromUserId === 'demo.user' || t.toUserId === 'demo.user');
+  { id: 6, fromUserId: 'eve',       toUserId: 'demo.user', hours: 2,    description: 'Laptop setup and email help', transactionType: 'spent',  referenceType: 'request', createdAt: '2026-03-10T12:00:00Z' },
+  { id: 7, fromUserId: null,        toUserId: 'lisa',      hours: 3,    description: 'Earned: Meal prep — 3 sessions', transactionType: 'earned', referenceType: 'earning', createdAt: '2026-03-11T19:00:00Z' },
+  { id: 8, fromUserId: null,        toUserId: 'grace',     hours: 2,    description: 'Admin adjustment by admin.demo: data correction', transactionType: 'adjusted', referenceType: 'system', createdAt: '2026-03-12T09:00:00Z' },
+]);
 
 const BALANCE = reactive({ balance: 9.5, updatedAt: '2026-03-14T08:00:00Z' });
+
+// Mirrors appinfo's Admin Settings — in the real app these are rendered but never
+// actually saved or read by the backend (see README "Known Limitations"). Here
+// they are fully wired up so you can see what they are meant to do.
+const CONFIG = reactive({
+  requireAdminApproval: true,
+  enableVoting: true,
+  requiredVotes: 3,
+  allowNegativeBalance: false,
+  maxNegativeBalance: 0,
+});
+
+// Toggle between an ordinary member and an admin to see both experiences.
+// Defaults to admin so every feature is reachable the moment you open the demo.
+const USER = reactive({ id: CURRENT_USER_ID, isAdmin: true });
 
 let nextId = 100;
 
@@ -441,14 +516,24 @@ function truncate(str, max = 120) {
 }
 
 function statusBadgeClass(s) {
-  if (s === 'open') return 'badge badge-open';
-  if (s === 'in_progress') return 'badge badge-progress';
-  if (s === 'completed') return 'badge badge-completed';
-  return 'badge';
+  return 'badge badge-' + (s === 'in_progress' ? 'progress' : s);
 }
 
 function priorityBadgeClass(p) {
   return `badge badge-${p}`;
+}
+
+function volStatusBadgeClass(s) {
+  return 'badge badge-' + s;
+}
+
+function addTransaction(tx) {
+  TRANSACTIONS.unshift({ id: ++nextId, createdAt: new Date().toISOString(), ...tx });
+}
+
+function userTransactions(userId) {
+  return TRANSACTIONS.filter(t => t.fromUserId === userId || t.toUserId === userId)
+    .slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 /* ══════════════════════════════════════════════
@@ -487,17 +572,19 @@ const RequestCard = {
   `
 };
 
-/* ── NewRequestModal ── */
-const NewRequestModal = {
-  emits: ['created', 'cancel'],
-  setup(_, { emit }) {
-    const title = ref('');
-    const description = ref('');
-    const categoryId = ref('');
-    const hoursBudget = ref('');
-    const priority = ref('normal');
-    const deadline = ref('');
-    const location = ref('');
+/* ── NewRequestModal (also used for editing) ── */
+const RequestFormModal = {
+  props: { editing: { type: Object, default: null } },
+  emits: ['saved', 'cancel'],
+  setup(props, { emit }) {
+    const e = props.editing;
+    const title = ref(e ? e.title : '');
+    const description = ref(e ? e.description : '');
+    const categoryId = ref(e ? String(e.categoryId) : '');
+    const hoursBudget = ref(e ? String(e.hoursBudget) : '');
+    const priority = ref(e ? e.priority : 'normal');
+    const deadline = ref(e ? (e.deadline || '') : '');
+    const location = ref(e ? (e.location || '') : '');
     const submitting = ref(false);
     const error = ref('');
 
@@ -509,32 +596,38 @@ const NewRequestModal = {
       if (!isValid.value) return;
       submitting.value = true;
       setTimeout(() => {
-        const newReq = {
-          id: ++nextId,
-          requesterId: 'demo.user',
+        const data = {
           title: title.value,
           description: description.value,
           categoryId: parseInt(categoryId.value),
           hoursBudget: parseFloat(hoursBudget.value),
-          status: 'open',
           priority: priority.value,
           deadline: deadline.value || null,
           location: location.value || null,
-          volunteerCount: 0,
-          commentCount: 0,
         };
-        REQUESTS.unshift(newReq);
+        if (e) {
+          Object.assign(e, data);
+        } else {
+          REQUESTS.unshift({
+            id: ++nextId,
+            requesterId: CURRENT_USER_ID,
+            status: 'open',
+            volunteerCount: 0,
+            commentCount: 0,
+            ...data,
+          });
+        }
         submitting.value = false;
-        emit('created');
-      }, 600);
+        emit('saved');
+      }, 500);
     }
 
-    return { title, description, categoryId, hoursBudget, priority, deadline, location, submitting, error, isValid, submit, CATEGORIES };
+    return { title, description, categoryId, hoursBudget, priority, deadline, location, submitting, error, isValid, submit, CATEGORIES, editing: !!e };
   },
   template: `
     <div class="modal-overlay" @click.self="$emit('cancel')">
       <div class="modal-box">
-        <h2>Post a New Request</h2>
+        <h2>{{ editing ? 'Edit Request' : 'Post a New Request' }}</h2>
         <div v-if="error" class="alert alert-error">{{ error }}</div>
         <div class="form-group">
           <label>Title *</label>
@@ -549,7 +642,7 @@ const NewRequestModal = {
             <label>Category *</label>
             <select v-model="categoryId">
               <option value="">Select category…</option>
-              <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
+              <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.icon }} {{ c.name }}</option>
             </select>
           </div>
           <div class="form-group">
@@ -578,7 +671,7 @@ const NewRequestModal = {
         <div class="form-actions">
           <button class="btn btn-default" @click="$emit('cancel')" :disabled="submitting">Cancel</button>
           <button class="btn btn-primary" @click="submit" :disabled="!isValid || submitting">
-            {{ submitting ? 'Posting…' : 'Post Request' }}
+            {{ submitting ? 'Saving…' : (editing ? 'Save Changes' : 'Post Request') }}
           </button>
         </div>
       </div>
@@ -592,7 +685,7 @@ const NewRequestModal = {
 
 /* ── RequestBoard ── */
 const RequestBoard = {
-  components: { RequestCard, NewRequestModal },
+  components: { RequestCard, RequestFormModal },
   setup() {
     const router = useRouter();
     const showModal = ref(false);
@@ -622,7 +715,6 @@ const RequestBoard = {
       router.push({ name: 'RequestDetail', params: { id } });
     }
 
-    // Map
     watch(viewMode, (val) => {
       if (val === 'map') nextTick(() => initMap());
       else { if (mapInstance) { mapInstance.remove(); mapInstance = null; } }
@@ -657,7 +749,6 @@ const RequestBoard = {
       });
     }
 
-    onMounted(() => {});
     return { CATEGORIES, filtered, showModal, filterStatus, filterCategory, filterPriority, viewMode, mapEl, clearFilters, viewRequest };
   },
   template: `
@@ -672,10 +763,11 @@ const RequestBoard = {
           <option value="open">Open</option>
           <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
         </select>
         <select v-model="filterCategory">
           <option value="">All Categories</option>
-          <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
+          <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.icon }} {{ c.name }}</option>
         </select>
         <select v-model="filterPriority">
           <option value="">All Priorities</option>
@@ -703,7 +795,7 @@ const RequestBoard = {
         <div ref="mapEl" style="width:100%;height:100%"></div>
       </div>
 
-      <NewRequestModal v-if="showModal" @created="showModal=false" @cancel="showModal=false" />
+      <RequestFormModal v-if="showModal" @saved="showModal=false" @cancel="showModal=false" />
     </div>
   `
 };
@@ -718,12 +810,23 @@ const RequestDetail = {
     const volunteers = computed(() => VOLUNTEERS[reqId.value] || []);
     const comments = computed(() => COMMENTS[reqId.value] || []);
     const category = computed(() => getCategoryById(request.value?.categoryId));
+    const isOwner = computed(() => request.value?.requesterId === CURRENT_USER_ID);
 
     const proposedHours = ref('');
     const volunteerMsg = ref('');
     const newComment = ref('');
     const volSuccess = ref(false);
     const commentSuccess = ref(false);
+    const showEdit = ref(false);
+    const selectedForComplete = ref(null);
+    const actionError = ref('');
+
+    const alreadyVolunteered = computed(() =>
+      volunteers.value.some(v => v.volunteerId === CURRENT_USER_ID)
+    );
+    const acceptedVolunteers = computed(() =>
+      volunteers.value.filter(v => v.status === 'accepted')
+    );
 
     const mapEl = ref(null);
     let mapInstance = null;
@@ -732,7 +835,8 @@ const RequestDetail = {
       if (!proposedHours.value) return;
       const v = {
         id: ++nextId,
-        volunteerId: 'demo.user',
+        requestId: reqId.value,
+        volunteerId: CURRENT_USER_ID,
         proposedHours: parseFloat(proposedHours.value),
         message: volunteerMsg.value,
         status: 'offered',
@@ -741,22 +845,70 @@ const RequestDetail = {
       };
       if (!VOLUNTEERS[reqId.value]) VOLUNTEERS[reqId.value] = [];
       VOLUNTEERS[reqId.value].push(v);
-      if (request.value) request.value.volunteerCount = (request.value.volunteerCount || 0) + 1;
+      if (request.value) {
+        request.value.volunteerCount = (request.value.volunteerCount || 0) + 1;
+        if (request.value.status === 'open') request.value.status = 'in_progress';
+      }
       proposedHours.value = '';
       volunteerMsg.value = '';
       volSuccess.value = true;
       setTimeout(() => volSuccess.value = false, 3000);
     }
 
+    function withdrawVolunteer(v) {
+      const list = VOLUNTEERS[reqId.value];
+      const idx = list.findIndex(x => x.id === v.id);
+      if (idx !== -1) list.splice(idx, 1);
+      if (request.value) request.value.volunteerCount = Math.max(0, (request.value.volunteerCount || 1) - 1);
+    }
+
+    function acceptVolunteer(v) {
+      v.status = 'accepted';
+    }
+
+    function declineVolunteer(v) {
+      v.status = 'declined';
+    }
+
+    function completeRequest() {
+      if (!selectedForComplete.value) return;
+      const winner = acceptedVolunteers.value.find(v => v.id === selectedForComplete.value);
+      if (!winner || !request.value) return;
+      request.value.status = 'completed';
+      winner.status = 'completed';
+      winner.completedInCategory = (winner.completedInCategory || 0) + 1;
+      winner.totalHoursProvided = (winner.totalHoursProvided || 0) + winner.proposedHours;
+    }
+
+    function cancelRequest() {
+      if (!request.value) return;
+      request.value.status = 'cancelled';
+    }
+
+    function saveEdit() {
+      showEdit.value = false;
+    }
+
     function submitComment() {
       if (!newComment.value.trim()) return;
-      const c = { id: ++nextId, userId: 'demo.user', comment: newComment.value, createdAt: new Date().toISOString() };
+      const c = { id: ++nextId, requestId: reqId.value, userId: CURRENT_USER_ID, comment: newComment.value, createdAt: new Date().toISOString() };
       if (!COMMENTS[reqId.value]) COMMENTS[reqId.value] = [];
       COMMENTS[reqId.value].push(c);
       if (request.value) request.value.commentCount = (request.value.commentCount || 0) + 1;
       newComment.value = '';
       commentSuccess.value = true;
       setTimeout(() => commentSuccess.value = false, 3000);
+    }
+
+    function deleteComment(c) {
+      const list = COMMENTS[reqId.value];
+      const idx = list.findIndex(x => x.id === c.id);
+      if (idx !== -1) list.splice(idx, 1);
+      if (request.value) request.value.commentCount = Math.max(0, (request.value.commentCount || 1) - 1);
+    }
+
+    function viewUser(userId) {
+      router.push({ name: 'UserProfile', params: { id: userId } });
     }
 
     onMounted(() => {
@@ -783,8 +935,15 @@ const RequestDetail = {
       });
     });
 
-    return { request, volunteers, comments, category, proposedHours, volunteerMsg, newComment, volSuccess, commentSuccess, mapEl, submitVolunteer, submitComment, fmtDate, fmtDateTime, statusBadgeClass, priorityBadgeClass, getCategoryName };
+    return {
+      request, volunteers, comments, category, isOwner, alreadyVolunteered, acceptedVolunteers,
+      proposedHours, volunteerMsg, newComment, volSuccess, commentSuccess, showEdit, selectedForComplete, actionError,
+      mapEl, submitVolunteer, withdrawVolunteer, acceptVolunteer, declineVolunteer, completeRequest, cancelRequest, saveEdit,
+      submitComment, deleteComment, viewUser,
+      CURRENT_USER_ID, fmtDate, fmtDateTime, statusBadgeClass, priorityBadgeClass, volStatusBadgeClass, getCategoryName,
+    };
   },
+  components: { RequestFormModal },
   template: `
     <div>
       <button class="btn btn-default back-btn" @click="$router.push({name:'Board'})">← Back to Board</button>
@@ -795,13 +954,18 @@ const RequestDetail = {
             <span class="badge badge-cat">{{ getCategoryName(request.categoryId) }}</span>
             <span :class="statusBadgeClass(request.status)">{{ request.status.replace('_',' ') }}</span>
             <span :class="priorityBadgeClass(request.priority)">{{ request.priority }}</span>
+            <span v-if="isOwner" class="owner-actions" style="margin-left:auto">
+              <button class="btn btn-default btn-sm" @click="showEdit = true">✏️ Edit</button>
+              <button v-if="request.status === 'open' || request.status === 'in_progress'"
+                      class="btn btn-danger btn-sm" @click="cancelRequest">✕ Cancel Request</button>
+            </span>
           </div>
           <h1>{{ request.title }}</h1>
           <div class="request-meta-row">
             <span>⏱ {{ request.hoursBudget }} hrs budget</span>
             <span v-if="request.location">📍 {{ request.location }}</span>
             <span v-if="request.deadline">📅 Due {{ fmtDate(request.deadline) }}</span>
-            <span>👤 {{ request.requesterId }}</span>
+            <span>👤 Requested by <span class="user-link" @click="viewUser(request.requesterId)">{{ request.requesterId }}</span></span>
           </div>
 
           <div class="description-box">{{ request.description }}</div>
@@ -816,8 +980,11 @@ const RequestDetail = {
           </div>
           <div v-for="c in comments" :key="c.id" class="comment">
             <div class="comment-header">
-              <strong>{{ c.userId }}</strong>
-              <span>{{ fmtDateTime(c.createdAt) }}</span>
+              <span class="who">
+                <strong class="user-link" @click="viewUser(c.userId)">{{ c.userId }}</strong>
+                <span>{{ fmtDateTime(c.createdAt) }}</span>
+              </span>
+              <button v-if="c.userId === CURRENT_USER_ID" class="link-btn" @click="deleteComment(c)">Delete</button>
             </div>
             <p>{{ c.comment }}</p>
           </div>
@@ -831,7 +998,8 @@ const RequestDetail = {
 
           <div class="card">
             <h3 style="margin-bottom:12px">Volunteers ({{ volunteers.length }})</h3>
-            <div v-if="request.status === 'open'" style="margin-bottom:16px">
+
+            <div v-if="request.status === 'open' && !isOwner && !alreadyVolunteered" style="margin-bottom:16px">
               <h4 style="margin-bottom:8px">Offer to Help</h4>
               <div class="form-group">
                 <label>Hours you can contribute</label>
@@ -843,11 +1011,28 @@ const RequestDetail = {
               <button class="btn btn-primary" @click="submitVolunteer" :disabled="!proposedHours">Volunteer</button>
               <div v-if="volSuccess" class="alert alert-success" style="margin-top:8px">Volunteered!</div>
             </div>
+            <div v-else-if="isOwner" class="note-box">You posted this request, so you cannot volunteer for it yourself.</div>
+
+            <div v-if="isOwner && acceptedVolunteers.length > 0 && request.status === 'in_progress'" class="card" style="background:var(--bg-hover);margin-bottom:14px;padding:12px">
+              <h4 style="margin-bottom:8px">Mark Complete</h4>
+              <p class="settings-hint" style="margin-bottom:8px">Choose which accepted volunteer actually did the work.</p>
+              <div v-for="v in acceptedVolunteers" :key="v.id" class="checkbox-row" style="margin-bottom:6px">
+                <input type="radio" :id="'complete-'+v.id" :value="v.id" v-model="selectedForComplete" />
+                <label :for="'complete-'+v.id" style="margin-bottom:0">{{ v.volunteerId }} ({{ v.proposedHours }} hrs)</label>
+              </div>
+              <button class="btn btn-success btn-sm" @click="completeRequest" :disabled="!selectedForComplete">✓ Confirm Complete</button>
+              <div class="note-box" style="margin-top:10px;margin-bottom:0">
+                Note: in the real backend, completing a request only updates status and volunteer stats —
+                it does not transfer hours. The volunteer must separately submit an Earning Claim to be
+                credited. This demo mirrors that (surprising) real behavior.
+              </div>
+            </div>
+
             <div v-if="volunteers.length === 0" class="no-items">No volunteers yet.</div>
             <div v-for="v in volunteers" :key="v.id" class="vol-card">
               <div class="vol-header">
-                <strong>{{ v.volunteerId }}</strong>
-                <span class="badge" :class="'badge-' + (v.status === 'offered' ? 'pending' : v.status)">{{ v.status }}</span>
+                <strong class="user-link" @click="viewUser(v.volunteerId)">{{ v.volunteerId }}</strong>
+                <span :class="volStatusBadgeClass(v.status)">{{ v.status }}</span>
               </div>
               <div style="font-size:13px;color:var(--primary);font-weight:600">{{ v.proposedHours }} hrs proposed</div>
               <div v-if="v.message" style="font-style:italic;color:var(--text-light);font-size:13px;margin-top:4px">"{{ v.message }}"</div>
@@ -855,10 +1040,20 @@ const RequestDetail = {
                 <span>{{ v.completedInCategory }} done in category</span>
                 <span>{{ v.totalHoursProvided }} hrs total</span>
               </div>
+              <div class="vol-actions">
+                <template v-if="isOwner && v.status === 'offered'">
+                  <button class="btn btn-success btn-sm" @click="acceptVolunteer(v)">Accept</button>
+                  <button class="btn btn-danger btn-sm" @click="declineVolunteer(v)">Decline</button>
+                </template>
+                <button v-if="v.volunteerId === CURRENT_USER_ID && v.status !== 'completed'"
+                        class="btn btn-default btn-sm" @click="withdrawVolunteer(v)">Withdraw</button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <RequestFormModal v-if="showEdit" :editing="request" @saved="saveEdit" @cancel="showEdit=false" />
     </div>
   `
 };
@@ -868,7 +1063,7 @@ const MyRequests = {
   components: { RequestCard },
   setup() {
     const router = useRouter();
-    const myReqs = computed(() => REQUESTS.filter(r => r.requesterId === 'demo.user'));
+    const myReqs = computed(() => REQUESTS.filter(r => r.requesterId === CURRENT_USER_ID));
     return { myReqs, router };
   },
   template: `
@@ -886,6 +1081,54 @@ const MyRequests = {
   `
 };
 
+/* ── MyOffers ── */
+const MyOffers = {
+  setup() {
+    const router = useRouter();
+    const myOffers = computed(() => {
+      const out = [];
+      for (const reqId in VOLUNTEERS) {
+        for (const v of VOLUNTEERS[reqId]) {
+          if (v.volunteerId === CURRENT_USER_ID) {
+            out.push({ ...v, request: REQUESTS.find(r => r.id === parseInt(reqId)) });
+          }
+        }
+      }
+      return out;
+    });
+
+    function withdraw(v) {
+      const list = VOLUNTEERS[v.requestId];
+      const idx = list.findIndex(x => x.id === v.id);
+      if (idx !== -1) list.splice(idx, 1);
+      const req = REQUESTS.find(r => r.id === v.requestId);
+      if (req) req.volunteerCount = Math.max(0, (req.volunteerCount || 1) - 1);
+    }
+
+    return { myOffers, router, volStatusBadgeClass, getCategoryName, withdraw };
+  },
+  template: `
+    <div>
+      <h1 style="margin-bottom:20px">My Volunteer Offers</h1>
+      <div v-if="myOffers.length === 0" class="empty-state">
+        <div class="icon">🙋</div>
+        <div>You haven't volunteered for any requests yet.</div>
+      </div>
+      <div v-else class="claims-list" style="display:flex;flex-direction:column;gap:14px">
+        <div v-for="v in myOffers" :key="v.id" class="claim-card">
+          <div class="claim-header">
+            <strong class="user-link" @click="router.push({name:'RequestDetail', params:{id:v.requestId}})">{{ v.request?.title || ('Request #' + v.requestId) }}</strong>
+            <span :class="volStatusBadgeClass(v.status)">{{ v.status }}</span>
+          </div>
+          <div class="claim-hours">{{ v.proposedHours }} hrs proposed · {{ getCategoryName(v.request?.categoryId) }}</div>
+          <div v-if="v.message" class="claim-desc">"{{ v.message }}"</div>
+          <button v-if="v.status !== 'completed'" class="btn btn-default btn-sm" @click="withdraw(v)">Withdraw Offer</button>
+        </div>
+      </div>
+    </div>
+  `
+};
+
 /* ── SubmitEarning ── */
 const SubmitEarning = {
   setup() {
@@ -896,7 +1139,7 @@ const SubmitEarning = {
     const success = ref(false);
     const error = ref('');
 
-    const myClaims = computed(() => EARNINGS.filter(e => e.userId === 'demo.user').sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    const myClaims = computed(() => EARNINGS.filter(e => e.userId === CURRENT_USER_ID).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
 
     const selectedCat = computed(() => getCategoryById(parseInt(categoryId.value)));
     const calculatedHours = computed(() => {
@@ -911,18 +1154,25 @@ const SubmitEarning = {
       if (!isValid.value) return;
       submitting.value = true;
       setTimeout(() => {
-        EARNINGS.push({
+        const autoApprove = !CONFIG.requireAdminApproval;
+        const earning = {
           id: ++nextId,
-          userId: 'demo.user',
+          userId: CURRENT_USER_ID,
           categoryId: parseInt(categoryId.value),
           hoursClaimed: parseFloat(hoursClaimed.value),
           actualHoursEarned: calculatedHours.value,
           description: description.value,
-          status: 'pending',
+          status: autoApprove ? 'approved' : 'pending',
           createdAt: new Date().toISOString(),
           approveCount: 0,
           rejectCount: 0,
-        });
+        };
+        EARNINGS.push(earning);
+        if (autoApprove) {
+          BALANCE.balance = parseFloat((BALANCE.balance + earning.actualHoursEarned).toFixed(2));
+          BALANCE.updatedAt = earning.createdAt;
+          addTransaction({ fromUserId: null, toUserId: CURRENT_USER_ID, hours: earning.actualHoursEarned, description: 'Earned: ' + earning.description.slice(0, 60), transactionType: 'earned', referenceType: 'earning' });
+        }
         categoryId.value = '';
         hoursClaimed.value = '';
         description.value = '';
@@ -939,21 +1189,27 @@ const SubmitEarning = {
       return 'var(--primary)';
     }
 
-    return { CATEGORIES, categoryId, hoursClaimed, description, submitting, success, error, myClaims, selectedCat, calculatedHours, isValid, submit, statusColor, fmtDate, getCategoryName };
+    return { CATEGORIES, CONFIG, categoryId, hoursClaimed, description, submitting, success, error, myClaims, selectedCat, calculatedHours, isValid, submit, statusColor, fmtDate, getCategoryName };
   },
   template: `
     <div>
       <h1 style="margin-bottom:4px">Submit Earning Claim</h1>
       <p class="subtitle">Submit hours you've worked for community verification and credit.</p>
+      <div v-if="!CONFIG.requireAdminApproval" class="note-box">
+        Admin approval is currently OFF in Admin Settings — claims you submit will be approved and
+        credited to your balance instantly.
+      </div>
       <div class="earning-layout">
         <div class="earning-form">
-          <div v-if="success" class="alert alert-success">Your claim has been submitted for review!</div>
+          <div v-if="success" class="alert alert-success">
+            {{ CONFIG.requireAdminApproval ? 'Your claim has been submitted for review!' : 'Claim submitted and approved instantly!' }}
+          </div>
           <div v-if="error"   class="alert alert-error">{{ error }}</div>
           <div class="form-group">
             <label>Service Category *</label>
             <select v-model="categoryId">
               <option value="">Select category…</option>
-              <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.name }} ({{ c.earnRate }}x rate)</option>
+              <option v-for="c in CATEGORIES" :key="c.id" :value="String(c.id)">{{ c.icon }} {{ c.name }} ({{ c.earnRate }}x rate)</option>
             </select>
           </div>
           <div class="form-group">
@@ -990,7 +1246,7 @@ const SubmitEarning = {
   `
 };
 
-/* ── AdminApprovals ── */
+/* ── AdminApprovals (admin only) ── */
 const AdminApprovals = {
   setup() {
     const pending = computed(() => EARNINGS.filter(e => e.status === 'pending'));
@@ -999,13 +1255,20 @@ const AdminApprovals = {
     const rejectReason = ref('');
     const showRejectFor = ref(null);
 
+    function creditEarning(e) {
+      if (e.userId === CURRENT_USER_ID) {
+        BALANCE.balance = parseFloat((BALANCE.balance + e.actualHoursEarned).toFixed(2));
+        BALANCE.updatedAt = new Date().toISOString();
+      }
+      addTransaction({ fromUserId: null, toUserId: e.userId, hours: e.actualHoursEarned, description: 'Earned: ' + e.description.slice(0, 60), transactionType: 'earned', referenceType: 'earning' });
+    }
+
     function approve(id) {
       processing.value = id;
       setTimeout(() => {
         const e = EARNINGS.find(x => x.id === id);
-        if (e) e.status = 'approved';
+        if (e) { e.status = 'approved'; creditEarning(e); }
         processing.value = null;
-        BALANCE.balance = parseFloat((BALANCE.balance + (e?.actualHoursEarned || 0)).toFixed(2));
       }, 500);
     }
 
@@ -1037,12 +1300,17 @@ const AdminApprovals = {
         if (e) {
           if (decision === 'approve') e.approveCount++;
           else e.rejectCount++;
+          const total = e.approveCount + e.rejectCount;
+          if (total >= CONFIG.requiredVotes) {
+            if (e.approveCount > e.rejectCount) { e.status = 'approved'; creditEarning(e); }
+            else e.status = 'rejected';
+          }
         }
         processing.value = null;
       }, 400);
     }
 
-    return { pending, voting, processing, rejectReason, showRejectFor, approve, reject, sendToVote, vote, fmtDate, getCategoryName };
+    return { CONFIG, pending, voting, processing, rejectReason, showRejectFor, approve, reject, sendToVote, vote, fmtDate, getCategoryName };
   },
   template: `
     <div>
@@ -1062,7 +1330,7 @@ const AdminApprovals = {
           <div class="claim-actions">
             <button class="btn btn-success" @click="approve(claim.id)" :disabled="processing === claim.id">✓ Approve</button>
             <button class="btn btn-danger"  @click="showRejectFor = claim.id" :disabled="processing === claim.id">✗ Reject</button>
-            <button class="btn btn-default" @click="sendToVote(claim.id)" :disabled="processing === claim.id">🗳 Send to Vote</button>
+            <button v-if="CONFIG.enableVoting" class="btn btn-default" @click="sendToVote(claim.id)" :disabled="processing === claim.id">🗳 Send to Vote</button>
           </div>
           <div v-if="showRejectFor === claim.id" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
             <textarea v-model="rejectReason" rows="2" placeholder="Reason for rejection…"></textarea>
@@ -1074,8 +1342,8 @@ const AdminApprovals = {
         </div>
       </div>
 
-      <div>
-        <h2 class="section-title">In Voting ({{ voting.length }})</h2>
+      <div v-if="CONFIG.enableVoting">
+        <h2 class="section-title">In Voting ({{ voting.length }}) — resolves at {{ CONFIG.requiredVotes }} votes</h2>
         <div v-if="voting.length === 0" class="no-items">No claims currently in voting.</div>
         <div v-for="claim in voting" :key="claim.id" class="claim-card">
           <div class="claim-header">
@@ -1096,10 +1364,266 @@ const AdminApprovals = {
   `
 };
 
+/* ── ManageCategories (admin only) ── */
+const ManageCategories = {
+  setup() {
+    const editingId = ref(null);
+    const form = reactive({ name: '', description: '', earnRate: '1.0', icon: '' });
+    const showNew = ref(false);
+    const error = ref('');
+
+    function startEdit(cat) {
+      editingId.value = cat.id;
+      Object.assign(form, { name: cat.name, description: cat.description || '', earnRate: String(cat.earnRate), icon: cat.icon || '' });
+      showNew.value = false;
+    }
+
+    function startNew() {
+      editingId.value = null;
+      Object.assign(form, { name: '', description: '', earnRate: '1.0', icon: '' });
+      showNew.value = true;
+    }
+
+    function cancelForm() {
+      editingId.value = null;
+      showNew.value = false;
+      error.value = '';
+    }
+
+    function save() {
+      if (!form.name.trim()) { error.value = 'Name is required.'; return; }
+      const rate = parseFloat(form.earnRate);
+      if (!rate || rate <= 0) { error.value = 'Earn rate must be a positive number.'; return; }
+      error.value = '';
+      if (editingId.value) {
+        const cat = CATEGORIES.find(c => c.id === editingId.value);
+        Object.assign(cat, { name: form.name, description: form.description, earnRate: rate, icon: form.icon });
+      } else {
+        CATEGORIES.push({ id: ++nextId, name: form.name, description: form.description, earnRate: rate, icon: form.icon });
+      }
+      cancelForm();
+    }
+
+    function remove(cat) {
+      const inUse = REQUESTS.some(r => r.categoryId === cat.id);
+      if (inUse && !confirm('This category is used by existing requests. Delete anyway?')) return;
+      const idx = CATEGORIES.findIndex(c => c.id === cat.id);
+      if (idx !== -1) CATEGORIES.splice(idx, 1);
+    }
+
+    return { CATEGORIES, editingId, form, showNew, error, startEdit, startNew, cancelForm, save, remove };
+  },
+  template: `
+    <div>
+      <div class="board-header">
+        <h1>Manage Categories</h1>
+        <button class="btn btn-primary" @click="startNew">+ New Category</button>
+      </div>
+      <p class="subtitle">Categories determine the earn-rate multiplier applied to submitted claims.</p>
+
+      <div v-if="showNew || editingId" class="card" style="margin-bottom:20px">
+        <h3 style="margin-bottom:12px">{{ editingId ? 'Edit Category' : 'New Category' }}</h3>
+        <div v-if="error" class="alert alert-error">{{ error }}</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Icon (emoji, optional)</label>
+            <input v-model="form.icon" placeholder="🌱" maxlength="4" />
+          </div>
+          <div class="form-group" style="flex:3">
+            <label>Name *</label>
+            <input v-model="form.name" placeholder="Category name" />
+          </div>
+          <div class="form-group">
+            <label>Earn Rate *</label>
+            <input v-model="form.earnRate" type="number" min="0.1" step="0.05" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea v-model="form.description" rows="2" placeholder="Optional description"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-default" @click="cancelForm">Cancel</button>
+          <button class="btn btn-primary" @click="save">Save</button>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr><th></th><th>Name</th><th>Description</th><th>Earn Rate</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="c in CATEGORIES" :key="c.id">
+            <td style="font-size:18px">{{ c.icon }}</td>
+            <td><strong>{{ c.name }}</strong></td>
+            <td class="desc-col">{{ c.description }}</td>
+            <td>{{ c.earnRate }}x</td>
+            <td class="actions-col">
+              <button class="btn btn-default btn-sm" @click="startEdit(c)">Edit</button>
+              <button class="btn btn-danger btn-sm" @click="remove(c)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `
+};
+
+/* ── BalanceAdjustments (admin only) ── */
+const BalanceAdjustments = {
+  setup() {
+    const targetUser = ref('');
+    const hours = ref('');
+    const reason = ref('');
+    const error = ref('');
+    const success = ref('');
+
+    const knownUsers = computed(() => {
+      const s = new Set();
+      REQUESTS.forEach(r => s.add(r.requesterId));
+      Object.values(VOLUNTEERS).forEach(list => list.forEach(v => s.add(v.volunteerId)));
+      return Array.from(s).sort();
+    });
+
+    function submit() {
+      error.value = '';
+      success.value = '';
+      const h = parseFloat(hours.value);
+      if (!targetUser.value) { error.value = 'Choose a user.'; return; }
+      if (!h || h === 0) { error.value = 'Enter a non-zero number of hours.'; return; }
+      if (!reason.value.trim()) { error.value = 'A reason is required.'; return; }
+
+      if (targetUser.value === CURRENT_USER_ID) {
+        const newBalance = BALANCE.balance + h;
+        if (h < 0 && newBalance < 0 && !CONFIG.allowNegativeBalance) {
+          error.value = 'Insufficient balance (negative balances are disabled in Admin Settings).';
+          return;
+        }
+        if (h < 0 && CONFIG.allowNegativeBalance && CONFIG.maxNegativeBalance > 0 && newBalance < -CONFIG.maxNegativeBalance) {
+          error.value = `That would exceed the maximum negative balance of ${CONFIG.maxNegativeBalance} hours.`;
+          return;
+        }
+        BALANCE.balance = parseFloat(newBalance.toFixed(2));
+        BALANCE.updatedAt = new Date().toISOString();
+      }
+
+      addTransaction({
+        fromUserId: h > 0 ? null : targetUser.value,
+        toUserId: h > 0 ? targetUser.value : null,
+        hours: Math.abs(h),
+        description: `Admin adjustment by ${USER.id}: ${reason.value}`,
+        transactionType: 'adjusted',
+        referenceType: 'system',
+      });
+
+      success.value = `Adjusted ${targetUser.value} by ${h > 0 ? '+' : ''}${h} hours.`;
+      targetUser.value = '';
+      hours.value = '';
+      reason.value = '';
+    }
+
+    return { knownUsers, targetUser, hours, reason, error, success, submit, CONFIG };
+  },
+  template: `
+    <div>
+      <h1 style="margin-bottom:4px">Balance Adjustments</h1>
+      <p class="subtitle">Manually credit or debit a user's balance, mirroring POST /api/balance/adjust.</p>
+      <div class="card" style="max-width:480px">
+        <div v-if="error" class="alert alert-error">{{ error }}</div>
+        <div v-if="success" class="alert alert-success">{{ success }}</div>
+        <div class="form-group">
+          <label>User *</label>
+          <select v-model="targetUser">
+            <option value="">Select a user…</option>
+            <option v-for="u in knownUsers" :key="u" :value="u">{{ u }}</option>
+          </select>
+          <p class="settings-hint">Only demo.user has a tracked live balance in this demo; adjustments to
+            other users still record a ledger transaction.</p>
+        </div>
+        <div class="form-group">
+          <label>Hours (+ to credit, - to debit) *</label>
+          <input v-model="hours" type="number" step="0.5" placeholder="e.g. 2 or -1.5" />
+        </div>
+        <div class="form-group">
+          <label>Reason *</label>
+          <textarea v-model="reason" rows="2" placeholder="Why is this adjustment being made?"></textarea>
+        </div>
+        <button class="btn btn-primary" @click="submit">Apply Adjustment</button>
+        <p class="settings-hint" style="margin-top:10px">
+          Negative balances allowed: <strong>{{ CONFIG.allowNegativeBalance ? 'Yes' : 'No' }}</strong>
+          <template v-if="CONFIG.allowNegativeBalance"> (max {{ CONFIG.maxNegativeBalance || 'unlimited' }} hrs)</template>
+          — change this in Admin Settings.
+        </p>
+      </div>
+    </div>
+  `
+};
+
+/* ── AdminSettings (admin only) ── */
+const AdminSettings = {
+  setup() {
+    const saved = ref(false);
+    function save() {
+      saved.value = true;
+      setTimeout(() => saved.value = false, 3000);
+    }
+    return { CONFIG, saved, save };
+  },
+  template: `
+    <div>
+      <h1 style="margin-bottom:4px">Time Bank Settings</h1>
+      <p class="subtitle">
+        In the real app this page (Settings → Administration → Time Bank) is currently
+        display-only — see the README "Known Limitations" section. Here the controls
+        actually take effect elsewhere in the demo (Submit Earning, Approval Dashboard, Balance Adjustments).
+      </p>
+      <div v-if="saved" class="alert alert-success">Settings saved.</div>
+
+      <div class="settings-item">
+        <div class="checkbox-row">
+          <input type="checkbox" id="require-approval" v-model="CONFIG.requireAdminApproval" />
+          <label for="require-approval">Require admin approval for earning claims</label>
+        </div>
+        <p class="settings-hint">When off, submitted claims are approved and credited instantly.</p>
+      </div>
+
+      <div class="settings-item">
+        <div class="checkbox-row">
+          <input type="checkbox" id="enable-voting" v-model="CONFIG.enableVoting" />
+          <label for="enable-voting">Enable community voting for claim approvals</label>
+        </div>
+        <p class="settings-hint">When off, the "Send to Vote" option disappears from the Approval Dashboard.</p>
+      </div>
+
+      <div class="settings-item">
+        <label for="required-votes">Required votes for approval</label>
+        <input type="number" id="required-votes" min="1" max="10" v-model.number="CONFIG.requiredVotes" />
+        <p class="settings-hint">A claim in voting auto-resolves once this many votes are cast.</p>
+      </div>
+
+      <div class="settings-item">
+        <div class="checkbox-row">
+          <input type="checkbox" id="allow-negative" v-model="CONFIG.allowNegativeBalance" />
+          <label for="allow-negative">Allow negative balances</label>
+        </div>
+        <p class="settings-hint">Enforced in Balance Adjustments.</p>
+      </div>
+
+      <div class="settings-item">
+        <label for="max-negative">Maximum negative balance</label>
+        <input type="number" id="max-negative" min="0" step="0.5" v-model.number="CONFIG.maxNegativeBalance" />
+        <p class="settings-hint">0 = no limit when negative balances are allowed.</p>
+      </div>
+
+      <button class="btn btn-primary" @click="save">Save Settings</button>
+    </div>
+  `
+};
+
 /* ── MyBalance ── */
 const MyBalance = {
   setup() {
-    const txList = MY_TRANSACTIONS.slice().reverse();
+    const txList = computed(() => userTransactions(CURRENT_USER_ID));
     return { BALANCE, txList, fmtDate, fmtDateTime };
   },
   template: `
@@ -1131,10 +1655,45 @@ const MyBalance = {
   `
 };
 
+/* ── UserProfile (view another user's ledger) ── */
+const UserProfile = {
+  props: ['id'],
+  setup(props) {
+    const txList = computed(() => userTransactions(props.id));
+    const isSelf = computed(() => props.id === CURRENT_USER_ID);
+    return { txList, isSelf, id: props.id, fmtDate, fmtDateTime };
+  },
+  template: `
+    <div>
+      <button class="btn btn-default back-btn" @click="$router.back()">← Back</button>
+      <h1 style="margin-bottom:4px">{{ id }}'s Transaction History</h1>
+      <p class="subtitle" v-if="isSelf">This is you — see "My Balance" for your current total.</p>
+      <p class="subtitle" v-else>Mirrors GET /api/ledger/user/{userId} — anyone can look up another member's history.</p>
+      <div v-if="txList.length === 0" class="no-items">No transactions found for this user.</div>
+      <div class="tx-list">
+        <div v-for="tx in txList" :key="tx.id" :class="'tx-item ' + tx.transactionType">
+          <div class="tx-main">
+            <span class="tx-type">
+              {{ tx.transactionType === 'earned' ? '+' : tx.transactionType === 'spent' ? '-' : '~' }}
+              {{ tx.hours }} hrs
+            </span>
+            <span class="tx-desc">{{ tx.description }}</span>
+          </div>
+          <div class="tx-meta">
+            <span v-if="tx.fromUserId && tx.toUserId">{{ tx.fromUserId }} → {{ tx.toUserId }}</span>
+            <span>{{ fmtDate(tx.createdAt) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+};
+
 /* ── PublicLedger ── */
 const PublicLedger = {
   setup() {
-    const txList = TRANSACTIONS.slice().reverse();
+    const router = useRouter();
+    const txList = computed(() => TRANSACTIONS.slice().sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
 
     function typeIcon(t) {
       if (t === 'earned') return '➕';
@@ -1149,13 +1708,18 @@ const PublicLedger = {
       return 'badge badge-voting';
     }
 
-    return { txList, typeIcon, typeBadge, fmtDate };
+    function viewUser(userId) {
+      if (!userId) return;
+      router.push({ name: 'UserProfile', params: { id: userId } });
+    }
+
+    return { txList, typeIcon, typeBadge, viewUser, fmtDate };
   },
   template: `
     <div>
       <h1>Public Ledger</h1>
-      <p class="subtitle">Transparent record of all community hour transactions.</p>
-      <table class="ledger-table">
+      <p class="subtitle">Transparent record of all community hour transactions. Click a username to see their history.</p>
+      <table class="data-table">
         <thead>
           <tr>
             <th>Date</th>
@@ -1170,8 +1734,8 @@ const PublicLedger = {
           <tr v-for="tx in txList" :key="tx.id">
             <td>{{ fmtDate(tx.createdAt) }}</td>
             <td><span :class="typeBadge(tx.transactionType)">{{ typeIcon(tx.transactionType) }} {{ tx.transactionType }}</span></td>
-            <td>{{ tx.fromUserId || 'System' }}</td>
-            <td>{{ tx.toUserId || 'System' }}</td>
+            <td><span v-if="tx.fromUserId" class="user-link" @click="viewUser(tx.fromUserId)">{{ tx.fromUserId }}</span><span v-else>System</span></td>
+            <td><span v-if="tx.toUserId" class="user-link" @click="viewUser(tx.toUserId)">{{ tx.toUserId }}</span><span v-else>System</span></td>
             <td class="hours-col">{{ tx.hours }}</td>
             <td class="desc-col">{{ tx.description }}</td>
           </tr>
@@ -1187,13 +1751,18 @@ const PublicLedger = {
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/',             name: 'Board',         component: RequestBoard },
-    { path: '/request/:id',  name: 'RequestDetail', component: RequestDetail, props: true },
-    { path: '/my-requests',  name: 'MyRequests',    component: MyRequests },
-    { path: '/earn',         name: 'SubmitEarning', component: SubmitEarning },
-    { path: '/admin',        name: 'AdminApprovals',component: AdminApprovals },
-    { path: '/ledger',       name: 'PublicLedger',  component: PublicLedger },
-    { path: '/balance',      name: 'MyBalance',     component: MyBalance },
+    { path: '/',                name: 'Board',             component: RequestBoard },
+    { path: '/request/:id',     name: 'RequestDetail',     component: RequestDetail, props: true },
+    { path: '/my-requests',     name: 'MyRequests',        component: MyRequests },
+    { path: '/my-offers',       name: 'MyOffers',          component: MyOffers },
+    { path: '/earn',            name: 'SubmitEarning',     component: SubmitEarning },
+    { path: '/balance',         name: 'MyBalance',         component: MyBalance },
+    { path: '/user/:id',        name: 'UserProfile',       component: UserProfile, props: true },
+    { path: '/ledger',          name: 'PublicLedger',      component: PublicLedger },
+    { path: '/admin/approvals', name: 'AdminApprovals',    component: AdminApprovals },
+    { path: '/admin/categories',name: 'ManageCategories',  component: ManageCategories },
+    { path: '/admin/balances',  name: 'BalanceAdjustments',component: BalanceAdjustments },
+    { path: '/admin/settings',  name: 'AdminSettings',     component: AdminSettings },
   ],
 });
 
@@ -1204,16 +1773,22 @@ const App = {
   components: { RouterLink },
   setup() {
     const route = useRoute();
-    const navItems = [
+    const memberNavItems = [
       { name: 'Board',          label: 'Request Board',  icon: '🏠' },
-      { name: 'MyRequests',     label: 'My Requests',    icon: '👤' },
+      { name: 'MyRequests',     label: 'My Requests',    icon: '📋' },
+      { name: 'MyOffers',       label: 'My Offers',      icon: '🙋' },
       { name: 'SubmitEarning',  label: 'Submit Earnings',icon: '➕' },
       { name: 'MyBalance',      label: 'My Balance',     icon: '💰' },
       { name: 'PublicLedger',   label: 'Public Ledger',  icon: '📖' },
-      { name: 'AdminApprovals', label: 'Admin Approvals',icon: '✅' },
+    ];
+    const adminNavItems = [
+      { name: 'AdminApprovals',     label: 'Admin Approvals',    icon: '✅' },
+      { name: 'ManageCategories',   label: 'Manage Categories',  icon: '🏷️' },
+      { name: 'BalanceAdjustments', label: 'Balance Adjustments',icon: '⚖️' },
+      { name: 'AdminSettings',      label: 'Admin Settings',     icon: '⚙️' },
     ];
     const balanceLabel = computed(() => `My Balance (${BALANCE.balance} hrs)`);
-    return { route, navItems, BALANCE, balanceLabel };
+    return { route, USER, memberNavItems, adminNavItems, BALANCE, balanceLabel };
   },
   template: `
     <div id="app">
@@ -1225,13 +1800,20 @@ const App = {
         <div class="sidebar-user">
           <div class="avatar">D</div>
           <div class="user-info">
-            <div class="user-name">demo.user</div>
+            <div class="user-name">demo.user <span v-if="USER.isAdmin" class="badge badge-admin">admin</span></div>
             <div class="user-balance">{{ BALANCE.balance }} hrs</div>
+          </div>
+        </div>
+        <div class="role-switch">
+          <div class="label">Viewing as</div>
+          <div class="role-buttons">
+            <button :class="['role-btn', {active: !USER.isAdmin}]" @click="USER.isAdmin = false">Member</button>
+            <button :class="['role-btn', {active: USER.isAdmin}]" @click="USER.isAdmin = true">Admin</button>
           </div>
         </div>
         <nav>
           <router-link
-            v-for="item in navItems"
+            v-for="item in memberNavItems"
             :key="item.name"
             :to="{ name: item.name }"
             custom
@@ -1242,9 +1824,25 @@ const App = {
               <span class="label">{{ item.name === 'MyBalance' ? balanceLabel : item.label }}</span>
             </a>
           </router-link>
+
+          <template v-if="USER.isAdmin">
+            <div class="nav-section-label">Admin</div>
+            <router-link
+              v-for="item in adminNavItems"
+              :key="item.name"
+              :to="{ name: item.name }"
+              custom
+              v-slot="{ navigate, isActive }"
+            >
+              <a :class="['nav-item', { active: isActive }]" @click="navigate">
+                <span class="icon">{{ item.icon }}</span>
+                <span class="label">{{ item.label }}</span>
+              </a>
+            </router-link>
+          </template>
         </nav>
         <div style="padding:12px 16px;font-size:11px;color:var(--text-light);border-top:1px solid var(--border)">
-          🔵 Standalone Demo — all data is local
+          🔵 Standalone Demo — all data is local and resets on reload
         </div>
       </aside>
       <main class="content">

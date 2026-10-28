@@ -27,6 +27,10 @@ which can arrive from Nextcloud Forms.
   facilitators propose and a second person or a vote of the member's state decides, and a **Governance Log** every
   member can read.
 
+> **Want to try the workflow without installing Nextcloud at all?** See
+> [`demo/`](demo/) for a self-contained, single-file demo you can just open
+> in a browser — no server, no PHP, no database required.
+
 ## Requirements
 
 - **Nextcloud** 29 to 35. Each of 29.0.16, 30.0.17, 31.0.14, 32.0.15, 33.0.10, 34.0.5 and 35.0.2 was run through the
