@@ -69,49 +69,42 @@ final class RowValidator {
 		switch ($field['type']) {
 			case 'text':
 				return (string)$value;
-
 			case 'url':
 				if (!is_string($value) || !preg_match('#^https?://#i', $value)) {
 					$errors[] = "$name must be an http or https link";
 					return null;
 				}
 				return $value;
-
 			case 'zip':
 				if (!is_string($value) || !preg_match('/^\d{5}$/', $value)) {
 					$errors[] = "$name must be a 5-digit ZIP";
 					return null;
 				}
 				return $value;
-
 			case 'int':
 				if (filter_var($value, FILTER_VALIDATE_INT) === false) {
 					$errors[] = "$name must be a whole number";
 					return null;
 				}
 				return (int)$value;
-
 			case 'number':
 				if (!is_numeric($value)) {
 					$errors[] = "$name must be a number";
 					return null;
 				}
 				return (float)$value;
-
 			case 'date':
 				if (!self::isDate((string)$value, ['Y-m-d'])) {
 					$errors[] = "$name must be a date (YYYY-MM-DD)";
 					return null;
 				}
 				return (string)$value;
-
 			case 'datetime':
 				if (!self::isDate((string)$value, ['Y-m-d H:i', 'Y-m-d\TH:i'])) {
 					$errors[] = "$name must be a date and time (YYYY-MM-DD HH:MM)";
 					return null;
 				}
 				return (string)$value;
-
 			case 'bool':
 			case 'choice':
 				$allowed = $lookups[$field['choices'] ?? ''] ?? null;
@@ -120,7 +113,6 @@ final class RowValidator {
 					return null;
 				}
 				return (string)$value;
-
 			default:
 				$errors[] = "$name has an unsupported type";
 				return null;
