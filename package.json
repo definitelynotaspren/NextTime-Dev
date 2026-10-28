@@ -36,6 +36,7 @@
     "typescript": "^5.9.3",
     "vite": "^7.2.4"
   },
+  "overrides": { "stylelint-config-recommended-vue": { "postcss-html": "$postcss-html" } },
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
