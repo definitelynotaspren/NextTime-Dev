@@ -14,6 +14,7 @@ import AdminAdjustments from '../views/AdminAdjustments.vue'
 import GovernanceLog from '../views/GovernanceLog.vue'
 import ChapterCheck from '../views/ChapterCheck.vue'
 import IntakeView from '../views/IntakeView.vue'
+import ImportView from '../views/ImportView.vue'
 
 const routes = [
 	{
@@ -77,6 +78,11 @@ const routes = [
 		path: '/intake',
 		name: 'IntakeView',
 		component: IntakeView,
+	},
+	{
+		path: '/import',
+		name: 'ImportView',
+		component: ImportView,
 	},
 	{
 		path: '/chapters',

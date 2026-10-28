@@ -19,18 +19,20 @@ workbook yet.
 
 | Table | Holds | Sensitivity |
 |-------|-------|-------------|
-| `oc_timebank_requests` | title, description, `zip`, state, free-text `location`, `latitude`/`longitude`, requester | Visible to every logged-in member, except `location` and the point: only the requester, the facilitators of the request's state and accepted volunteers get those (`RequestPresenter`). |
-| `oc_timebank_volunteers` | who offered, hours, message, status | Visible to members on the request page |
+| `oc_timebank_requests` | title, description, `zip`, state, free-text `location`, `latitude`/`longitude`, requester, `show_username` | Visible to every logged-in member, except `location` and the point: only the requester, the facilitators of the request's state and accepted volunteers get those. The requester's name follows `show_username` (off by default); without it only the requester, the request's state facilitators, national organizers, admins and accepted volunteers get it (`RequestPresenter`). A request put on the board from the desk has `source_ref` `desk:<row uid>` and the facilitator as requester. |
+| `oc_timebank_volunteers` | who offered, hours offered, hours agreed on acceptance, message, status | Visible to members on the request page |
 | `oc_timebank_comments` | comments on requests | Members, except flagged-hidden or removed ones: the server withholds their text, moderators still see it |
 | `oc_timebank_adjustments` | manual balance adjustments: member, hours, reason, proposer, approver | Admins and national organizers; facilitators for their states; chapter members for votes open to them. The result is public in the ledger and governance log |
 | `oc_timebank_adjustment_votes` | who voted for or against an adjustment | Public by design: shown with the adjustment and in the governance log |
-| `oc_timebank_governance_log` | who changed what, with old and new values and reasons | **Public to every member by design.** Never put personal details in a reason |
+| `oc_timebank_governance_log` | who changed what, with old and new values and reasons; NextTime itself adds `system` lines when it is first recorded, updated or moved to another kind of database (the version and the kind of database only, never a host, name or password) | **Public to every member by design.** Never put personal details in a reason |
 | `oc_timebank_intake_log` | which Nextcloud Forms submissions were imported or rejected, and why | Admins and organizers; holds IDs and reasons, no answers |
 | `oc_timebank_comment_flags` | who flagged which comment, and why | Names and reasons: moderators only. Counts are public |
 | `oc_timebank_withdrawals` | log of withdrawn help, with reasons | The volunteer, and the requester of that request |
 | `oc_timebank_earnings`, `oc_timebank_votes` | hour claims, approvals, community votes | Your own claims; admins see pending ones; claims in a vote are visible so members can vote |
 | `oc_timebank_balances`, `oc_timebank_transactions` | balances and the public ledger | Public to members by design |
 | `oc_timebank_user_stats`, `oc_timebank_categories` | per-category history, service categories | Members |
+| `oc_timebank_imports` | one row per import from another NextTime: the name an admin gave the source, who staged and who decided it, when, totals, and a report naming the accounts and categories that did not match | Admins only. The totals (no names) are also in the public governance log. Never holds a host, file name or password |
+| `oc_timebank_import_staged` | the rows of a staged import, as JSON, until a second admin finalizes, cancels or it expires; then deleted | Contains people's words (descriptions, locations); read only by the import code, for admins |
 | `oc_timebank_layer_rows` | organizer-desk rows: needs, offers, actions, reports. One JSON column, `data`, holds the fields | **The most sensitive table.** Contact details and exact coordinates live here. |
 
 ## How the data is protected

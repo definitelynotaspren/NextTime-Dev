@@ -42,7 +42,10 @@ const canFlag = computed(() => !isMine.value && props.comment.state !== 'removed
 	<div class="comment" :data-state="comment.state">
 		<div class="comment-header">
 			<strong>
-				<RouterLink :to="{ name: 'UserLedger', params: { userId: comment.userId } }">{{ comment.userId }}</RouterLink>
+				<RouterLink v-if="comment.userId" :to="{ name: 'UserLedger', params: { userId: comment.userId } }">{{ comment.userId }}</RouterLink>
+				<template v-else>
+					{{ comment.authorLabel ?? 'Requester' }}
+				</template>
 			</strong>
 			<span class="comment-date">{{ new Date(comment.createdAt).toLocaleString() }}</span>
 		</div>

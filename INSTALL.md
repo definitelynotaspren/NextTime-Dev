@@ -75,7 +75,7 @@ Requires Docker (with `docker compose`), Node.js ≥ 20, npm, Composer.
 
 ```bash
 cp .env.example .env    # edit passwords first!
-make dev                # installs deps, builds frontend, starts Nextcloud 31 + Postgres + Redis
+make dev                # installs deps, builds frontend, starts Nextcloud 35 + Postgres + Redis
 # Nextcloud installs itself at http://localhost:8080 (admin password from .env), then:
 make docker-install-app
 make docker-seed-users  # optional: alice, bob, carol

@@ -10,6 +10,7 @@ use OCA\TimeBank\Db\Volunteer;
 use OCA\TimeBank\Db\VolunteerMapper;
 use OCA\TimeBank\Db\Withdrawal;
 use OCA\TimeBank\Db\WithdrawalMapper;
+use OCA\TimeBank\Notification\OfferNotifier;
 use OCA\TimeBank\Service\InvalidStateException;
 use OCA\TimeBank\Service\NotAuthorizedException;
 use OCA\TimeBank\Service\VolunteerService;
@@ -25,6 +26,7 @@ final class VolunteerServiceTest extends TestCase {
 	private VolunteerMapper&MockObject $volunteers;
 	private RequestMapper&MockObject $requests;
 	private WithdrawalMapper&MockObject $withdrawals;
+	private OfferNotifier&MockObject $notifier;
 	private VolunteerService $service;
 
 	protected function setUp(): void {
@@ -32,7 +34,8 @@ final class VolunteerServiceTest extends TestCase {
 		$this->volunteers = $this->createMock(VolunteerMapper::class);
 		$this->requests = $this->createMock(RequestMapper::class);
 		$this->withdrawals = $this->createMock(WithdrawalMapper::class);
-		$this->service = new VolunteerService($this->volunteers, $this->requests, $this->withdrawals);
+		$this->notifier = $this->createMock(OfferNotifier::class);
+		$this->service = new VolunteerService($this->volunteers, $this->requests, $this->withdrawals, $this->notifier);
 
 		$this->volunteers->method('insert')->willReturnArgument(0);
 		$this->volunteers->method('update')->willReturnArgument(0);
@@ -84,7 +87,7 @@ final class VolunteerServiceTest extends TestCase {
 
 	public function testOffersAreRefusedOnFinishedRequests(): void {
 		foreach (['completed', 'cancelled'] as $status) {
-			$service = new VolunteerService($this->volunteers, $this->requests = $this->createMock(RequestMapper::class), $this->withdrawals);
+			$service = new VolunteerService($this->volunteers, $this->requests = $this->createMock(RequestMapper::class), $this->withdrawals, $this->notifier);
 			$this->requests->method('find')->willReturn($this->request($status));
 
 			try {
@@ -137,6 +140,69 @@ final class VolunteerServiceTest extends TestCase {
 
 		$this->assertSame('accepted', $accepted->getStatus());
 		$this->assertSame('in_progress', $request->getStatus());
+	}
+
+	public function testAcceptingKeepsTheOfferedHoursUnlessTheRequesterSettlesOnOthers(): void {
+		$request = $this->request('open');
+		$request->setHoursBudget('4');
+		$this->requests->method('find')->willReturn($request);
+		$offer = $this->offer(5);
+		$offer->setProposedHours('2');
+		$this->volunteers->method('find')->willReturn($offer);
+
+		$this->assertSame(2.0, $this->service->accept(5, 'alice')->effectiveHours(), 'offered hours by default');
+
+		$offer->setStatus('offered');
+		$accepted = $this->service->accept(5, 'alice', 3.5);
+		$this->assertSame(3.5, $accepted->effectiveHours());
+		$this->assertSame(2.0, (float)$accepted->getProposedHours(), 'the offer itself is not rewritten');
+	}
+
+	public function testNoticesGoOutOnOfferingAndAcceptingAndClearOnAnswering(): void {
+		$request = $this->request('open');
+		$this->requests->method('find')->willReturn($request);
+		$this->noEarlierOffer();
+		$this->notifier->expects($this->once())->method('offered');
+		$this->service->offer(1, 'bob', ['proposedHours' => 2]);
+
+		$this->volunteers->method('find')->willReturn($this->offer(5));
+		$this->notifier->expects($this->once())->method('accepted');
+		$this->notifier->expects($this->once())->method('answered');
+		$this->service->accept(5, 'alice');
+	}
+
+	public function testAgreedHoursStayBetweenWhatWasPostedAndWhatWasOffered(): void {
+		$request = $this->request('open');
+		$request->setHoursBudget('4');
+		$this->requests->method('find')->willReturn($request);
+		$offer = $this->offer(5);
+		$offer->setProposedHours('2');
+		$this->volunteers->method('find')->willReturn($offer);
+
+		foreach ([1.5, 4.5, 0.0, -1.0] as $hours) {
+			try {
+				$this->service->accept(5, 'alice', $hours);
+				$this->fail("$hours should be refused");
+			} catch (InvalidStateException $e) {
+				$this->assertStringContainsString('between 2 ', $e->getMessage());
+				$this->assertSame('offered', $offer->getStatus());
+			}
+		}
+		foreach ([2.0, 4.0, 3.0] as $hours) {
+			$offer->setStatus('offered');
+			$this->assertSame($hours, $this->service->accept(5, 'alice', $hours)->effectiveHours());
+		}
+	}
+
+	public function testAnOfferAboveTheBudgetMayBeSettledDownToTheBudget(): void {
+		$request = $this->request('open');
+		$request->setHoursBudget('2');
+		$this->requests->method('find')->willReturn($request);
+		$offer = $this->offer(5);
+		$offer->setProposedHours('5');
+		$this->volunteers->method('find')->willReturn($offer);
+
+		$this->assertSame(2.0, $this->service->accept(5, 'alice', 2.0)->effectiveHours());
 	}
 
 	public function testSeveralVolunteersCanBeAcceptedAndNoOneIsAutoDeclined(): void {

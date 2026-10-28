@@ -10,6 +10,7 @@ use OCA\TimeBank\Db\Volunteer;
 use OCA\TimeBank\Db\VolunteerMapper;
 use OCA\TimeBank\Db\Withdrawal;
 use OCA\TimeBank\Db\WithdrawalMapper;
+use OCA\TimeBank\Notification\OfferNotifier;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
@@ -32,15 +33,18 @@ class VolunteerService {
 	private VolunteerMapper $volunteerMapper;
 	private RequestMapper $requestMapper;
 	private WithdrawalMapper $withdrawalMapper;
+	private OfferNotifier $notifier;
 
 	public function __construct(
 		VolunteerMapper $volunteerMapper,
 		RequestMapper $requestMapper,
 		WithdrawalMapper $withdrawalMapper,
+		OfferNotifier $notifier,
 	) {
 		$this->volunteerMapper = $volunteerMapper;
 		$this->requestMapper = $requestMapper;
 		$this->withdrawalMapper = $withdrawalMapper;
+		$this->notifier = $notifier;
 	}
 
 	/**
@@ -79,7 +83,10 @@ class VolunteerService {
 		$volunteer->setStatus('offered');
 		$volunteer->setCreatedAt(new \DateTime());
 
-		return $this->volunteerMapper->insert($volunteer);
+		$volunteer = $this->volunteerMapper->insert($volunteer);
+		$this->notifier->offered($volunteer, $request);
+
+		return $volunteer;
 	}
 
 	/**
@@ -125,13 +132,14 @@ class VolunteerService {
 			$entry->setRequestId($request->getId());
 			$entry->setVolunteerId($userId);
 			$entry->setOfferStatus($status);
-			$entry->setProposedHours($volunteer->getProposedHours());
+			$entry->setProposedHours((string)$volunteer->effectiveHours());
 			$entry->setReason($reason);
 			$entry->setCreatedAt(new \DateTime());
 			$this->withdrawalMapper->insert($entry);
 		}
 
 		$this->volunteerMapper->delete($volunteer);
+		$this->notifier->answered($volunteer);
 		$this->reopenIfNoAcceptedVolunteers($request);
 	}
 
@@ -143,7 +151,7 @@ class VolunteerService {
 	 * @throws NotAuthorizedException
 	 * @throws InvalidStateException
 	 */
-	public function accept(int $volunteerId, string $requesterId): Volunteer {
+	public function accept(int $volunteerId, string $requesterId, ?float $agreedHours = null): Volunteer {
 		$volunteer = $this->volunteerMapper->find($volunteerId);
 		$request = $this->requestMapper->find($volunteer->getRequestId());
 
@@ -154,6 +162,17 @@ class VolunteerService {
 			throw new InvalidStateException('Only a pending offer can be accepted');
 		}
 
+		// The requester may settle on hours between what they posted and what the volunteer offered.
+		// Left empty, the offered hours stand.
+		$offered = (float)$volunteer->getProposedHours();
+		$agreed = $agreedHours ?? $offered;
+		$low = min($offered, (float)$request->getHoursBudget());
+		$high = max($offered, (float)$request->getHoursBudget());
+		if ($agreed < $low || $agreed > $high) {
+			throw new InvalidStateException(sprintf('The agreed hours must be between %s (posted or offered, whichever is less) and %s', self::plainNumber($low), self::plainNumber($high)));
+		}
+
+		$volunteer->setAgreedHours((string)$agreed);
 		$volunteer->setStatus('accepted');
 		$updated = $this->volunteerMapper->update($volunteer);
 
@@ -162,6 +181,9 @@ class VolunteerService {
 			$request->setUpdatedAt(new \DateTime());
 			$this->requestMapper->update($request);
 		}
+
+		$this->notifier->answered($updated);
+		$this->notifier->accepted($updated, $request);
 
 		return $updated;
 	}
@@ -183,7 +205,10 @@ class VolunteerService {
 		}
 
 		$volunteer->setStatus('declined');
-		return $this->volunteerMapper->update($volunteer);
+		$declined = $this->volunteerMapper->update($volunteer);
+		$this->notifier->answered($declined);
+
+		return $declined;
 	}
 
 	/**
@@ -205,7 +230,6 @@ class VolunteerService {
 				'id' => $request->getId(),
 				'title' => $request->getTitle(),
 				'status' => $request->getStatus(),
-				'requesterId' => $request->getRequesterId(),
 			];
 			$rows[] = $row;
 		}
@@ -258,5 +282,9 @@ class VolunteerService {
 		$request->setStatus('open');
 		$request->setUpdatedAt(new \DateTime());
 		$this->requestMapper->update($request);
+	}
+
+	private static function plainNumber(float $hours): string {
+		return rtrim(rtrim(number_format($hours, 2, '.', ''), '0'), '.');
 	}
 }

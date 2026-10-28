@@ -18,6 +18,8 @@ interface Earning {
 	description: string
 	status: string
 	createdAt: string
+	/** Imported from another system where it had already been approved; it still needs a decision here. */
+	approvedBefore?: string | null
 	votes?: { voterId: string }[]
 	decidingAs?: 'admin' | 'facilitator' | 'national' | null
 	decidingChapter?: string | null
@@ -165,6 +167,9 @@ onMounted(() => {
 						<div class="claim-description">
 							{{ claim.description }}
 						</div>
+						<p v-if="claim.approvedBefore" class="approved-before">
+							Approved before, on {{ new Date(claim.approvedBefore).toLocaleDateString() }}, in the system this claim was imported from. It still needs a decision here.
+						</p>
 						<p v-if="claim.userId === currentUserId" class="own-claim">
 							This is your claim. Someone else has to approve it, reject it or send it to a vote.
 						</p>
@@ -236,6 +241,9 @@ onMounted(() => {
 						<div class="claim-description">
 							{{ claim.description }}
 						</div>
+						<p v-if="claim.approvedBefore" class="approved-before">
+							Approved before, on {{ new Date(claim.approvedBefore).toLocaleDateString() }}, in the system this claim was imported from. It still needs a decision here.
+						</p>
 						<p v-if="claim.userId === currentUserId" class="own-claim">
 							This is your claim, so you cannot vote on it.
 						</p>
@@ -323,6 +331,12 @@ section h2 {
 	background: var(--color-background-hover);
 	padding: 16px;
 	border-radius: 8px;
+}
+
+.approved-before {
+	margin-block: 6px;
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
 }
 
 .claim-header {

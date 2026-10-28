@@ -87,7 +87,7 @@ final class StateReassignmentTest extends TestCase {
 			$this->logged[] = [$actor, $action, $subject, $details];
 		});
 
-		$presenter = new RequestPresenter($directory, $resolver, $this->createMock(\OCA\TimeBank\Db\VolunteerMapper::class));
+		$presenter = new RequestPresenter($directory, $resolver, $this->createMock(\OCA\TimeBank\Db\VolunteerMapper::class), $this->createMock(IGroupManager::class));
 		$this->service = new StateReassignment($requests, $rows, $presenter, $directory, $resolver, $groups, $this->log);
 	}
 
@@ -101,7 +101,7 @@ final class StateReassignmentTest extends TestCase {
 
 		$this->assertSame('washington', $moved->getChapterOverride());
 		$this->assertSame('washington', $moved->getChapter());
-		$this->assertSame([['fern', 'request.state_changed', 'ana', [
+		$this->assertSame([['fern', 'request.state_changed', null, [
 			'request' => 1,
 			'title' => 'Help moving a couch',
 			'from' => 'oregon',

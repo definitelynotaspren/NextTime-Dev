@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getCurrentUser } from '@nextcloud/auth'
 import { useRequestStore, errorMessage, type RequestComment, type Volunteer } from '../stores/requestStore'
 import { useCategoryStore } from '../stores/categoryStore'
@@ -76,7 +76,7 @@ const category = computed(() => {
 const request = computed(() => requestStore.currentRequest?.request ?? null)
 const volunteers = computed(() => requestStore.currentRequest?.volunteers ?? [])
 const withdrawals = computed(() => requestStore.currentRequest?.withdrawals ?? [])
-const isRequester = computed(() => !!request.value && request.value.requesterId === currentUserId)
+const isRequester = computed(() => !!request.value && (request.value.isMine ?? request.value.requesterId === currentUserId))
 const canEdit = computed(() => isRequester.value && request.value?.status === 'open')
 const isActive = computed(() => request.value?.status === 'open' || request.value?.status === 'in_progress')
 const myOffer = computed(() => volunteers.value.find((v) => v.volunteerId === currentUserId) ?? null)
@@ -85,7 +85,7 @@ const canOffer = computed(() => isActive.value && !isRequester.value && !myOffer
 const acceptedVolunteers = computed(() => volunteers.value.filter((v) => v.status === 'accepted'))
 // Everyone who helped: accepted while in progress, completed once it is done.
 const helpers = computed(() => volunteers.value.filter((v) => v.status === 'accepted' || v.status === 'completed'))
-const helperSummary = computed(() => helpers.value.map((v) => `${v.volunteerId} (${v.proposedHours} h)`).join(', '))
+const helperSummary = computed(() => helpers.value.map((v) => `${v.volunteerId} (${v.hours ?? v.proposedHours} h)`).join(', '))
 
 const withdrawReasonRequired = computed(() => withdrawTarget.value?.status === 'accepted')
 const canSubmitWithdraw = computed(() => !withdrawReasonRequired.value || withdrawReason.value.trim().length >= MIN_REASON_LENGTH)
@@ -111,9 +111,9 @@ const volunteer = async () => {
 	volunteering.value = false
 }
 
-const accept = async (offer: Volunteer) => {
+const accept = async (offer: Volunteer, agreedHours?: number) => {
 	busyOfferId.value = offer.id
-	await act(() => requestStore.acceptOffer(offer.id, requestId.value))
+	await act(() => requestStore.acceptOffer(offer.id, requestId.value, agreedHours))
 	busyOfferId.value = null
 }
 
@@ -235,6 +235,16 @@ watch(requestId, (id) => {
 				</div>
 
 				<h1>{{ requestStore.currentRequest.request.title }}</h1>
+				<p class="poster">
+					Posted <strong v-if="request?.postedForDesk">for the desk</strong><template v-if="!request?.postedForDesk || request?.requesterId">
+						by
+					</template>
+					<strong v-if="request?.isMine">you</strong>
+					<RouterLink v-else-if="request?.requesterId" :to="{ name: 'UserLedger', params: { userId: request.requesterId } }">
+						{{ request.requesterId }}
+					</RouterLink>
+					<em v-else-if="!request?.postedForDesk">a member who keeps their username private</em>
+				</p>
 
 				<div v-if="request?.status === 'in_progress' && helpers.length" class="status-banner banner-progress" role="status">
 					In progress with {{ helperSummary }}.
@@ -390,6 +400,7 @@ watch(requestId, (id) => {
 							:is-requester="isRequester"
 							:is-mine="vol.volunteerId === currentUserId"
 							:request-active="isActive"
+							:posted-hours="request?.hoursBudget ?? 0"
 							:busy="busyOfferId === vol.id"
 							@accept="accept"
 							@decline="decline"
@@ -402,10 +413,10 @@ watch(requestId, (id) => {
 		<NcModal v-if="showComplete" size="small" @close="showComplete = false">
 			<div class="dialog">
 				<h2>Mark this request complete?</h2>
-				<p>These volunteers will be completed, each for the hours they proposed:</p>
+				<p>These volunteers will be completed, each for the hours agreed when you accepted them:</p>
 				<ul class="dialog-list">
 					<li v-for="vol in acceptedVolunteers" :key="vol.id">
-						<strong>{{ vol.volunteerId }}</strong>: {{ vol.proposedHours }} hours
+						<strong>{{ vol.volunteerId }}</strong>: {{ vol.hours ?? vol.proposedHours }} hours
 					</li>
 				</ul>
 				<p class="hint">

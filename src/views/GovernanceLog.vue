@@ -36,6 +36,14 @@ const LABELS: Record<string, string> = {
 	'adjustment.withdrawn': 'withdrew an adjustment for',
 	'adjustment.expired': 'adjustment expired for',
 	'setting.adjustment_threshold': 'changed the second-approval threshold',
+	'import.staged': 'staged an import from',
+	'desk_row.put_on_board': 'put a desk need on the request board',
+	'import.finalized': 'finalized an import from',
+	'import.cancelled': 'cancelled an import from',
+	'import.expired': 'marked an import as expired, from',
+	'system.recorded': 'first recorded the running setup',
+	'system.app_updated': 'updated NextTime',
+	'system.database_changed': 'changed the kind of database NextTime runs on',
 }
 
 const describe = (entry: Entry) => LABELS[entry.action] ?? entry.action
@@ -79,7 +87,8 @@ onMounted(load)
 		<h1>Governance log</h1>
 		<p class="subtitle">
 			Decisions that change how hours work, in the open: category changes, manual adjustments and who
-			approved them, and setting changes. Entries are only ever added.
+			approved them, and setting changes. NextTime itself adds a line, as "system", when it is first
+			recorded, updated, or moved to another kind of database. Entries are only ever added.
 		</p>
 
 		<NcLoadingIcon v-if="loading" :size="44" />

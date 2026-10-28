@@ -9,6 +9,9 @@ import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
+import NcModal from '@nextcloud/vue/components/NcModal'
+import { RouterLink } from 'vue-router'
+import { useCategoryStore } from '../stores/categoryStore'
 
 interface Field {
 	name: string
@@ -35,6 +38,8 @@ interface Row {
 	assignmentStatus: string | null
 	assignedAt: string | null
 	fields: Record<string, string | number | null>
+	/** The request this row was put on the board as, if it was. */
+	boardRequestId?: number | null
 }
 
 type Tab = 'mine' | 'unassigned' | 'all'
@@ -52,6 +57,58 @@ const busyId = ref<number | null>(null)
 const showCreate = ref(false)
 const draft = ref<Record<string, string>>({})
 const createError = ref<string | null>(null)
+
+const categoryStore = useCategoryStore()
+const openId = ref<number | null>(null)
+const boardTarget = ref<Row | null>(null)
+const board = ref({ title: '', description: '', categoryId: '', hoursBudget: '' })
+const boardError = ref<string | null>(null)
+const boarding = ref(false)
+
+const toggleDetails = (row: Row) => {
+	openId.value = openId.value === row.id ? null : row.id
+}
+
+/**
+ * "NO-F3-17" is submission 17 of Nextcloud Forms form 3; "NO-M..." was typed in on the desk.
+ * @param row
+ */
+const formOrigin = (row: Row) => {
+	const match = /^[A-Z]{2}-F(\d+)-(\d+)$/.exec(String(row.fields.uid ?? ''))
+	return match ? `Nextcloud Forms: form ${match[1]}, submission ${match[2]}` : null
+}
+
+const canPutOnBoard = (row: Row) => row.layer === 'needs_offers' && row.fields.need_or_offer === 'need' && !row.boardRequestId
+
+const startBoard = (row: Row) => {
+	const summary = String(row.fields.summary ?? '')
+	const area = row.fields.area_hint ? ` Area: ${row.fields.area_hint}.` : ''
+	board.value = { title: summary.slice(0, 200), description: `${summary}${area}`, categoryId: String(categoryStore.activeCategories[0]?.id ?? ''), hoursBudget: '1' }
+	boardError.value = null
+	boardTarget.value = row
+}
+
+const putOnBoard = async () => {
+	const row = boardTarget.value
+	if (!row) return
+	boarding.value = true
+	boardError.value = null
+	try {
+		await axios.post(generateUrl(`/apps/timebank/api/layers/${row.layer}/rows/${row.id}/board`), {
+			title: board.value.title.trim(),
+			description: board.value.description.trim(),
+			categoryId: parseInt(board.value.categoryId),
+			hoursBudget: parseFloat(board.value.hoursBudget),
+		})
+		boardTarget.value = null
+		await loadRows()
+	} catch (e: unknown) {
+		const err = e as { response?: { data?: { error?: string } } }
+		boardError.value = err.response?.data?.error || 'Could not put it on the board'
+	} finally {
+		boarding.value = false
+	}
+}
 
 const layers = computed(() => Object.entries(schema.value?.layers ?? {}))
 const layerFields = computed(() => schema.value?.layers[layerName.value]?.fields ?? [])
@@ -147,6 +204,7 @@ const createRow = async () => {
 watch([layerName, tab, source], loadRows)
 
 onMounted(async () => {
+	categoryStore.fetchCategories()
 	await loadSchema()
 	await loadRows()
 })
@@ -253,6 +311,15 @@ onMounted(async () => {
 				</div>
 
 				<div class="row-actions">
+					<NcButton @click="toggleDetails(row)">
+						{{ openId === row.id ? 'Hide details' : 'Details' }}
+					</NcButton>
+					<RouterLink v-if="row.boardRequestId" :to="{ name: 'RequestDetail', params: { id: row.boardRequestId } }">
+						On the request board
+					</RouterLink>
+					<NcButton v-else-if="canPutOnBoard(row)" :disabled="busyId === row.id" @click="startBoard(row)">
+						Put on the board
+					</NcButton>
 					<NcButton :disabled="busyId === row.id" @click="setPublished(row, row.fields.publish !== 'yes')">
 						{{ row.fields.publish === 'yes' ? 'Unpublish' : 'Publish' }}
 					</NcButton>
@@ -292,8 +359,66 @@ onMounted(async () => {
 						</NcButton>
 					</template>
 				</div>
+				<dl v-if="openId === row.id" class="details">
+					<template v-for="[name, value] in Object.entries(row.fields).filter(([, v]) => v !== null && v !== '')" :key="name">
+						<dt>{{ name }}</dt>
+						<dd>{{ value }}</dd>
+					</template>
+					<template v-if="formOrigin(row)">
+						<dt>origin</dt>
+						<dd>{{ formOrigin(row) }}</dd>
+					</template>
+					<p class="meta">
+						You see the fields your role allows. Contact details stay on the desk.
+					</p>
+				</dl>
 			</li>
 		</ul>
+
+		<NcModal v-if="boardTarget" size="normal" @close="boardTarget = null">
+			<form class="board-dialog" @submit.prevent="putOnBoard">
+				<h2>Put this need on the request board</h2>
+				<p class="hint">
+					Members will see exactly what you type here, plus the ZIP ({{ boardTarget.fields.zip }}). Leave out
+					names, addresses and phone numbers. You become the contact: you accept the volunteers, and the board
+					shows "posted for the desk". Everything is logged in the governance log.
+				</p>
+				<label class="field">
+					<span>Title</span>
+					<input v-model="board.title" type="text" maxlength="200">
+				</label>
+				<label class="field">
+					<span>Description (at least 20 characters)</span>
+					<textarea v-model="board.description" rows="4" />
+				</label>
+				<label class="field">
+					<span>Category</span>
+					<select v-model="board.categoryId">
+						<option v-for="c in categoryStore.activeCategories" :key="c.id" :value="String(c.id)">
+							{{ c.name }}
+						</option>
+					</select>
+				</label>
+				<label class="field">
+					<span>Hours</span>
+					<input v-model="board.hoursBudget"
+						type="number"
+						min="0.25"
+						step="0.25">
+				</label>
+				<p v-if="boardError" class="error" role="alert">
+					{{ boardError }}
+				</p>
+				<div class="dialog-actions">
+					<NcButton @click="boardTarget = null">
+						Cancel
+					</NcButton>
+					<NcButton variant="primary" type="submit" :disabled="boarding">
+						{{ boarding ? 'Posting...' : 'Put on the board' }}
+					</NcButton>
+				</div>
+			</form>
+		</NcModal>
 	</div>
 </template>
 
@@ -301,6 +426,58 @@ onMounted(async () => {
 .organizer-desk {
 	padding: 16px;
 	max-width: 1000px;
+}
+
+.details {
+	flex-basis: 100%;
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 4px 12px;
+	margin: 8px 0 0;
+}
+
+.details dt,
+.details dd {
+	margin: 0;
+	padding: 0;
+	min-height: 0;
+	text-align: start;
+}
+
+.details dt {
+	font-weight: 600;
+}
+
+.details dd {
+	overflow-wrap: anywhere;
+}
+
+.details .meta {
+	grid-column: 1 / -1;
+}
+
+.board-dialog {
+	display: grid;
+	gap: 10px;
+	padding: 20px;
+}
+
+.board-dialog .field {
+	display: grid;
+	gap: 4px;
+}
+
+.board-dialog input,
+.board-dialog textarea,
+.board-dialog select {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
 }
 
 .controls {
@@ -359,6 +536,7 @@ onMounted(async () => {
 
 .row {
 	display: flex;
+	flex-wrap: wrap;
 	justify-content: space-between;
 	gap: 12px;
 	padding: 12px;

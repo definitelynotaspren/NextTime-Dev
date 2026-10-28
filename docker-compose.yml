@@ -1,16 +1,10 @@
-services:
-  db:
-    image: postgres:15-alpine
-    restart: always
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-nextcloud}
-      POSTGRES_USER: ${POSTGRES_USER:-nextcloud}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-    networks:
-      - timebank_network
+# The app stack: Nextcloud (with NextTime mounted from this folder) and Redis.
+#
+# The database is NOT here. It is its own stack (docker/data/docker-compose.yml) so that nothing
+# you do to this folder or these containers can touch it. Start the data stack first:
+# `make docker-up` does both. See docs/isolated-data.md.
 
+services:
   redis:
     image: redis:7-alpine
     restart: always
@@ -27,8 +21,8 @@ services:
       - nextcloud_data:/var/www/html
       - ./:/var/www/html/custom_apps/timebank:ro
     environment:
-      POSTGRES_HOST: db
-      POSTGRES_DB: ${POSTGRES_DB:-nextcloud}
+      POSTGRES_HOST: ${NEXTTIME_DB_HOST:-nexttime-db}
+      POSTGRES_DB: ${NEXTTIME_DB_NAME:-${POSTGRES_DB:-nextcloud}}
       POSTGRES_USER: ${POSTGRES_USER:-nextcloud}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       REDIS_HOST: redis
@@ -40,10 +34,10 @@ services:
       PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-512M}
       PHP_UPLOAD_LIMIT: ${PHP_UPLOAD_LIMIT:-512M}
     depends_on:
-      - db
       - redis
     networks:
       - timebank_network
+      - nexttime_data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/status.php"]
       interval: 30s
@@ -51,11 +45,17 @@ services:
       retries: 5
 
 volumes:
-  db_data:
-    driver: local
+  # Nextcloud's own folder: config.php (its secrets and the database password), uploaded files such
+  # as claim evidence. External for the same reason as the database: created once with
+  # `make docker-data-init`, never deleted by Compose.
   nextcloud_data:
-    driver: local
+    external: true
+    name: ${NEXTTIME_FILES_VOLUME:-nexttime_files}
 
 networks:
   timebank_network:
     driver: bridge
+  # Created by the data stack; this stack only joins it.
+  nexttime_data:
+    external: true
+    name: nexttime_data

@@ -47,6 +47,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method \DateTime getUpdatedAt()
  * @method void setUpdatedAt(\DateTime $updatedAt)
+ * @method bool getShowUsername()
+ * @method void setShowUsername(bool $showUsername)
+ * @method string|null getSourceRef()
+ * @method void setSourceRef(?string $sourceRef)
  */
 class Request extends Entity implements JsonSerializable {
 	protected ?string $requesterId = null;
@@ -68,6 +72,8 @@ class Request extends Entity implements JsonSerializable {
 	protected ?string $reviewStatus = 'published';
 	protected ?\DateTime $createdAt = null;
 	protected ?\DateTime $updatedAt = null;
+	protected ?string $sourceRef = null;
+	protected bool $showUsername = false;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
@@ -78,10 +84,12 @@ class Request extends Entity implements JsonSerializable {
 		$this->addType('latitude', 'float');
 		$this->addType('longitude', 'float');
 		$this->addType('resourceFileId', 'integer');
+		$this->addType('showUsername', 'boolean');
 	}
 
 	/**
-	 * Everything but the exact location (address text and point), which only some people may see.
+	 * Everything but the exact location (address text and point) and the poster's username, which only
+	 * some people may see.
 	 * RequestPresenter adds it for them; nothing should send a request out without going through it.
 	 *
 	 * @return array<string, mixed>
@@ -89,7 +97,6 @@ class Request extends Entity implements JsonSerializable {
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,
-			'requesterId' => $this->requesterId,
 			'title' => $this->title,
 			'description' => $this->description,
 			'categoryId' => $this->categoryId,

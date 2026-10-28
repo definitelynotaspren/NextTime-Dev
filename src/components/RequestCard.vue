@@ -4,7 +4,7 @@ import { useCategoryStore } from '../stores/categoryStore'
 
 interface Request {
 	id: number
-	requesterId: string
+	requesterId?: string | null
 	title: string
 	description: string
 	categoryId: number

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Controller;
 
+use OCA\TimeBank\Service\Input;
 use OCA\TimeBank\Service\VolunteerService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -67,7 +68,12 @@ class VolunteerController extends Controller {
 	#[FrontpageRoute(verb: 'POST', url: '/api/volunteers/{id}/accept', requirements: ['id' => '\\d+'])]
 	public function accept(int $id): DataResponse {
 		try {
-			$volunteer = $this->volunteerService->accept($id, $this->uid());
+			$given = $this->request->getParam('agreedHours');
+			$agreed = Input::float($given);
+			if ($agreed === null && $given !== null && $given !== '') {
+				return new DataResponse(['error' => 'The agreed hours must be a number'], Http::STATUS_BAD_REQUEST);
+			}
+			$volunteer = $this->volunteerService->accept($id, $this->uid(), $agreed);
 			return new DataResponse($volunteer->jsonSerialize());
 		} catch (\Exception $e) {
 			return $this->errorResponse($e);

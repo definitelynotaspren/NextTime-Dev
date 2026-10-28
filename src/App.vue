@@ -118,6 +118,15 @@ onMounted(() => {
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
+					v-if="isAdmin"
+					:name="'Import'"
+					:to="{ name: 'ImportView' }"
+					:active="route.name === 'ImportView'">
+					<template #icon>
+						<span class="nav-icon">&#128230;</span>
+					</template>
+				</NcAppNavigationItem>
+				<NcAppNavigationItem
 					:name="'Chapters'"
 					:to="{ name: 'ChapterCheck' }"
 					:active="route.name === 'ChapterCheck'">

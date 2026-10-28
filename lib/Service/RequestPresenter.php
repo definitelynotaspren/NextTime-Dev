@@ -9,6 +9,7 @@ use OCA\TimeBank\Db\Request;
 use OCA\TimeBank\Db\VolunteerMapper;
 use OCA\TimeBank\Geo\ZipCenters;
 use OCA\TimeBank\Schema\Viewer;
+use OCP\IGroupManager;
 
 /**
  * The one place that decides who sees a request's exact location (its address text and point).
@@ -19,6 +20,10 @@ use OCA\TimeBank\Schema\Viewer;
  * right now (checked on every read, so declining or withdrawing takes it away). Everyone else,
  * national organizers and Nextcloud admins included, gets the ZIP and the ZIP area's center for the
  * map.
+ *
+ * The poster's username follows a different rule: it is shown to everyone only when the poster ticked
+ * "show my username"; otherwise to the poster, a facilitator of the request's state, a national
+ * organizer, a Nextcloud admin, and a volunteer accepted right now. Everyone else gets requesterId null.
  */
 class RequestPresenter {
 
@@ -29,6 +34,7 @@ class RequestPresenter {
 		private ChapterDirectory $chapters,
 		private ViewerResolver $viewers,
 		private VolunteerMapper $volunteers,
+		private IGroupManager $groups,
 	) {
 	}
 
@@ -57,6 +63,25 @@ class RequestPresenter {
 		return $chapter !== null && in_array($chapter, $viewer->facilitatorOf, true);
 	}
 
+	public function maySeePoster(Request $request, Viewer $viewer, bool $acceptedVolunteer): bool {
+		return $request->getShowUsername()
+			|| $this->maySeeExact($request, $viewer, $acceptedVolunteer)
+			|| $viewer->nationalOrganizer
+			|| $this->groups->isAdmin($viewer->userId);
+	}
+
+	/**
+	 * The poster's id when this person may not be told it (so comments by the poster can be shown as
+	 * "Requester"), otherwise null.
+	 */
+	public function hiddenPoster(Request $request, string $viewerId): ?string {
+		$context = $this->context($viewerId);
+
+		return $this->maySeePoster($request, $context['viewer'], isset($context['accepted'][$request->getId()]))
+			? null
+			: $request->getRequesterId();
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */
@@ -65,6 +90,10 @@ class RequestPresenter {
 		$center = ZipCenters::centerOf($request->getZip());
 
 		return $request->jsonSerialize() + [
+			'requesterId' => $this->maySeePoster($request, $viewer, $acceptedVolunteer) ? $request->getRequesterId() : null,
+			'isMine' => $viewer->userId === $request->getRequesterId(),
+			'showUsername' => $request->getShowUsername(),
+			'postedForDesk' => str_starts_with((string)$request->getSourceRef(), DeskBridge::SOURCE_PREFIX),
 			'chapter' => $this->chapterOf($request),
 			'exactLocation' => $exact,
 			'location' => $exact ? $request->getLocation() : null,

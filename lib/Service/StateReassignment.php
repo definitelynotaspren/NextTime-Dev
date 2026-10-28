@@ -52,7 +52,7 @@ class StateReassignment {
 		$request->setChapter($target);
 		$request->setUpdatedAt(new \DateTime());
 		$request = $this->requests->update($request);
-		$this->log->record($actorId, 'request.state_changed', $request->getRequesterId(), [
+		$this->log->record($actorId, 'request.state_changed', null, [
 			'request' => $request->getId(),
 			'title' => $request->getTitle(),
 			'from' => $from,

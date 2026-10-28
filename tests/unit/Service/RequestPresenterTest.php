@@ -11,6 +11,7 @@ use OCA\TimeBank\Db\VolunteerMapper;
 use OCA\TimeBank\Schema\Viewer;
 use OCA\TimeBank\Service\RequestPresenter;
 use OCA\TimeBank\Service\ViewerResolver;
+use OCP\IGroupManager;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -50,7 +51,10 @@ final class RequestPresenterTest extends TestCase {
 			fn (string $u) => array_values(array_filter($this->offers, fn (Volunteer $v) => $v->getVolunteerId() === $u)),
 		);
 
-		$this->presenter = new RequestPresenter($directory, $resolver, $volunteers);
+		$groups = $this->createMock(IGroupManager::class);
+		$groups->method('isAdmin')->willReturnCallback(fn (string $u) => $u === 'admin');
+
+		$this->presenter = new RequestPresenter($directory, $resolver, $volunteers, $groups);
 	}
 
 	private function request(): Request {
@@ -165,8 +169,44 @@ final class RequestPresenterTest extends TestCase {
 		$resolver = $this->createMock(ViewerResolver::class);
 		$resolver->expects($this->once())->method('forUser')->willReturn(Viewer::member('nina'));
 
-		$presenter = new RequestPresenter($directory, $resolver, $volunteers);
+		$presenter = new RequestPresenter($directory, $resolver, $volunteers, $this->createMock(IGroupManager::class));
 		$presenter->forUser($this->request(), 'nina');
 		$presenter->forUser($this->request(), 'nina');
+	}
+
+	public function testThePosterIsHiddenFromOrdinaryMembersByDefault(): void {
+		foreach (['nina', 'otto', 'wes'] as $who) {
+			$data = $this->presenter->forUser($this->request(), $who);
+			$this->assertNull($data['requesterId'], "$who must not be told who posted");
+			$this->assertFalse($data['isMine']);
+			$this->assertStringNotContainsString('ana', (string)json_encode($data));
+		}
+	}
+
+	public function testThePosterIsShownToThePosterStaffAdminsAndAcceptedVolunteers(): void {
+		foreach (['ana', 'fern', 'nora', 'admin'] as $who) {
+			$this->assertSame('ana', $this->presenter->forUser($this->request(), $who)['requesterId'], $who);
+		}
+		$this->assertTrue($this->presenter->forUser($this->request(), 'ana')['isMine']);
+
+		$this->offer('otto', 'accepted');
+		$this->assertSame('ana', $this->presenter->forUser($this->request(), 'otto')['requesterId']);
+		$this->offers = [];
+		$this->offer('nina', 'offered');
+		$this->assertNull($this->presenter->forUser($this->request(), 'nina')['requesterId']);
+	}
+
+	public function testAPosterWhoOptedInIsShownToEveryone(): void {
+		$request = $this->request();
+		$request->setShowUsername(true);
+
+		$this->assertSame('ana', $this->presenter->forUser($request, 'nina')['requesterId']);
+		$this->assertTrue($this->presenter->forUser($request, 'nina')['showUsername']);
+	}
+
+	public function testHiddenPosterNamesThePosterOnlyForThoseWhoMayNotSeeIt(): void {
+		$this->assertSame('ana', $this->presenter->hiddenPoster($this->request(), 'nina'));
+		$this->assertNull($this->presenter->hiddenPoster($this->request(), 'fern'));
+		$this->assertNull($this->presenter->hiddenPoster($this->request(), 'ana'));
 	}
 }

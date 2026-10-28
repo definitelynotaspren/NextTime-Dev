@@ -19,6 +19,9 @@ which can arrive from Nextcloud Forms.
   tracking, so personal details stay out of reach unless a role allows them.
 - **Form intake**: new submissions of Nextcloud Forms you choose become unpublished desk rows with an ID that shows
   where they came from.
+- **Import from another NextTime**: an admin previews and stages an older NextTime database (PostgreSQL, MySQL or a
+  SQLite file); a *different* admin finalizes it. Claims come in pending, hours as they were, and every step is in the
+  public Governance Log (see [Importing](#importing-from-another-nexttime)).
 - **Community moderation**: three flags from different members hide a comment; moderators keep or remove it.
 - **Admin tools with a paper trail**: categories (archive instead of deleting what is in use), balance adjustments that
   facilitators propose and a second person or a vote of the member's state decides, and a **Governance Log** every
@@ -79,11 +82,17 @@ Needs Docker with the `docker compose` command, Node.js >= 20 and Composer on yo
 
 ```bash
 cp .env.example .env         # then change the passwords in .env
-make dev                     # dependencies, frontend build, then Postgres 15 + Redis 7 + Nextcloud 31 (PHP 8.3)
+make dev                     # dependencies, frontend build, then Postgres 15 + Redis 7 + Nextcloud 35
 # wait until http://localhost:8080/status.php shows "installed":true (a minute or two the first time)
 make docker-install-app      # enables NextTime
 make docker-seed-users       # alice, bob, carol with passwords <name>-pass-123
 ```
+
+The database is a separate stack on volumes that `docker compose down -v` does not remove, and `make docker-backup`
+copies it to a folder outside the repo; see [docs/isolated-data.md](docs/isolated-data.md), including how to move
+a stack made with the older compose file over without losing its data.
+For the day-to-day jobs (a fresh install, using data you already have, updating, and checking or stopping the database),
+with both Docker and non-Docker Nextcloud, see [docs/operations.md](docs/operations.md).
 
 Log in at http://localhost:8080 as `admin` with the password from `.env`. The image's password policy rejects
 `admin` as a password, so the scripts take it from `ADMIN_PASS`, for example
@@ -128,6 +137,8 @@ make demo              # demo data to click through (BASE_URL=..., ADMIN_PASS=..
 make appstore          # build/timebank.tar.gz for installing
 make native-setup / native-start / native-stop
 make docker-up / docker-down / docker-logs / docker-shell / docker-rebuild / docker-install-app / docker-seed-users
+make docker-data-init / docker-data-up / docker-data-down / docker-data-logs   # the database stack
+BACKUP_DIR=/e/backups make docker-backup   # database + files to a folder outside the repo
 make clean             # removes js/, node_modules/ and vendor/
 ```
 
@@ -237,6 +248,38 @@ Form Intake page, and the lookup step before you add a form, show what a form wo
 
 It reads the Forms app's own tables and writes nothing to Forms. Forms keeps the original answers, including who submitted
 them unless the form is anonymous; NextTime does not copy the submitter's account into the row.
+
+## Importing from another NextTime
+
+For bringing the requests, offers and hour claims of an older NextTime into this one (a dev instance you are replacing,
+a community moving server). Admins only, from **Import** in the menu. It is two steps by two different admins, and
+nothing is written until the second one finalizes:
+
+1. **Preview** (writes nothing). Choose the source: PostgreSQL or MySQL (host, port, database, user, password, table
+   prefix) or the name of a SQLite file inside Nextcloud's **data folder**. The page shows what would come in, what
+   was already imported, what is left out and why, and which people in the source have no account here.
+2. **Stage.** The rows that would come in are held, and a line goes in the public Governance Log (totals only). The
+   admin who staged it **cannot** finalize it.
+3. **Finalize or cancel**, by a different admin. Finalizing writes everything or nothing. A staged import nobody decides
+   expires after 14 days (a background job) and its held rows are deleted.
+
+What the rules are:
+
+- **People are matched by identical user name, and no account is created.** A row for someone with no account here is
+  left out and counted; create the account and import again, and only the missing rows are added.
+- **Categories are matched by name.** A category this install lacks leaves its rows out (the preview names it).
+- **Claims arrive pending**, with the hours as they were (not recalculated). One the old system had approved carries an
+  **"approved before"** note for the approvers; a rejected one is left out. Nothing is credited by an import, and the
+  claims are marked as already notified so approvers are not sent a reminder for every old claim.
+- **Rows are recognised by a source reference** (the source's name plus the old id), so running an import twice never
+  adds a row twice. Use the **same name** each time you import from the same source.
+- **Not imported:** the old ledger and balances, comments, votes, withdrawal histories and evidence files.
+- **Connection details are used for that one connection and never stored or logged.** The connection is read-only
+  where the database allows it. A SQLite file must be in the data folder, and only its name is typed, so the form cannot
+  open other files on the server.
+
+`scripts/import-smoke.sh` checks the whole flow against a dev server. In Docker, see
+[docs/isolated-data.md](docs/isolated-data.md#bringing-an-older-instances-data-across).
 
 ## Map
 
@@ -377,6 +420,14 @@ is aggregate-only and has no row endpoints.
   shows its mapping, adds nothing), `PUT /api/intake/forms` (the full list of added forms), `GET /api/intake/forms/{id}/preview?layer=needs_offers`,
   `POST /api/intake/run`, `POST /api/intake/retry`
 
+### Import (admins)
+
+- `POST /api/import/preview` (`label`, `kind` = `pgsql`/`mysql`/`sqlite`, `host`, `port`, `database`, `user`, `password`,
+  `prefix`, `file`) - what it would do; writes nothing
+- `POST /api/import/stage` (same body) - holds the rows (201); a second admin must then
+  `POST /api/import/runs/{id}/finalize`, or either may `POST /api/import/runs/{id}/cancel`
+- `GET /api/import/runs` (each with `canFinalize` for you), `GET /api/import/runs/{id}` (with the admin-only report)
+
 ### Example calls
 
 ```bash
@@ -412,6 +463,9 @@ Tables created by the migrations (prefix `oc_` in a default install):
 - `timebank_governance_log` - the public, append-only log of admin decisions
 - `timebank_layer_rows` - organizer-desk rows (one JSON column holds the fields; the most sensitive table)
 - `timebank_intake_log` - which Forms submissions were imported or rejected, and why
+- `timebank_imports`, `timebank_import_staged` - imports from another NextTime (who staged and decided, the totals, an
+  admin-only report) and the rows they hold until a second admin decides; `source_ref` on requests, offers and claims
+  marks what an import brought in, and `approved_before_at` on claims what the old system had approved
 
 [docs/data-and-access.md](docs/data-and-access.md) says who can read each, what is not protected, and how to get raw data out.
 
@@ -426,6 +480,8 @@ scripts/smoke-test.sh      # the full request, claim, vote and ledger lifecycle
 scripts/desk-smoke.sh      # organizer desk and privacy rules
 scripts/approver-smoke.sh  # who may approve, national organizers, notifications (uses occ, needs the dev server)
 scripts/intake-smoke.sh    # Forms intake end to end (needs the Forms app: occ app:enable forms)
+scripts/import-smoke.sh    # importing from another NextTime, with two admins (uses occ, needs the dev server)
+scripts/backup-test.sh     # the backup script's logic, against a fake docker (needs no Docker)
 node scripts/ui-smoke.cjs  # the real forms and screens in a headless browser (needs Playwright)
 
 composer lint && composer cs:check && npm run lint && npm run stylelint   # fast checks
@@ -469,9 +525,17 @@ Where the data lives, who can read it, what is not protected and how to get raw 
   groups; the Chapters page shows what was found but does not edit it.
 - **ZIP-to-state uses a built-in table** (generated October 2026). A few prefixes that straddle a state line are handled by
   exact ZIP; military and unassigned prefixes have no chapter; city chapters need their prefixes set.
-- **Only claim notices exist.** Nobody is told when a request is cancelled, a flag hides a comment or an offer is accepted.
-- **Claims are not tied to a request or to co-workers**, and a desk row is not a board request. See
+- **Only claim and offer notices exist.** A requester is told when someone offers, and a volunteer when they are
+  accepted. Nobody is told when a request is cancelled, a flag hides a comment or an offer is declined.
+- **Claims are not tied to a request or to co-workers.** A facilitator can put a desk *need* on the request board
+  (one way: the desk row is not updated when the request finishes). See
   [docs/proposals/next-steps.md](docs/proposals/next-steps.md).
+- **A request's poster is private unless they tick "show my username".** Requests posted before that setting
+  existed are private too. Facilitators of the request's state, national organizers, admins and accepted
+  volunteers always see the poster. The poster can change the setting only while the request is open.
+- **Agreed hours are set once, on acceptance.** The requester picks them between the hours they posted and the
+  hours offered; to change them later the volunteer withdraws and offers again. Completing a request counts the
+  agreed hours; claiming and approving hours is still a separate step.
 - **Approving a claim creates hours; nothing charges the person helped.** How hours are spent is still to be designed.
 - **A facilitator working a row cannot see the requester's contact details** (organizer-only).
 - **A member can flag a comment once, ever**: after a moderator keeps it, those members cannot flag it again.
@@ -482,6 +546,9 @@ Where the data lives, who can read it, what is not protected and how to get raw 
   each area's center and size, not its borders, so near a ZIP border it can be the neighbouring ZIP, and near the
   Canadian or Mexican border it may suggest a US ZIP. The field stays editable; check it. Puerto Rico, Guam and
   military ZIPs are refused when posting.
+- **An import reads only another NextTime's tables.** No spreadsheets or other systems yet; the ledger, balances,
+  comments, votes and evidence files are not carried over; a rejected claim is left out; and it needs two admins (a
+  community with one admin cannot finalize). The staged-import expiry needs Nextcloud's cron.
 - **Rate limits are fixed** (see Security) and count every call, including refused ones; a burst of data entry by one
   person can hit them, and they then wait up to 10 minutes.
 - **SQLite (all tests) and PostgreSQL (the API smoke test, on the Docker stack) have been run.** MySQL/MariaDB and

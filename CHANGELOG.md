@@ -9,6 +9,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Adjustments lists only open items** (waiting for an approval or a vote). Decided adjustments live in the public
+  governance log, which now also carries the reason for rejected and withdrawn ones, so nothing is shown twice.
+- **The Docker dev image is Nextcloud 35** (`nextcloud:35-apache`, pinned to the major version), the version
+  production and development run, instead of 31. The instance's database name has its own setting,
+  `NEXTTIME_DB_NAME`, so a second instance can use its own database on the same server without editing
+  `POSTGRES_DB`, which the database server also reads. A volume already used by Nextcloud 31 cannot be opened by 35
+  (Nextcloud upgrades one major version at a time): use a new `NEXTTIME_FILES_VOLUME`; see `docs/isolated-data.md`.
+
+### Added
+
+- **`docs/operations.md`**: a checklist for a fresh install, an install that uses existing data (import, restore or
+  reconnect), updating and repairing the data source, and checking or safely stopping the database, for Docker and
+  non-Docker Nextcloud.
+- **Poster privacy.** A request's poster is hidden from other members unless they tick **Show my username** when
+  posting (default off, also for requests posted before). Facilitators of the request's state, national organizers,
+  admins and accepted volunteers always see who posted. The server no longer sends the poster's id to anyone else:
+  not in the request, in "my offers", in the poster's own comments (shown as "Requester"), or in the public log when
+  a request is moved. Migration `Version000011`.
+- **Agreed hours.** When accepting an offer the requester can settle on hours between what they posted and what the
+  volunteer offered (offered hours by default). The offer keeps its own number; a completed request counts the
+  agreed hours. Migration `Version000012`; app 0.12.0.
+- **Offer notices.** The requester is notified when someone offers to help, and the volunteer when they are
+  accepted. The notice carries the request title, the volunteer and the hours, never the volunteer's message.
+- **Put a desk need on the request board.** On the organizer desk, a facilitator of the row's state (or a national
+  organizer) can open a row's **Details** and use **Put on the board** for a *need*. The facilitator types the public
+  title and description; only the ZIP comes from the row, so contact details never travel. The facilitator becomes
+  the request's contact and the board says "posted for the desk". A row goes on once; the desk shows which rows are
+  on the board; each is logged in the governance log. Rows from Nextcloud Forms show which form and submission
+  they came from.
+- **My activity hides finished items** (completed and cancelled requests, completed offers) behind a **Show completed
+  and cancelled** tick.
+- **Import from another NextTime** (admins, from **Import** in the menu). Preview an older NextTime database
+  (PostgreSQL, MySQL, or a SQLite file in the data folder), stage it, and a *different* admin finalizes or cancels it.
+  Preview writes nothing; staging holds the rows and logs totals in the public Governance Log; finalizing writes
+  requests, offers and claims all or none, and logs who finalized. People are matched by identical user name (no
+  account is created) and categories by name. Claims come in **pending** with their hours as they were, and one the
+  old system had approved shows an **"approved before"** note to approvers; rejected claims are left out. Rows carry a
+  source reference, so importing twice never adds a row twice. Connection details are never stored or logged. A staged
+  import nobody decides expires after 14 days. Migration `Version000010`, app 0.11.0. `scripts/import-smoke.sh`.
+
+- **The governance log notes, as "system", when NextTime's setup changes.** The first time NextTime is recorded,
+  when its version changes (an update that finished its migrations) and when the kind of database under it
+  changes (for example SQLite to PostgreSQL), one line is added with the version and the kind of database, never a
+  host, database name or credential. Nextcloud owns the database connection and reads it on every request, so there
+  is no "reconnect" to log; these are the moments the setup actually changed.
+- **Backups cover every database on the server.** `scripts/backup.sh` writes one dump per database
+  (`nexttime-db-<time>-<name>.dump`) instead of only the one named in `.env`, so an instance whose data lives in a
+  second database is not silently left out; `BACKUP_DATABASES` limits it.
+- **Moving an instance into `nexttime-db`.** `docs/isolated-data.md` now says how to give a Nextcloud instance its own
+  database there, for a new instance and for one that has data on SQLite. On Nextcloud 35.0.2 `occ db:convert-type`
+  stops at its last step, so two helpers finish it: `scripts/pg-resync-sequences.sql` and
+  `scripts/nextcloud-switch-to-pgsql.php`. Tested on a native instance (PostgreSQL 16); not yet on real Docker.
+
+### Fixed
+
+- **The map showed one pin where there were many.** Every request in a ZIP is drawn at that ZIP area's center (so
+  exact places stay private), which put them all on the same spot, and only one could be seen or clicked. Requests
+  at the same point are now one pin with a count; choosing it lists them, and choosing one opens that request.
+  `scripts/ui-smoke.cjs` now checks this, and that every pin is inside the visible map.
+
+### Changed
+
+- **Docker: the database is its own stack, on volumes Compose never deletes.** Postgres moved out of
+  `docker-compose.yml` into `docker/data/docker-compose.yml`, and both it and Nextcloud's folder
+  (`config.php`, claim evidence) use external volumes, so `down -v`, re-cloning the repo or wiping the app
+  folder cannot remove the community's data. `make docker-up` starts the database first. A stack made with the
+  older single compose file keeps its data by pointing `NEXTTIME_DB_VOLUME` and `NEXTTIME_FILES_VOLUME` at its
+  existing volumes; the steps are in `docs/isolated-data.md`. `make docker-backup` (`scripts/backup.sh`) writes
+  a database dump, a files archive and checksums to a folder outside the repo. It runs from Git Bash, WSL or
+  Linux, not PowerShell. The compose files and the script's logic are tested; the move and a restore have not
+  been run against real Docker yet.
 - **Everyone sees every claim; only people who may act get buttons.** **Approvals & Votes** (one name for
   everyone now) lists all pending claims and all claims in a vote for every member. Approve, reject and send to a
   vote appear only for approvers; vote buttons only for people who may vote. The API marks each claim with

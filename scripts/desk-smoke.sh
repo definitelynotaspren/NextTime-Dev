@@ -185,6 +185,23 @@ call carol GET /map/requests; eq "map feed" 200
 has "map feed places requests at their ZIP's center, not their point" 'any(.features[]; .properties.id==$id and .geometry.coordinates==[-122.1579,45.3611])' --argjson id "$GARDEN_ID"
 has "map feed carries no description, requester or location" 'any(.features[]; .properties|has("description") or has("requesterId") or has("location"))|not'
 
+echo "- Putting a need on the request board"
+BOARD="{\"title\":\"Groceries this week $$\",\"description\":\"A neighbor needs groceries picked up this week.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2}"
+call carol POST "/layers/needs_offers/rows/$ID/board" "$BOARD"; eq "a member cannot put a row on the board" 403
+call bob POST "/layers/needs_offers/rows/$ID/board" '{"title":"x"}'; eq "the board rules still apply (short title)" 422
+call bob POST "/layers/needs_offers/rows/$ID/board" "$BOARD"; eq "the chapter's facilitator puts it on the board" 201
+BOARD_ID="$(jq -r '.id' "$TMP/body")"
+has "it is posted for the desk, with bob as the contact" '.postedForDesk==true and .requesterId=="bob" and .isMine==true and .zip=="97055"'
+grep -q "Jane Doe\|555-0100" "$TMP/body" && { printf '  FAIL the contact details travelled to the board\n'; FAILS=$((FAILS + 1)); } || printf '  PASS the row'"'"'s contact details did not travel\n'
+call bob POST "/layers/needs_offers/rows/$ID/board" "$BOARD"; eq "a row goes on the board only once" 409
+call bob GET /layers/needs_offers/rows
+has "the desk shows the row is on the board" 'any(.[]; .id==$id and .boardRequestId==$rid)' --argjson id "$ID" --argjson rid "$BOARD_ID"
+call carol GET "/requests/$BOARD_ID"
+has "members see it as posted for the desk, without the facilitator's name" '.request.postedForDesk==true and .request.requesterId==null'
+call alice GET "/governance?limit=10"
+has "it is in the public governance log" 'any(.entries[]; .action=="desk_row.put_on_board" and .actorId=="bob")'
+call bob POST "/requests/$BOARD_ID/cancel"
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "All desk checks passed."; else echo "$FAILS desk check(s) failed."; fi
 exit "$FAILS"

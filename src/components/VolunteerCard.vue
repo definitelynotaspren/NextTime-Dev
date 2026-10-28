@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 NextTime contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <script setup lang="ts">
-import { computed, type PropType } from 'vue'
+import { computed, ref, type PropType } from 'vue'
 import { RouterLink } from 'vue-router'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import type { Volunteer } from '../stores/requestStore'
@@ -32,10 +32,15 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
+	/** The hours the requester posted the request with. */
+	postedHours: {
+		type: Number,
+		default: 0,
+	},
 })
 
 const emit = defineEmits<{
-	(e: 'accept', volunteer: Volunteer): void
+	(e: 'accept', volunteer: Volunteer, agreedHours?: number): void
 	(e: 'decline', volunteer: Volunteer): void
 	(e: 'withdraw', volunteer: Volunteer): void
 }>()
@@ -48,6 +53,15 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const statusLabel = computed(() => STATUS_LABELS[props.volunteer.status] ?? props.volunteer.status)
+// The requester may settle on hours between what they posted and what was offered.
+const lowest = computed(() => Math.min(props.volunteer.proposedHours, props.postedHours))
+const highest = computed(() => Math.max(props.volunteer.proposedHours, props.postedHours))
+const agreed = ref(String(props.volunteer.proposedHours))
+const agreedValid = computed(() => {
+	const n = parseFloat(agreed.value)
+	return Number.isFinite(n) && n >= lowest.value && n <= highest.value
+})
+const accept = () => emit('accept', props.volunteer, parseFloat(agreed.value))
 const canDecide = computed(() => props.isRequester && props.requestActive && props.volunteer.status === 'offered')
 const canWithdraw = computed(() => props.isMine && props.requestActive && ['offered', 'accepted'].includes(props.volunteer.status))
 const canClaim = computed(() => props.isMine && props.volunteer.status === 'completed')
@@ -62,7 +76,15 @@ const canClaim = computed(() => props.isMine && props.volunteer.status === 'comp
 			</span>
 		</div>
 		<div class="volunteer-hours">
-			{{ volunteer.proposedHours }} hours proposed
+			<template v-if="volunteer.agreedHours != null && volunteer.agreedHours !== volunteer.proposedHours">
+				{{ volunteer.agreedHours }} hours agreed ({{ volunteer.proposedHours }} offered)
+			</template>
+			<template v-else-if="volunteer.agreedHours != null">
+				{{ volunteer.agreedHours }} hours agreed
+			</template>
+			<template v-else>
+				{{ volunteer.proposedHours }} hours proposed
+			</template>
 		</div>
 		<div v-if="volunteer.message" class="volunteer-message">
 			"{{ volunteer.message }}"
@@ -74,7 +96,18 @@ const canClaim = computed(() => props.isMine && props.volunteer.status === 'comp
 
 		<div v-if="canDecide || canWithdraw || canClaim" class="volunteer-actions">
 			<template v-if="canDecide">
-				<NcButton variant="primary" :disabled="busy" @click="emit('accept', volunteer)">
+				<label v-if="lowest !== highest" class="agreed">
+					Agreed hours
+					<input
+						v-model="agreed"
+						type="number"
+						step="0.25"
+						:min="lowest"
+						:max="highest"
+						:disabled="busy">
+					<span class="hint">between {{ lowest }} and {{ highest }}</span>
+				</label>
+				<NcButton variant="primary" :disabled="busy || !agreedValid" @click="accept">
 					Accept
 				</NcButton>
 				<NcButton :disabled="busy" @click="emit('decline', volunteer)">
@@ -131,6 +164,20 @@ const canClaim = computed(() => props.isMine && props.volunteer.status === 'comp
 .volunteer-status.status-completed {
 	background: var(--color-success-text);
 	color: white;
+}
+
+.agreed {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.agreed input {
+	width: 5em;
+}
+
+.hint {
+	color: var(--color-text-maxcontrast);
 }
 
 .volunteer-hours {

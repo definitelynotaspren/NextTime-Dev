@@ -4,7 +4,14 @@ import { generateUrl } from '@nextcloud/router'
 
 export interface Request {
 	id: number
-	requesterId: string
+	/** Who posted it: null unless they chose to show it, or you are staff, an admin, the poster, or accepted. */
+	requesterId: string | null
+	/** True when you posted it. */
+	isMine?: boolean
+	/** The poster chose to show their username to every member. */
+	showUsername?: boolean
+	/** An organizer put it on the board from the desk. */
+	postedForDesk?: boolean
 	title: string
 	description: string
 	categoryId: number
@@ -34,6 +41,10 @@ export interface Volunteer {
 	requestId: number
 	volunteerId: string
 	proposedHours: number
+	/** Set when the requester accepted; may differ from proposedHours. */
+	agreedHours?: number | null
+	/** What they are credited for: agreedHours, else proposedHours. */
+	hours?: number
 	message: string | null
 	status: string
 	createdAt: string
@@ -60,7 +71,9 @@ export interface CommentFlag {
 export interface RequestComment {
 	id: number
 	requestId: number
-	userId: string
+	/** null when the poster keeps their username private and you may not see it (authorLabel is then set). */
+	userId: string | null
+	authorLabel?: string
 	/** null when the comment is hidden by flags or removed, unless you are a moderator */
 	comment: string | null
 	createdAt: string
@@ -201,8 +214,8 @@ export const useRequestStore = defineStore('requests', {
 			await this.fetchRequestDetails(requestId, true)
 		},
 
-		async acceptOffer(offerId: number, requestId: number) {
-			await axios.post(generateUrl(`/apps/timebank/api/volunteers/${offerId}/accept`))
+		async acceptOffer(offerId: number, requestId: number, agreedHours?: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/volunteers/${offerId}/accept`), { agreedHours })
 			await this.fetchRequestDetails(requestId, true)
 		},
 

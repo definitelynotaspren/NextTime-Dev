@@ -20,6 +20,7 @@ lib/Db/*                Entities + QBMappers (tables prefixed oc_timebank_)
 lib/Migration/          schema migration + SeedCategories repair step
 lib/Schema/             organizer-desk spec (SchemaSpec), visibility rules (FieldPolicy), row validation
 lib/Geo/                coordinate parsing and rounding for map output
+lib/Import/             import from another NextTime (Source, ImportPlanner, ImportService; two admins)
 lib/Settings/           admin settings page (display-only, see Known gaps)
 src/                    Vue 3 + Pinia + vue-router (hash history) + MapLibre GL
   stores/               API calls via @nextcloud/axios + generateUrl()
@@ -65,7 +66,8 @@ Logins on the dev server: `admin/admin`, `alice/alice-pass-123`,
 `../nc-server/data/nextcloud.log` (JSON lines; debug + loglevel 0 are on).
 
 Docker alternative: `make dev` / `make docker-up` (Postgres 15 + Redis 7 +
-`nextcloud:31-apache`, PHP 8.3, port 8080, auto-installs from `.env`), then
+`nextcloud:35-apache`, port 8080, auto-installs from `.env`; the database is its own stack on external
+volumes, see `docs/isolated-data.md`; `make docker-backup` needs `BACKUP_DIR`), then
 `make docker-install-app` and `make docker-seed-users`. The image's password
 policy rejects `admin`, so scripts read the admin password from `ADMIN_PASS`:
 `ADMIN_PASS=... scripts/smoke-test.sh http://localhost:8080` (passes on this stack).
@@ -120,10 +122,25 @@ Not `nextcloud:29-apache`: it ships PHP 8.2. Demo data to click through:
   `national_organizer_group`); the legacy `timebank-organizer` and `GSUS` groups still count until their members move.
   Ask "is this person a national organizer" only through that class or `Viewer::$nationalOrganizer`. Desk rows get their chapter from the ZIP (`lib/Geo/ZipStates.php`). Tests need
   group names with spaces; `scripts/approver-smoke.sh` and `desk-smoke.sh` create "Oregon" groups with occ.
+- **The poster's id is private unless `show_username`.** `Request::jsonSerialize()` no longer has `requesterId`; the
+  presenter adds it (`maySeePoster`) for the poster, the request's state facilitators, national organizers, admins,
+  accepted volunteers, or everyone when the poster opted in, and always sends `isMine`. Any new output that names a
+  request's poster (comments use `CommentService::getForViewer($hiddenPoster)`, the governance log, notices) must go
+  through that rule; the frontend uses `isMine`, never `requesterId === me`.
+- **Desk to board** (`DeskBridge`): only a `need` row, once (`source_ref` `desk:<uid>`); the facilitator types the title
+  and description and only the ZIP is copied from the row, so organizer-only fields never reach the board.
+- **Hours on an offer:** `Volunteer::effectiveHours()` (agreed, else offered) is what a completed request counts and
+  what the notices and withdrawal log show.
 - **Nobody decides on their own claim or adjustment.** `EarningService::requireDecidable` covers approve, reject,
   send-to-vote and vote; `AdjustmentService` refuses the proposer and the member for approve, reject and vote. Keep that rule in any new path.
 - **Admin changes are logged publicly.** Call `GovernanceLog::record()` for any new admin power. Categories in
   active use cannot be deleted; archive instead. `GET /api/categories` includes archived ones, so pickers filter them.
+- **Imports** (`lib/Import/`, `docs/proposals/data-sources.md`): an admin stages, a *different* admin finalizes
+  (`ImportService`; keep that rule in any new path). Claims are written `pending`, never credited, and with
+  `notified_stage` 2 so `ClaimReminders` stays quiet about old claims. Imported rows carry `source_ref` (unique) so a
+  rerun skips them; people are matched by exact uid and none is created. Connection details are never stored or
+  logged; the SQLite source must be a bare file name in the data folder. Public-log details must stay flat
+  (`GovernanceLog` details are shown as `key: value`).
 - Schema changes go in a NEW migration class (`VersionXXXXXXDateYYYYMMDDHHMMSS`)
   and a version bump in info.xml - never edit the shipped migration.
 - The app folder must be named `timebank` (matches the app id).

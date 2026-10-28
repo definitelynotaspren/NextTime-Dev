@@ -1,4 +1,4 @@
-.PHONY: help install build clean test appstore docker-up docker-down docker-logs native-setup native-start native-stop test-native smoke demo docker-seed-users
+.PHONY: help install build clean test appstore docker-up docker-down docker-logs native-setup native-start native-stop test-native smoke demo docker-seed-users docker-data-init docker-data-up docker-data-down docker-data-logs docker-backup
 
 # Default target
 help:
@@ -113,6 +113,7 @@ appstore: build
 		--exclude='openapi.json' \
 		--exclude='.env*' \
 		--exclude='docker-compose.yml' \
+		--exclude='docker' \
 		--exclude='Dockerfile' \
 		--exclude='Makefile' \
 		--exclude='DEPLOYMENT_GUIDE.md' \
@@ -124,20 +125,50 @@ appstore: build
 	@echo "then run: occ app:enable timebank"
 
 # Docker commands
-docker-up:
-	@echo "Starting Docker environment..."
+#
+# Two stacks: the database (docker/data/docker-compose.yml, its volumes are external so nothing
+# here can delete them) and the app (docker-compose.yml). See docs/isolated-data.md.
+DATA_COMPOSE = docker compose --env-file .env -f docker/data/docker-compose.yml
+DB_VOLUME ?= $(or $(NEXTTIME_DB_VOLUME),$(shell sed -n 's/^NEXTTIME_DB_VOLUME=//p' .env 2>/dev/null | tr -d '\r'),nexttime_pgdata)
+FILES_VOLUME ?= $(or $(NEXTTIME_FILES_VOLUME),$(shell sed -n 's/^NEXTTIME_FILES_VOLUME=//p' .env 2>/dev/null | tr -d '\r'),nexttime_files)
+
+# Create the two external volumes if they are not there yet (safe to repeat; never touches data)
+docker-data-init:
 	@if [ ! -f .env ]; then \
 		echo "Creating .env file from .env.example..."; \
 		cp .env.example .env; \
 		echo "Please update .env with your configuration!"; \
 	fi
+	@for v in $(DB_VOLUME) $(FILES_VOLUME); do \
+		docker volume inspect $$v >/dev/null 2>&1 \
+			&& echo "Volume $$v already exists (kept as it is)" \
+			|| { docker volume create $$v >/dev/null && echo "Created volume $$v"; }; \
+	done
+
+docker-data-up: docker-data-init
+	$(DATA_COMPOSE) up -d --wait
+
+# Stops the database. The volume, and everything in it, stays.
+docker-data-down:
+	$(DATA_COMPOSE) down
+
+docker-data-logs:
+	$(DATA_COMPOSE) logs -f db
+
+docker-up: docker-data-up
+	@echo "Starting Docker environment..."
 	docker compose up -d
 	@echo "Docker environment started!"
 	@echo "Nextcloud will be available at http://localhost:8080"
 
+# Stops the app only; the database keeps running. Never add -v here.
 docker-down:
 	@echo "Stopping Docker environment..."
 	docker compose down
+
+# Database dump + files archive into BACKUP_DIR (a folder outside this repo, ideally the external drive)
+docker-backup:
+	scripts/backup.sh
 
 docker-logs:
 	docker compose logs -f nextcloud

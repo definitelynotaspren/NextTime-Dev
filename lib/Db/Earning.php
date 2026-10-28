@@ -33,6 +33,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setApprovedAt(?\DateTime $approvedAt)
  * @method int getNotifiedStage()
  * @method void setNotifiedStage(int $notifiedStage)
+ * @method string|null getSourceRef()
+ * @method void setSourceRef(?string $sourceRef)
+ * @method \DateTime|null getApprovedBeforeAt()
+ * @method void setApprovedBeforeAt(?\DateTime $approvedBeforeAt)
  */
 class Earning extends Entity implements JsonSerializable {
 	protected ?string $userId = null;
@@ -47,6 +51,8 @@ class Earning extends Entity implements JsonSerializable {
 	protected ?\DateTime $createdAt = null;
 	protected ?\DateTime $approvedAt = null;
 	protected int $notifiedStage = 0;
+	protected ?string $sourceRef = null;
+	protected ?\DateTime $approvedBeforeAt = null;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
@@ -55,6 +61,7 @@ class Earning extends Entity implements JsonSerializable {
 		$this->addType('categoryId', 'integer');
 		$this->addType('evidenceFileId', 'integer');
 		$this->addType('notifiedStage', 'integer');
+		$this->addType('approvedBeforeAt', 'datetime');
 	}
 
 	/** @return array<string, mixed> */
@@ -72,6 +79,8 @@ class Earning extends Entity implements JsonSerializable {
 			'rejectionReason' => $this->rejectionReason,
 			'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),
 			'approvedAt' => $this->approvedAt?->format('Y-m-d H:i:s'),
+			// set on a claim imported from another system where it had already been approved
+			'approvedBefore' => $this->approvedBeforeAt?->format('Y-m-d H:i:s'),
 		];
 	}
 }

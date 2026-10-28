@@ -267,6 +267,63 @@ call bob GET "/requests/$LOC_ID"
 [ "$(json '.request.latitude')" = null ] && pass "after withdrawing, bob is back to the ZIP only" || fail "bob still sees it after withdrawing"
 call alice POST "/requests/$LOC_ID/cancel"
 
+echo "- Poster privacy: the username is hidden unless the poster opts in"
+call alice POST /requests "{\"title\":\"Smoke test: private poster\",\"description\":\"The poster keeps their username private.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\"}"
+expect "alice posts without showing her username" 201
+PRIV_ID="$(json '.id')"
+[ "$(json '.requesterId')" = alice ] && [ "$(json '.isMine')" = true ] && pass "the poster sees herself" || fail "alice's own view: $BODY"
+call alice POST "/requests/$PRIV_ID/comments" '{"comment":"A note from the poster"}'
+call bob GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = null ] && [ "$(json '.request.isMine')" = false ] && pass "another member is not told who posted" || fail "bob's view: $(head -c 300 <<<"$BODY")"
+grep -q alice <<<"$BODY" && fail "alice's name appears in bob's detail response (comments included)" || pass "her name is nowhere in it, comments included"
+[ "$(json '.comments[0].authorLabel')" = Requester ] && pass "her comment is labelled Requester" || fail "comment label: $(json '.comments[0]')"
+call bob GET "/requests?limit=100"
+jq -e --argjson id "$PRIV_ID" '[.requests[] | select(.id==$id)][0].requesterId == null' <<<"$BODY" >/dev/null && pass "the list hides her too" || fail "the list names the poster"
+call bob POST "/requests/$PRIV_ID/volunteer" '{"proposedHours":1}'
+V_PRIV="$(json '.id')"
+call bob GET /volunteers/my
+grep -q alice <<<"$BODY" && fail "my offers names the poster" || pass "my offers does not name the poster"
+call admin GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = alice ] && pass "an admin sees who posted" || fail "admin's view: $(head -c 300 <<<"$BODY")"
+call alice POST "/volunteers/$V_PRIV/accept"
+call bob GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = alice ] && [ "$(json '.comments[0].userId')" = alice ] && pass "once accepted, bob sees who posted" || fail "bob after acceptance: $(head -c 300 <<<"$BODY")"
+call carol GET "/requests/$PRIV_ID"
+[ "$(json '.request.requesterId')" = null ] && pass "carol still does not" || fail "carol sees the poster"
+call alice POST "/requests/$PRIV_ID/cancel"
+call alice POST /requests "{\"title\":\"Smoke test: named poster\",\"description\":\"The poster shows their username.\",\"categoryId\":$CAT_ID,\"hoursBudget\":1,\"zip\":\"97055\",\"showUsername\":true}"
+expect "alice posts with her username shown" 201
+NAMED_ID="$(json '.id')"
+call carol GET "/requests/$NAMED_ID"
+[ "$(json '.request.requesterId')" = alice ] && [ "$(json '.request.showUsername')" = true ] && pass "when she opts in, everyone sees it" || fail "carol's view: $(head -c 300 <<<"$BODY")"
+call alice PUT "/requests/$NAMED_ID" '{"showUsername":false}'
+call carol GET "/requests/$NAMED_ID"
+[ "$(json '.request.requesterId')" = null ] && pass "and she can take it back while the request is open" || fail "carol after opt-out: $(head -c 300 <<<"$BODY")"
+call alice POST "/requests/$NAMED_ID/cancel"
+
+echo "- Agreed hours: between what was posted and what was offered"
+call alice POST /requests "{\"title\":\"Smoke test: agreed hours\",\"description\":\"The requester settles the hours on accepting.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4,\"zip\":\"97055\"}"
+expect "alice posts 4 hours" 201
+AGREE_ID="$(json '.id')"
+call bob POST "/requests/$AGREE_ID/volunteer" '{"proposedHours":2}'
+V_AGREE="$(json '.id')"
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":5}'
+expect "agreed hours above both numbers are refused" 400
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":1}'
+expect "agreed hours below both numbers are refused" 400
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":"lots"}'
+expect "agreed hours must be a number" 400
+call alice POST "/volunteers/$V_AGREE/accept" '{"agreedHours":3.5}'
+expect "3.5 hours, between 2 offered and 4 posted, is accepted" 200
+[ "$(json '.agreedHours')" = 3.5 ] && [ "$(json '.proposedHours')" = 2 ] && [ "$(json '.hours')" = 3.5 ] && pass "the offer keeps 2 and the agreement says 3.5" || fail "accepted offer: $BODY"
+call alice POST "/requests/$AGREE_ID/cancel"
+call alice POST /requests "{\"title\":\"Smoke test: default hours\",\"description\":\"Accepting without a number keeps the offer.\",\"categoryId\":$CAT_ID,\"hoursBudget\":4,\"zip\":\"97055\"}"
+AGREE2="$(json '.id')"
+call bob POST "/requests/$AGREE2/volunteer" '{"proposedHours":2}'
+call alice POST "/volunteers/$(json '.id')/accept"
+[ "$(json '.agreedHours')" = 2 ] && pass "accepting with no number keeps the offered hours" || fail "default: $BODY"
+call alice POST "/requests/$AGREE2/cancel"
+
 echo "- Lifecycle rules: withdrawing and the log"
 call alice POST /requests "{\"title\":\"Smoke test: withdraw\",\"description\":\"For the withdrawal log.\",\"categoryId\":$CAT_ID,\"hoursBudget\":2,\"zip\":\"97055\"}"
 expect "alice posts a third request" 201
@@ -487,6 +544,9 @@ call carol GET "/governance?limit=100"
 [ "$(jq -r '[.entries[] | select(.action=="setting.adjustment_threshold" and .details.to==6)] | length' <<<"$BODY")" -ge 1 ] && pass "setting changes are public, with old and new values" || fail "threshold change not logged: $BODY"
 call admin POST /balance/adjust '{"userId":"bob","hours":5,"reason":"The old route is gone"}'
 expect "the old unguarded adjust route is gone" 404
+call carol GET "/governance?limit=100"
+[ "$(jq -r '[.entries[] | select(.actorId=="system" and (.action|startswith("system.")))] | length' <<<"$BODY")" -ge 1 ] && pass "the log notes, as system, that NextTime is running" || fail "no system line in the log: $BODY"
+[ "$(jq -r '[.entries[] | select(.action|startswith("system.")) | .details | keys[]] | unique | map(select(. != "appVersion" and . != "database")) | length' <<<"$BODY")" = 0 ] && pass "system lines carry only the version and the kind of database" || fail "system lines carry more than that: $BODY"
 
 echo "- Frontend page"
 code="$(curl -s -o "$TMP/page" -w '%{http_code}' -u alice:alice-pass-123 "$BASE/index.php/apps/timebank/")"

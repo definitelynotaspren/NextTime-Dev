@@ -7,6 +7,7 @@ namespace OCA\TimeBank\Service;
 use OCA\TimeBank\Chapter\ChapterDirectory;
 use OCA\TimeBank\Db\LayerRow;
 use OCA\TimeBank\Db\LayerRowMapper;
+use OCA\TimeBank\Db\RequestMapper;
 use OCA\TimeBank\Geo\Coordinates;
 use OCA\TimeBank\Schema\FieldPolicy;
 use OCA\TimeBank\Schema\LayerException;
@@ -34,6 +35,7 @@ class LayerService {
 	public function __construct(
 		LayerRowMapper $rowMapper,
 		private ChapterDirectory $chapters,
+		private RequestMapper $requests,
 	) {
 		$this->rowMapper = $rowMapper;
 	}
@@ -66,7 +68,7 @@ class LayerService {
 			$out[] = $this->present($row, $viewer);
 		}
 
-		return $out;
+		return $this->withBoardLinks($out);
 	}
 
 	/**
@@ -250,7 +252,46 @@ class LayerService {
 			$out[] = $this->present($row, $viewer);
 		}
 
-		return $out;
+		return $this->withBoardLinks($out);
+	}
+
+	/**
+	 * A row this person may work on (staff of its chapter, or a national organizer), for actions that
+	 * go beyond the desk, such as putting it on the request board.
+	 *
+	 * @throws LayerException
+	 */
+	public function workableRow(Viewer $viewer, string $layer, int $id): LayerRow {
+		$this->requireReadableLayer($layer);
+		$this->requireStaff($viewer);
+		$row = $this->findRow($layer, $id);
+		$this->requireCanWork($row, $viewer);
+
+		return $row;
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function dataOf(LayerRow $row): array {
+		return $this->decode($row->getData());
+	}
+
+	/**
+	 * Marks the rows that are already on the board with the request's id.
+	 *
+	 * @param list<array<string, mixed>> $rows
+	 * @return list<array<string, mixed>>
+	 */
+	private function withBoardLinks(array $rows): array {
+		$onBoard = $this->requests->deskRequestIds();
+		foreach ($rows as &$row) {
+			$fields = $row['fields'] ?? null;
+			$uid = is_array($fields) ? ($fields['uid'] ?? null) : null;
+			$row['boardRequestId'] = is_string($uid) ? ($onBoard[DeskBridge::sourceRef($uid)] ?? null) : null;
+		}
+
+		return $rows;
 	}
 
 	/**

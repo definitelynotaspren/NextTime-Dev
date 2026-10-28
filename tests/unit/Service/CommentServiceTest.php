@@ -130,6 +130,18 @@ final class CommentServiceTest extends TestCase {
 		$this->service->dismissFlags(5, 'bob');
 	}
 
+	public function testAHiddenPostersCommentsAreShownAsRequester(): void {
+		$this->comment(5, 'alice');
+
+		$masked = $this->service->getForViewer(1, 'bob', 'alice')[0];
+		$this->assertNull($masked['userId']);
+		$this->assertSame('Requester', $masked['authorLabel']);
+		$this->assertStringNotContainsString('alice', (string)json_encode($masked));
+
+		$this->assertSame('alice', $this->service->getForViewer(1, 'bob')[0]['userId'], 'not hidden for people who may know');
+		$this->assertSame('alice', $this->service->getForViewer(1, 'bob', 'someoneElse')[0]['userId']);
+	}
+
 	public function testRemovalIsSoftAndRecordsWho(): void {
 		$comment = $this->comment();
 		$this->service->remove(5, 'admin');
