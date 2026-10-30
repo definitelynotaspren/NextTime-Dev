@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The map is off until each person turns it on.** Map tiles come from a server outside the Nextcloud
+  (`tiles.openfreemap.org`), which sees the viewer's IP address and the area they look at. Every map (the board,
+  a request's page, the form's location picker) now shows a notice naming that server and creates no map, so
+  makes no request, until the person chooses "Turn the map on". The choice is kept in the browser per account and
+  can be taken back with "Turn map off". Before this, opening the new-request form loaded tiles even with its map
+  hidden. `scripts/ui-smoke.cjs` checks that no tile request is made before the choice.
+
 - **`docs/operations.md`**: a checklist for a fresh install, an install that uses existing data (import, restore or
   reconnect), updating and repairing the data source, and checking or safely stopping the database, for Docker and
   non-Docker Nextcloud.

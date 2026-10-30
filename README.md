@@ -297,7 +297,10 @@ What the rules are:
 - A request's state is the one its ZIP is in. A free-text address (for example "123 Main Street") is saved but not
   plotted; geocoding is not implemented.
 - The basemap is [OpenFreeMap](https://openfreemap.org) (OpenStreetMap data, no API key). Viewers' browsers connect to
-  `tiles.openfreemap.org`. To use another tile source, change `MAP_STYLE_URL` in `src/composables/useMap.ts` **and**
+  `tiles.openfreemap.org`, but **only after each person turns the map on**: until then every map shows a notice that
+  names the tile server, and nothing is fetched from it. The choice is remembered in that browser for that Nextcloud
+  account (so a shared computer does not carry it to the next person), and a "Turn map off" button takes it back.
+  Requests can still be posted by ZIP or typed coordinates with the map off. To use another tile source, change `MAP_STYLE_URL` in `src/composables/useMap.ts` **and**
   `MAP_HOST` in `lib/Controller/PageController.php`: Nextcloud's Content-Security-Policy blocks any host not listed there.
 - The `/api/map/requests` feed always uses ZIP centers and never includes contact fields.
 

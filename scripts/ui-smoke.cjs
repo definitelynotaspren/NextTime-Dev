@@ -44,6 +44,9 @@ function occ(...args) {
 async function login(browser, user, pass) {
 	const page = await (await browser.newContext({ viewport: { width: 1280, height: 1000 } })).newPage()
 	page.responses = []
+	// Every request to the map's tile server: there must be none until the person turns the map on.
+	page.tileRequests = []
+	page.on('request', (r) => { if (/openfreemap\.org/.test(r.url())) page.tileRequests.push(r.url()) })
 	page.on('response', async (r) => {
 		const entry = { method: r.request().method(), url: r.url().replace(BASE, ''), status: r.status(), body: r.request().postData() }
 		page.responses.push(entry)
@@ -127,8 +130,14 @@ const pickFirstOption = async (page, placeholder) => {
 	await alice.fill('#description', 'Posted by dropping a pin, without saving the exact spot.')
 	await pickFirstOption(alice, 'Select category')
 	await alice.fill('#hours', '1')
+	check('the form contacted no tile server while the map is off', alice.tileRequests.length === 0, alice.tileRequests.slice(0, 3).join(' '))
 	await alice.getByRole('button', { name: 'Show Map' }).click()
+	await alice.waitForTimeout(500)
+	check('the map starts off, behind a notice that names the tile server', await alice.locator('.location-picker [data-map-consent="off"]', { hasText: 'tiles.openfreemap.org' }).count() === 1)
+	check('still no tile request after showing the map area', alice.tileRequests.length === 0, alice.tileRequests.slice(0, 3).join(' '))
+	await alice.getByRole('button', { name: 'Turn the map on' }).click()
 	await alice.waitForTimeout(2500)
+	check('turning the map on loads tiles', alice.tileRequests.length > 0)
 	const pinMap = alice.locator('.location-picker .map-container')
 	await pinMap.scrollIntoViewIfNeeded()
 	await alice.waitForTimeout(500)
@@ -158,8 +167,19 @@ const pickFirstOption = async (page, placeholder) => {
 	const filtered = findResponse(alice, 'GET', /\/api\/requests\?.*status=/)
 	check('status filter sends "open", not an object', filtered && /status=open(&|$)/.test(filtered.url), filtered?.url)
 
+	console.log('- Map consent: off to start, sticky, per person')
+	const carolBefore = carol.tileRequests.length
+	await go(carol, '/')
+	await carol.getByRole('button', { name: 'Map View' }).click()
+	await carol.waitForTimeout(1500)
+	check('a member who has not turned the map on sees the notice', await carol.locator('[data-map-consent="off"]').count() === 1)
+	check('and her browser asked the tile server for nothing', carol.tileRequests.length === carolBefore, carol.tileRequests.slice(0, 3).join(' '))
+	check('the board still lists requests with the map off', await carol.getByRole('button', { name: 'Grid View' }).count() === 1)
+
 	console.log('- Map')
 	await alice.getByRole('button', { name: 'Map View' }).click()
+	await alice.waitForTimeout(500)
+	check('the choice is remembered: no notice the second time', await alice.locator('[data-map-consent="off"]').count() === 0)
 	let markers = 0
 	for (let i = 0; i < 20 && markers === 0; i++) {
 		await alice.waitForTimeout(500)
