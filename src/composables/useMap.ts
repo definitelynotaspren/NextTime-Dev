@@ -3,12 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ref, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
 import maplibregl, { type Map, type Marker, type Popup, type LngLatLike } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { useMapConsent } from './useMapConsent'
 
 // OpenFreeMap (OpenStreetMap data, no API key). Its host must also be listed in the
 // page's Content-Security-Policy: see MAP_HOST in lib/Controller/PageController.php.
+// Nothing is fetched from it until the person turns the map on (useMapConsent).
 export const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 
 export interface UseMapOptions {
@@ -28,7 +30,11 @@ export function useMap(options: UseMapOptions = {}) {
 	const map: Ref<Map | null> = ref(null)
 	const markers: Ref<Marker[]> = ref([])
 
-	onMounted(() => {
+	const { enabled } = useMapConsent()
+
+	// The map, and every request to the tile server, exists only while the map is turned on.
+	function create() {
+		if (map.value || !enabled.value) return
 		if (!mapContainer.value) {
 			console.error('Map container ref is not set')
 			return
@@ -55,17 +61,24 @@ export function useMap(options: UseMapOptions = {}) {
 			}),
 			'top-right',
 		)
-	})
+	}
 
-	onUnmounted(() => {
-		// Clean up markers
+	function destroy() {
 		markers.value.forEach(m => m.remove())
 		markers.value = []
-
-		// Clean up map
 		map.value?.remove()
 		map.value = null
+	}
+
+	onMounted(create)
+	watch(enabled, (on) => {
+		if (on) {
+			nextTick(create)
+		} else {
+			destroy()
+		}
 	})
+	onUnmounted(destroy)
 
 	function addMarker(lngLat: LngLatLike, options: MarkerOptions = {}): Marker | null {
 		if (!map.value) {
@@ -118,6 +131,7 @@ export function useMap(options: UseMapOptions = {}) {
 	return {
 		mapContainer,
 		map,
+		enabled,
 		markers,
 		addMarker,
 		clearMarkers,

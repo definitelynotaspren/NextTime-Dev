@@ -6,13 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <template>
 	<div class="map-wrapper" :data-settled="settled">
 		<div ref="mapContainer" class="map-container" />
+		<MapConsent />
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, type PropType } from 'vue'
+import { ref, watch, type PropType } from 'vue'
 import maplibregl, { type LngLatLike } from 'maplibre-gl'
 import { useMap } from '../composables/useMap'
+import MapConsent from './MapConsent.vue'
 
 interface Request {
 	id: number
@@ -214,14 +216,15 @@ watch(() => [props.requests, props.offers], () => {
 	if (map.value) addMarkers()
 }, { deep: true })
 
-// Add markers after map is loaded
-onMounted(() => {
-	if (map.value) {
-		map.value.on('load', () => {
-			addMarkers()
-		})
+// Draw the pins once a map exists and has loaded: at mount if the map is already on, or later,
+// when the person turns it on.
+watch(map, (m) => {
+	if (m) {
+		m.on('load', addMarkers)
+	} else {
+		settled.value = false
 	}
-})
+}, { immediate: true })
 </script>
 
 <style scoped>
