@@ -27,6 +27,7 @@ services using hours as currency, with map-based coordination of requests and of
     <bugs>https://github.com/inputloop/NextTime-Dev/issues</bugs>
     <repository type="git">https://github.com/inputloop/NextTime-Dev.git</repository>
 
+
     <dependencies>
         <php min-version="8.3" max-version="8.5"/>
         <database min-version="12">pgsql</database>
