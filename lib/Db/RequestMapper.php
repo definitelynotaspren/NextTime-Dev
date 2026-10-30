@@ -13,6 +13,7 @@ use OCP\IDBConnection;
  * @template-extends QBMapper<Request>
  */
 class RequestMapper extends QBMapper {
+	use SourceRefs;
 
 	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'timebank_requests', Request::class);
@@ -54,6 +55,74 @@ class RequestMapper extends QBMapper {
 	}
 
 	/**
+	 * Requests not yet finished that have no ZIP, so no state: posted before ZIPs were required.
+	 * They stay unassigned until the requester edits them. Shown on the Chapters page.
+	 */
+	public function countActiveWithoutZip(): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*', 'n'))
+			->from($this->getTableName())
+			->where($qb->expr()->in('status', $qb->createNamedParameter(['open', 'in_progress'], IQueryBuilder::PARAM_STR_ARRAY)))
+			->andWhere($qb->expr()->isNull('zip'));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count;
+	}
+
+	/**
+	 * Open requests with a ZIP, newest first. Used by the map feed.
+	 *
+	 * @return Request[]
+	 */
+	public function findOpenWithZip(int $limit = 500): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('status', $qb->createNamedParameter('open')))
+			->andWhere($qb->expr()->isNotNull('zip'))
+			->orderBy('created_at', 'DESC')
+			->setMaxResults($limit);
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Requests an organizer put on the board from a desk row, by the row's source reference
+	 * ("desk:" and the row's uid), so the desk can show which rows are already on the board.
+	 *
+	 * @return array<string, int> source reference => request id
+	 */
+	public function deskRequestIds(): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->like('source_ref', $qb->createNamedParameter('desk:%')));
+		$ids = [];
+		foreach ($this->findEntities($qb) as $request) {
+			$ids[(string)$request->getSourceRef()] = $request->getId();
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * The request an import brought in from this source reference, if any.
+	 */
+	public function findBySourceRef(string $ref): ?Request {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('source_ref', $qb->createNamedParameter($ref)));
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException) {
+			return null;
+		}
+	}
+
+	/**
 	 * @throws DoesNotExistException
 	 */
 	public function find(int $id): Request {
@@ -63,19 +132,6 @@ class RequestMapper extends QBMapper {
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
 
 		return $this->findEntity($qb);
-	}
-
-	/**
-	 * @return Request[]
-	 */
-	public function findByUser(string $userId): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('requester_id', $qb->createNamedParameter($userId)))
-			->orderBy('created_at', 'DESC');
-
-		return $this->findEntities($qb);
 	}
 
 	/**

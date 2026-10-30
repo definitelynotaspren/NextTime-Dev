@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { getCurrentUser } from '@nextcloud/auth'
+import { errorMessage } from '../stores/requestStore'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -16,7 +18,21 @@ interface Earning {
 	description: string
 	status: string
 	createdAt: string
+	/** Imported from another system where it had already been approved; it still needs a decision here. */
+	approvedBefore?: string | null
+	votes?: { voterId: string }[]
+	decidingAs?: 'admin' | 'facilitator' | 'national' | null
+	decidingChapter?: string | null
+	/** Pending claims: you may approve, reject or send it to a vote. */
+	canDecide?: boolean
+	/** Claims in a vote: you are a chapter member of the claimant's state and have not voted. */
+	canVote?: boolean
+	approveCount?: number
+	rejectCount?: number
 }
+
+const currentUserId = getCurrentUser()?.uid ?? null
+const actionError = ref<string | null>(null)
 
 const pendingClaims = ref<Earning[]>([])
 const votingClaims = ref<Earning[]>([])
@@ -31,6 +47,7 @@ const fetchClaims = async () => {
 	error.value = null
 
 	try {
+		// Everyone sees every claim; the server marks the ones you may act on.
 		const [pendingRes, votingRes] = await Promise.all([
 			axios.get(generateUrl('/apps/timebank/api/earnings/pending')),
 			axios.get(generateUrl('/apps/timebank/api/earnings/voting')),
@@ -38,20 +55,20 @@ const fetchClaims = async () => {
 		pendingClaims.value = pendingRes.data
 		votingClaims.value = votingRes.data
 	} catch (e: unknown) {
-		const err = e as { response?: { data?: { error?: string } } }
-		error.value = err.response?.data?.error || 'Failed to fetch claims'
+		error.value = errorMessage(e, 'Failed to fetch claims')
 	} finally {
 		loading.value = false
 	}
 }
 
 const approve = async (id: number) => {
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/approve`))
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error approving:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
@@ -60,6 +77,7 @@ const approve = async (id: number) => {
 const reject = async (id: number) => {
 	if (!rejectReason.value.trim()) return
 
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/reject`), {
@@ -69,25 +87,27 @@ const reject = async (id: number) => {
 		rejectReason.value = ''
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error rejecting:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
 }
 
 const sendToVote = async (id: number) => {
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/send-to-vote`))
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error sending to vote:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
 }
 
 const vote = async (id: number, decision: string) => {
+	actionError.value = null
 	processing.value = id
 	try {
 		await axios.post(generateUrl(`/apps/timebank/api/earnings/${id}/vote`), {
@@ -95,7 +115,7 @@ const vote = async (id: number, decision: string) => {
 		})
 		await fetchClaims()
 	} catch (e) {
-		console.error('Error voting:', e)
+		actionError.value = errorMessage(e)
 	} finally {
 		processing.value = null
 	}
@@ -108,7 +128,12 @@ onMounted(() => {
 
 <template>
 	<div class="admin-approvals">
-		<h1>Approval Dashboard</h1>
+		<h1>Approvals &amp; Votes</h1>
+		<p class="intro">
+			Every claim is shown to every member. A claim is approved by a facilitator of the claimant's state, a national
+			organizer or an admin, or sent to a vote of the state's members (national organizers vote when the state has
+			fewer than three people who could). Buttons appear only where you may act; nobody decides on their own claim.
+		</p>
 
 		<NcLoadingIcon v-if="loading" :size="44" />
 
@@ -119,11 +144,14 @@ onMounted(() => {
 		</NcEmptyContent>
 
 		<template v-else>
+			<p v-if="actionError" class="action-error" role="alert">
+				{{ actionError }}
+			</p>
 			<section class="pending-section">
 				<h2>Pending Claims ({{ pendingClaims.length }})</h2>
 
 				<div v-if="pendingClaims.length === 0" class="empty-state">
-					No pending claims to review.
+					No pending claims.
 				</div>
 
 				<div v-else class="claims-list">
@@ -139,25 +167,34 @@ onMounted(() => {
 						<div class="claim-description">
 							{{ claim.description }}
 						</div>
-						<div class="claim-actions">
+						<p v-if="claim.approvedBefore" class="approved-before">
+							Approved before, on {{ new Date(claim.approvedBefore).toLocaleDateString() }}, in the system this claim was imported from. It still needs a decision here.
+						</p>
+						<p v-if="claim.userId === currentUserId" class="own-claim">
+							This is your claim. Someone else has to approve it, reject it or send it to a vote.
+						</p>
+						<p v-else-if="claim.canDecide" class="deciding-as">
+							You decide on this {{ claim.decidingAs === 'admin' ? 'as an admin' : claim.decidingAs === 'facilitator' ? `as a facilitator of ${claim.decidingChapter}` : 'as a national organizer' }}.
+						</p>
+						<p v-else class="deciding-as">
+							View only: a facilitator of this member's state or a national organizer decides.
+						</p>
+						<div v-if="claim.canDecide && claim.userId !== currentUserId" class="claim-actions">
 							<NcButton
-								type="primary"
-								@click="approve(claim.id)"
+								variant="primary"
 								:disabled="processing === claim.id"
-							>
+								@click="approve(claim.id)">
 								Approve
 							</NcButton>
 							<NcButton
-								type="error"
-								@click="showRejectModal = claim.id"
+								variant="error"
 								:disabled="processing === claim.id"
-							>
+								@click="showRejectModal = claim.id">
 								Reject
 							</NcButton>
 							<NcButton
-								@click="sendToVote(claim.id)"
 								:disabled="processing === claim.id"
-							>
+								@click="sendToVote(claim.id)">
 								Send to Vote
 							</NcButton>
 						</div>
@@ -166,15 +203,15 @@ onMounted(() => {
 							<NcTextArea
 								v-model="rejectReason"
 								placeholder="Reason for rejection..."
-								:rows="2"
-							/>
+								:rows="2" />
 							<div class="reject-actions">
-								<NcButton @click="showRejectModal = null">Cancel</NcButton>
+								<NcButton @click="showRejectModal = null">
+									Cancel
+								</NcButton>
 								<NcButton
-									type="error"
-									@click="reject(claim.id)"
+									variant="error"
 									:disabled="!rejectReason.trim() || processing === claim.id"
-								>
+									@click="reject(claim.id)">
 									Confirm Reject
 								</NcButton>
 							</div>
@@ -204,19 +241,29 @@ onMounted(() => {
 						<div class="claim-description">
 							{{ claim.description }}
 						</div>
-						<div class="claim-actions">
+						<p v-if="claim.approvedBefore" class="approved-before">
+							Approved before, on {{ new Date(claim.approvedBefore).toLocaleDateString() }}, in the system this claim was imported from. It still needs a decision here.
+						</p>
+						<p v-if="claim.userId === currentUserId" class="own-claim">
+							This is your claim, so you cannot vote on it.
+						</p>
+						<p v-else-if="claim.votes?.some((v) => v.voterId === currentUserId)" class="own-claim">
+							You have voted on this claim.
+						</p>
+						<p v-else-if="!claim.canVote" class="deciding-as">
+							View only: chapter members of this member's state vote on it.
+						</p>
+						<div v-else class="claim-actions">
 							<NcButton
-								type="primary"
-								@click="vote(claim.id, 'approve')"
+								variant="primary"
 								:disabled="processing === claim.id"
-							>
+								@click="vote(claim.id, 'approve')">
 								Vote Approve
 							</NcButton>
 							<NcButton
-								type="error"
-								@click="vote(claim.id, 'reject')"
+								variant="error"
 								:disabled="processing === claim.id"
-							>
+								@click="vote(claim.id, 'reject')">
 								Vote Reject
 							</NcButton>
 						</div>
@@ -233,7 +280,27 @@ onMounted(() => {
 }
 
 .admin-approvals h1 {
+	margin-bottom: 8px;
+}
+
+.intro {
+	max-width: 760px;
 	margin-bottom: 20px;
+	color: var(--color-text-maxcontrast);
+}
+
+.deciding-as {
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+}
+
+.own-claim {
+	color: var(--color-text-maxcontrast);
+	font-style: italic;
+}
+
+.action-error {
+	color: var(--color-error-text);
 }
 
 section {
@@ -264,6 +331,12 @@ section h2 {
 	background: var(--color-background-hover);
 	padding: 16px;
 	border-radius: 8px;
+}
+
+.approved-before {
+	margin-block: 6px;
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
 }
 
 .claim-header {

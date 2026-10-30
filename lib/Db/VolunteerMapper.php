@@ -13,6 +13,7 @@ use OCP\IDBConnection;
  * @template-extends QBMapper<Volunteer>
  */
 class VolunteerMapper extends QBMapper {
+	use SourceRefs;
 
 	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'timebank_volunteers', Volunteer::class);
@@ -71,6 +72,7 @@ class VolunteerMapper extends QBMapper {
 
 	/**
 	 * @throws DoesNotExistException
+	 * @psalm-suppress PossiblyUnusedReturnValue callers only ask whether the offer exists, for now
 	 */
 	public function findByRequestAndVolunteer(int $requestId, string $volunteerId): Volunteer {
 		$qb = $this->db->getQueryBuilder();

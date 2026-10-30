@@ -4,7 +4,7 @@ import { useCategoryStore } from '../stores/categoryStore'
 
 interface Request {
 	id: number
-	requesterId: string
+	requesterId?: string | null
 	title: string
 	description: string
 	categoryId: number
@@ -60,18 +60,22 @@ const formatDate = (dateString: string | null) => {
 			</span>
 		</div>
 
-		<h3 class="card-title">{{ request.title }}</h3>
+		<h3 class="card-title">
+			{{ request.title }}
+		</h3>
 
-		<p class="card-description">{{ truncatedDescription }}</p>
+		<p class="card-description">
+			{{ truncatedDescription }}
+		</p>
 
 		<div class="card-meta">
 			<div class="meta-item">
 				<span class="icon">&#9201;</span>
 				<span>{{ request.hoursBudget }} hours</span>
 			</div>
-			<div v-if="request.location" class="meta-item">
+			<div v-if="request.location || request.zip" class="meta-item">
 				<span class="icon">&#128205;</span>
-				<span>{{ request.location }}</span>
+				<span>{{ request.location || `ZIP ${request.zip}` }}</span>
 			</div>
 			<div v-if="request.deadline" class="meta-item">
 				<span class="icon">&#128197;</span>
@@ -114,7 +118,11 @@ const formatDate = (dateString: string | null) => {
 	border-inline-start: 4px solid var(--color-primary);
 }
 
-.request-card.priority-flexible {
+.request-card.priority-high {
+	border-inline-start: 4px solid var(--color-warning);
+}
+
+.request-card.priority-low {
 	border-inline-start: 4px solid var(--color-success);
 }
 
@@ -139,17 +147,22 @@ const formatDate = (dateString: string | null) => {
 }
 
 .status-badge.status-open {
-	background: var(--color-success);
+	background: var(--color-success-text);
 	color: white;
 }
 
 .status-badge.status-in_progress {
-	background: var(--color-warning);
+	background: var(--color-warning-text);
 	color: white;
 }
 
 .status-badge.status-completed {
-	background: var(--color-background-dark);
+	background: var(--color-text-maxcontrast);
+	color: white;
+}
+
+.status-badge.status-cancelled {
+	background: var(--color-error-text);
 	color: white;
 }
 

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\EarningService;
+use OCA\TimeBank\Service\Input;
+use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Controller;
@@ -17,19 +19,16 @@ use OCP\IRequest;
 class EarningController extends Controller {
 
 	private EarningService $earningService;
-	private IGroupManager $groupManager;
 	private ?string $userId;
 
 	public function __construct(
 		string $appName,
 		IRequest $request,
 		EarningService $earningService,
-		IGroupManager $groupManager,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->earningService = $earningService;
-		$this->groupManager = $groupManager;
 		$this->userId = $userId;
 	}
 
@@ -39,7 +38,7 @@ class EarningController extends Controller {
 		// Validate required fields
 		$categoryId = $this->request->getParam('categoryId');
 		$hoursClaimed = $this->request->getParam('hoursClaimed');
-		$description = $this->request->getParam('description');
+		$description = $this->textParam('description');
 
 		if (!$categoryId || !is_numeric($categoryId)) {
 			return new JSONResponse(['error' => 'Valid category ID is required'], Http::STATUS_BAD_REQUEST);
@@ -64,9 +63,8 @@ class EarningController extends Controller {
 		$data = [
 			'categoryId' => (int)$categoryId,
 			'hoursClaimed' => (float)$hoursClaimed,
-			'description' => trim($description),
-			'evidenceFileId' => $this->request->getParam('evidenceFileId')
-				? (int)$this->request->getParam('evidenceFileId') : null,
+			'description' => $description,
+			'evidenceFileId' => Input::int($this->request->getParam('evidenceFileId')),
 		];
 
 		try {
@@ -160,7 +158,7 @@ class EarningController extends Controller {
 	#[ApiRoute(verb: 'POST', url: '/api/earnings/{id}/vote')]
 	public function vote(int $id): JSONResponse {
 		$vote = $this->request->getParam('vote');
-		$comment = $this->request->getParam('comment');
+		$comment = $this->optionalTextParam('comment');
 
 		if (!in_array($vote, ['approve', 'reject', 'abstain'], true)) {
 			return new JSONResponse(['error' => 'Vote must be approve, reject, or abstain'], Http::STATUS_BAD_REQUEST);

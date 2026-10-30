@@ -1,26 +1,70 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useRequestStore } from '../stores/requestStore'
+import { ref, onMounted, computed, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { getCurrentUser } from '@nextcloud/auth'
+import { useRequestStore, errorMessage, type RequestComment, type Volunteer } from '../stores/requestStore'
 import { useCategoryStore } from '../stores/categoryStore'
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcModal from '@nextcloud/vue/components/NcModal'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import MapComponent from '../components/MapComponent.vue'
+import VolunteerCard from '../components/VolunteerCard.vue'
+import NewRequestForm from '../components/NewRequestForm.vue'
+import CommentItem from '../components/CommentItem.vue'
 
 const route = useRoute()
 const router = useRouter()
 const requestStore = useRequestStore()
 const categoryStore = useCategoryStore()
 
+const currentUserId = getCurrentUser()?.uid ?? null
+
 const proposedHours = ref('')
 const volunteerMessage = ref('')
 const newComment = ref('')
 const volunteering = ref(false)
 const commenting = ref(false)
+const commentError = ref<string | null>(null)
+
+// Errors from accept, decline, withdraw and complete, shown in plain words.
+const actionError = ref<string | null>(null)
+const busyOfferId = ref<number | null>(null)
+const showComplete = ref(false)
+const showEdit = ref(false)
+const flagTarget = ref<RequestComment | null>(null)
+const flagReason = ref('')
+const flagging = ref(false)
+const moderatingId = ref<number | null>(null)
+const showCancel = ref(false)
+const cancelling = ref(false)
+const completing = ref(false)
+const withdrawTarget = ref<Volunteer | null>(null)
+const withdrawReason = ref('')
+const withdrawing = ref(false)
+
+const MIN_REASON_LENGTH = 3
+
+// Moving the request to another state: shown only to people the server lists choices for.
+const stateChoices = computed(() => requestStore.currentRequest?.stateChoices ?? [])
+const stateName = (slug: string | null) => stateChoices.value.find((c) => c.slug === slug)?.name ?? slug
+const moveTarget = ref<string | null>(null)
+const moving = ref(false)
+const moveState = async (chapter: string | null) => {
+	if (!request.value) return
+	moving.value = true
+	actionError.value = null
+	try {
+		await requestStore.moveRequestState(request.value.id, chapter)
+		moveTarget.value = null
+	} catch (e: unknown) {
+		actionError.value = errorMessage(e, 'Could not move the request')
+	} finally {
+		moving.value = false
+	}
+}
 
 const requestId = computed(() => parseInt(route.params.id as string))
 
@@ -29,39 +73,132 @@ const category = computed(() => {
 	return categoryStore.getCategoryById(requestStore.currentRequest.request.categoryId)
 })
 
+const request = computed(() => requestStore.currentRequest?.request ?? null)
+const volunteers = computed(() => requestStore.currentRequest?.volunteers ?? [])
+const withdrawals = computed(() => requestStore.currentRequest?.withdrawals ?? [])
+const isRequester = computed(() => !!request.value && (request.value.isMine ?? request.value.requesterId === currentUserId))
+const canEdit = computed(() => isRequester.value && request.value?.status === 'open')
+const isActive = computed(() => request.value?.status === 'open' || request.value?.status === 'in_progress')
+const myOffer = computed(() => volunteers.value.find((v) => v.volunteerId === currentUserId) ?? null)
+const canOffer = computed(() => isActive.value && !isRequester.value && !myOffer.value)
+
+const acceptedVolunteers = computed(() => volunteers.value.filter((v) => v.status === 'accepted'))
+// Everyone who helped: accepted while in progress, completed once it is done.
+const helpers = computed(() => volunteers.value.filter((v) => v.status === 'accepted' || v.status === 'completed'))
+const helperSummary = computed(() => helpers.value.map((v) => `${v.volunteerId} (${v.hours ?? v.proposedHours} h)`).join(', '))
+
+const withdrawReasonRequired = computed(() => withdrawTarget.value?.status === 'accepted')
+const canSubmitWithdraw = computed(() => !withdrawReasonRequired.value || withdrawReason.value.trim().length >= MIN_REASON_LENGTH)
+
+const act = async (task: () => Promise<void>) => {
+	actionError.value = null
+	try {
+		await task()
+	} catch (e) {
+		actionError.value = errorMessage(e)
+	}
+}
+
 const volunteer = async () => {
 	if (!proposedHours.value) return
 
 	volunteering.value = true
-	try {
-		const url = generateUrl(`/apps/timebank/api/requests/${requestId.value}/volunteer`)
-		await axios.post(url, {
-			proposedHours: parseFloat(proposedHours.value),
-			message: volunteerMessage.value || null,
-		})
-		await requestStore.fetchRequestDetails(requestId.value)
+	await act(async () => {
+		await requestStore.offerHelp(requestId.value, parseFloat(proposedHours.value), volunteerMessage.value || null)
 		proposedHours.value = ''
 		volunteerMessage.value = ''
+	})
+	volunteering.value = false
+}
+
+const accept = async (offer: Volunteer, agreedHours?: number) => {
+	busyOfferId.value = offer.id
+	await act(() => requestStore.acceptOffer(offer.id, requestId.value, agreedHours))
+	busyOfferId.value = null
+}
+
+const decline = async (offer: Volunteer) => {
+	busyOfferId.value = offer.id
+	await act(() => requestStore.declineOffer(offer.id, requestId.value))
+	busyOfferId.value = null
+}
+
+const confirmComplete = async () => {
+	completing.value = true
+	await act(() => requestStore.completeRequest(requestId.value))
+	completing.value = false
+	showComplete.value = false
+}
+
+const confirmCancel = async () => {
+	cancelling.value = true
+	await act(() => requestStore.cancelRequest(requestId.value))
+	cancelling.value = false
+	showCancel.value = false
+}
+
+const saved = () => {
+	showEdit.value = false
+}
+
+const confirmFlag = async () => {
+	const target = flagTarget.value
+	if (!target) return
+
+	flagging.value = true
+	commentError.value = null
+	try {
+		await requestStore.flagComment(target.id, requestId.value, flagReason.value.trim() || null)
+		flagTarget.value = null
+		flagReason.value = ''
 	} catch (e) {
-		console.error('Error volunteering:', e)
+		commentError.value = errorMessage(e)
+		flagTarget.value = null
 	} finally {
-		volunteering.value = false
+		flagging.value = false
 	}
+}
+
+const moderate = async (comment: RequestComment, task: () => Promise<void>) => {
+	moderatingId.value = comment.id
+	commentError.value = null
+	try {
+		await task()
+	} catch (e) {
+		commentError.value = errorMessage(e)
+	} finally {
+		moderatingId.value = null
+	}
+}
+
+const removeComment = (comment: RequestComment) => moderate(comment, () => requestStore.removeComment(comment.id, requestId.value))
+const dismissFlags = (comment: RequestComment) => moderate(comment, () => requestStore.dismissFlags(comment.id, requestId.value))
+
+const startWithdraw = (offer: Volunteer) => {
+	withdrawReason.value = ''
+	withdrawTarget.value = offer
+}
+
+const confirmWithdraw = async () => {
+	const target = withdrawTarget.value
+	if (!target || !canSubmitWithdraw.value) return
+
+	withdrawing.value = true
+	await act(() => requestStore.withdrawOffer(target.id, requestId.value, withdrawReason.value.trim() || null))
+	withdrawing.value = false
+	withdrawTarget.value = null
 }
 
 const addComment = async () => {
 	if (!newComment.value.trim()) return
 
 	commenting.value = true
+	commentError.value = null
 	try {
-		const url = generateUrl(`/apps/timebank/api/requests/${requestId.value}/comments`)
-		await axios.post(url, {
-			comment: newComment.value,
-		})
-		await requestStore.fetchRequestDetails(requestId.value)
+		await requestStore.addComment(requestId.value, newComment.value)
 		newComment.value = ''
 	} catch (e) {
-		console.error('Error adding comment:', e)
+		commentError.value = errorMessage(e)
 	} finally {
 		commenting.value = false
 	}
@@ -69,6 +206,11 @@ const addComment = async () => {
 
 onMounted(() => {
 	requestStore.fetchRequestDetails(requestId.value)
+})
+
+// The same page is reused when the id in the address changes.
+watch(requestId, (id) => {
+	requestStore.fetchRequestDetails(id)
 })
 </script>
 
@@ -93,11 +235,39 @@ onMounted(() => {
 				</div>
 
 				<h1>{{ requestStore.currentRequest.request.title }}</h1>
+				<p class="poster">
+					Posted <strong v-if="request?.postedForDesk">for the desk</strong><template v-if="!request?.postedForDesk || request?.requesterId">
+						by
+					</template>
+					<strong v-if="request?.isMine">you</strong>
+					<RouterLink v-else-if="request?.requesterId" :to="{ name: 'UserLedger', params: { userId: request.requesterId } }">
+						{{ request.requesterId }}
+					</RouterLink>
+					<em v-else-if="!request?.postedForDesk">a member who keeps their username private</em>
+				</p>
+
+				<div v-if="request?.status === 'in_progress' && helpers.length" class="status-banner banner-progress" role="status">
+					In progress with {{ helperSummary }}.
+				</div>
+				<div v-else-if="request?.status === 'completed'" class="status-banner banner-done" role="status">
+					Completed<span v-if="helpers.length"> with {{ helperSummary }}</span>.
+					Hours are not credited automatically: each volunteer can claim theirs under Submit Earnings,
+					and an admin or 3 community votes approve them.
+				</div>
+				<div v-else-if="request?.status === 'cancelled'" class="status-banner banner-cancelled" role="status">
+					This request was cancelled.
+				</div>
 
 				<div class="request-meta">
 					<span>&#9201; {{ requestStore.currentRequest.request.hoursBudget }} hours budget</span>
 					<span v-if="requestStore.currentRequest.request.location">
-						&#128205; {{ requestStore.currentRequest.request.location }}
+						&#128205; {{ requestStore.currentRequest.request.location }}<template v-if="requestStore.currentRequest.request.zip">, {{ requestStore.currentRequest.request.zip }}</template>
+					</span>
+					<span v-else-if="requestStore.currentRequest.request.zip">
+						&#128205; ZIP {{ requestStore.currentRequest.request.zip }}
+						<em v-if="!requestStore.currentRequest.request.exactLocation" class="location-note">
+							(exact location shared once your offer is accepted)
+						</em>
 					</span>
 					<span v-if="requestStore.currentRequest.request.deadline">
 						&#128197; Due: {{ new Date(requestStore.currentRequest.request.deadline).toLocaleDateString() }}
@@ -109,6 +279,50 @@ onMounted(() => {
 					<p>{{ requestStore.currentRequest.request.description }}</p>
 				</div>
 
+				<div v-if="stateChoices.length" class="state-move">
+					<span>
+						State: <strong>{{ request?.chapter ? stateName(request.chapter) : 'none (no ZIP, or no chapter for it)' }}</strong>
+					</span>
+					<NcSelect
+						v-model="moveTarget"
+						:options="stateChoices.filter((c) => c.slug !== request?.chapter).map((c) => ({ id: c.slug, label: c.name }))"
+						:reduce="(option) => option.id"
+						input-label="Move to another state"
+						placeholder="Choose a state"
+						:disabled="moving" />
+					<NcButton :disabled="!moveTarget || moving" @click="moveState(moveTarget)">
+						Move
+					</NcButton>
+					<NcButton :disabled="moving" @click="moveState(null)">
+						Back to its ZIP's state
+					</NcButton>
+					<span class="hint">Moves are written to the public Governance Log.</span>
+				</div>
+
+				<div v-if="isRequester && isActive" class="requester-actions">
+					<NcButton variant="primary" :disabled="!acceptedVolunteers.length || completing" @click="showComplete = true">
+						Mark complete
+					</NcButton>
+					<span v-if="!acceptedVolunteers.length" class="hint">Accept at least one volunteer to complete this request.</span>
+					<NcButton v-if="canEdit" @click="showEdit = true">
+						Edit
+					</NcButton>
+					<NcButton variant="error" :disabled="cancelling" @click="showCancel = true">
+						Cancel request
+					</NcButton>
+				</div>
+				<p v-if="isRequester && request?.status === 'in_progress'" class="hint">
+					A request can only be edited while it is open.
+				</p>
+
+				<div v-if="isRequester && withdrawals.length" class="withdrawn-section">
+					<h3>Withdrawn help ({{ withdrawals.length }})</h3>
+					<div v-for="entry in withdrawals" :key="entry.id" class="withdrawn-entry">
+						<strong>{{ entry.volunteerId }}</strong> <span class="comment-date">{{ entry.proposedHours }} h, {{ new Date(entry.createdAt).toLocaleDateString() }}</span>
+						<p>{{ entry.reason }}</p>
+					</div>
+				</div>
+
 				<div class="comments-section">
 					<h3>Comments ({{ requestStore.currentRequest.comments.length }})</h3>
 
@@ -116,87 +330,177 @@ onMounted(() => {
 						<NcTextArea
 							v-model="newComment"
 							placeholder="Add a comment..."
-							:rows="2"
-						/>
+							:rows="2" />
 						<NcButton
-							type="primary"
-							@click="addComment"
+							variant="primary"
 							:disabled="!newComment.trim() || commenting"
-						>
+							@click="addComment">
 							{{ commenting ? 'Posting...' : 'Post Comment' }}
 						</NcButton>
+						<p v-if="commentError" class="action-error" role="alert">
+							{{ commentError }}
+						</p>
 					</div>
 
-					<div v-for="comment in requestStore.currentRequest.comments" :key="comment.id" class="comment">
-						<div class="comment-header">
-							<strong>{{ comment.userId }}</strong>
-							<span class="comment-date">{{ new Date(comment.createdAt).toLocaleString() }}</span>
-						</div>
-						<p>{{ comment.comment }}</p>
-					</div>
+					<CommentItem
+						v-for="comment in requestStore.currentRequest.comments"
+						:key="comment.id"
+						:comment="comment"
+						:current-user-id="currentUserId"
+						:can-moderate="!!requestStore.currentRequest.canModerate"
+						:busy="moderatingId === comment.id"
+						@flag="(c) => { flagReason = ''; flagTarget = c }"
+						@remove="removeComment"
+						@dismiss="dismissFlags" />
 				</div>
 			</div>
 
 			<div class="sidebar">
 				<!-- Location Map -->
-				<div v-if="requestStore.currentRequest.request.location" class="location-map-section">
+				<div v-if="requestStore.currentRequest.request.location || requestStore.currentRequest.request.latitude !== null || requestStore.currentRequest.request.zipCenter" class="location-map-section">
 					<h3>Location</h3>
 					<MapComponent
 						:requests="[requestStore.currentRequest.request]"
 						:zoom="14"
-						class="location-map"
-					/>
+						class="location-map" />
 				</div>
 
 				<div class="volunteer-section">
-					<h3>Volunteers ({{ requestStore.currentRequest.volunteers.length }})</h3>
+					<h3>Volunteers ({{ volunteers.length }})</h3>
 
-					<div v-if="requestStore.currentRequest.request.status === 'open'" class="volunteer-form">
+					<p v-if="actionError" class="action-error" role="alert">
+						{{ actionError }}
+					</p>
+
+					<div v-if="canOffer" class="volunteer-form">
 						<h4>Offer to Help</h4>
 						<NcTextField
 							v-model="proposedHours"
 							type="number"
 							placeholder="Hours you can contribute"
 							min="0.5"
-							step="0.5"
-						/>
+							step="0.5" />
 						<NcTextArea
 							v-model="volunteerMessage"
 							placeholder="Why are you a good fit? (optional)"
-							:rows="2"
-						/>
+							:rows="2" />
 						<NcButton
-							type="primary"
-							@click="volunteer"
+							variant="primary"
 							:disabled="!proposedHours || volunteering"
-						>
+							@click="volunteer">
 							{{ volunteering ? 'Submitting...' : 'Volunteer' }}
 						</NcButton>
 					</div>
 
 					<div class="volunteer-list">
-						<div v-for="vol in requestStore.currentRequest.volunteers" :key="vol.id" class="volunteer-card">
-							<div class="volunteer-header">
-								<strong>{{ vol.volunteerId }}</strong>
-								<span class="volunteer-status" :class="`status-${vol.status}`">
-									{{ vol.status }}
-								</span>
-							</div>
-							<div class="volunteer-hours">
-								{{ vol.proposedHours }} hours proposed
-							</div>
-							<div v-if="vol.message" class="volunteer-message">
-								"{{ vol.message }}"
-							</div>
-							<div class="volunteer-stats">
-								<span>{{ vol.completedInCategory }} completed in category</span>
-								<span>{{ vol.totalHoursProvided }} total hours</span>
-							</div>
-						</div>
+						<VolunteerCard
+							v-for="vol in volunteers"
+							:key="vol.id"
+							:volunteer="vol"
+							:is-requester="isRequester"
+							:is-mine="vol.volunteerId === currentUserId"
+							:request-active="isActive"
+							:posted-hours="request?.hoursBudget ?? 0"
+							:busy="busyOfferId === vol.id"
+							@accept="accept"
+							@decline="decline"
+							@withdraw="startWithdraw" />
 					</div>
 				</div>
 			</div>
 		</div>
+
+		<NcModal v-if="showComplete" size="small" @close="showComplete = false">
+			<div class="dialog">
+				<h2>Mark this request complete?</h2>
+				<p>These volunteers will be completed, each for the hours agreed when you accepted them:</p>
+				<ul class="dialog-list">
+					<li v-for="vol in acceptedVolunteers" :key="vol.id">
+						<strong>{{ vol.volunteerId }}</strong>: {{ vol.hours ?? vol.proposedHours }} hours
+					</li>
+				</ul>
+				<p class="hint">
+					Hours are not credited automatically. Each volunteer can claim theirs under Submit Earnings;
+					an admin or 3 community votes approve them. Volunteers you have not accepted are left as they are.
+				</p>
+				<div class="dialog-actions">
+					<NcButton @click="showComplete = false">
+						Not yet
+					</NcButton>
+					<NcButton variant="primary" :disabled="completing" @click="confirmComplete">
+						{{ completing ? 'Completing...' : 'Mark complete' }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
+
+		<NcModal v-if="showEdit && request" size="normal" @close="showEdit = false">
+			<NewRequestForm :request="request" @saved="saved" @cancel="showEdit = false" />
+		</NcModal>
+
+		<NcModal v-if="flagTarget" size="small" @close="flagTarget = null">
+			<div class="dialog">
+				<h2>Flag this comment?</h2>
+				<p>
+					Flags are counted in public. At 3 flags from different members the comment is hidden until a
+					moderator reviews it. Moderators see who flagged and why. You can flag a comment once.
+				</p>
+				<NcTextArea v-model="flagReason" label="Reason (optional)" :rows="3" />
+				<div class="dialog-actions">
+					<NcButton @click="flagTarget = null">
+						Never mind
+					</NcButton>
+					<NcButton variant="primary" :disabled="flagging" @click="confirmFlag">
+						{{ flagging ? 'Flagging...' : 'Flag comment' }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
+
+		<NcModal v-if="showCancel" size="small" @close="showCancel = false">
+			<div class="dialog">
+				<h2>Cancel this request?</h2>
+				<p v-if="acceptedVolunteers.length">
+					{{ acceptedVolunteers.map((v) => v.volunteerId).join(', ') }}
+					{{ acceptedVolunteers.length === 1 ? 'has' : 'have' }} already been accepted to help. They are not
+					notified automatically, so tell them yourself.
+				</p>
+				<p>A cancelled request is final and cannot be reopened. No hours are credited.</p>
+				<div class="dialog-actions">
+					<NcButton @click="showCancel = false">
+						Keep it
+					</NcButton>
+					<NcButton variant="error" :disabled="cancelling" @click="confirmCancel">
+						{{ cancelling ? 'Cancelling...' : 'Cancel request' }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
+
+		<NcModal v-if="withdrawTarget" size="small" @close="withdrawTarget = null">
+			<div class="dialog">
+				<h2>Withdraw your offer?</h2>
+				<p v-if="withdrawReasonRequired">
+					The requester has accepted your help. Please say why you are stepping back. They will see your
+					reason, and it is kept in a log of withdrawn help. The request will reopen if nobody else is helping.
+				</p>
+				<p v-else>
+					Your offer will be removed. You can offer again later.
+				</p>
+				<NcTextArea
+					v-model="withdrawReason"
+					:label="withdrawReasonRequired ? 'Reason (required)' : 'Reason (optional)'"
+					:rows="3" />
+				<div class="dialog-actions">
+					<NcButton @click="withdrawTarget = null">
+						Keep my offer
+					</NcButton>
+					<NcButton variant="primary" :disabled="!canSubmitWithdraw || withdrawing" @click="confirmWithdraw">
+						{{ withdrawing ? 'Withdrawing...' : 'Withdraw' }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
 	</div>
 </template>
 
@@ -238,12 +542,22 @@ onMounted(() => {
 }
 
 .status-badge.status-open {
-	background: var(--color-success);
+	background: var(--color-success-text);
 	color: white;
 }
 
 .status-badge.status-in_progress {
-	background: var(--color-warning);
+	background: var(--color-warning-text);
+	color: white;
+}
+
+.status-badge.status-completed {
+	background: var(--color-text-maxcontrast);
+	color: white;
+}
+
+.status-badge.status-cancelled {
+	background: var(--color-error-text);
 	color: white;
 }
 
@@ -277,22 +591,13 @@ onMounted(() => {
 	margin-bottom: 20px;
 }
 
-.comment {
-	background: var(--color-background-hover);
-	padding: 12px;
-	border-radius: 8px;
-	margin-bottom: 10px;
-}
-
-.comment-header {
-	display: flex;
-	justify-content: space-between;
-	margin-bottom: 8px;
-}
-
 .comment-date {
 	color: var(--color-text-lighter);
 	font-size: 12px;
+}
+
+.location-note {
+	color: var(--color-text-maxcontrast);
 }
 
 .location-map-section {
@@ -326,51 +631,74 @@ onMounted(() => {
 	gap: 10px;
 }
 
-.volunteer-card {
-	background: var(--color-main-background);
-	padding: 12px;
+.status-banner {
+	padding: 10px 14px;
 	border-radius: 8px;
-	margin-bottom: 10px;
-	border: 1px solid var(--color-border);
+	margin: 12px 0;
+	background: var(--color-background-hover);
+	border-inline-start: 4px solid var(--color-primary-element);
 }
 
-.volunteer-header {
+.status-banner.banner-done {
+	border-inline-start-color: var(--color-success-text);
+}
+
+.status-banner.banner-cancelled {
+	border-inline-start-color: var(--color-error-text);
+}
+
+.state-move {
 	display: flex;
-	justify-content: space-between;
-	margin-bottom: 8px;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: flex-end;
+	margin: 16px 0;
 }
 
-.volunteer-status {
-	font-size: 12px;
-	padding: 2px 6px;
-	border-radius: 4px;
+.requester-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+	margin: 16px 0;
 }
 
-.volunteer-status.status-offered {
-	background: var(--color-primary-light);
+.hint {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
 }
 
-.volunteer-status.status-accepted {
-	background: var(--color-success);
-	color: white;
-}
-
-.volunteer-hours {
-	color: var(--color-primary);
-	font-weight: 500;
-}
-
-.volunteer-message {
-	font-style: italic;
-	color: var(--color-text-lighter);
+.action-error {
+	color: var(--color-error-text);
 	margin: 8px 0;
 }
 
-.volunteer-stats {
+.withdrawn-section {
+	margin: 16px 0;
+	padding: 12px;
+	border-radius: 8px;
+	background: var(--color-background-hover);
+}
+
+.withdrawn-entry p {
+	margin: 4px 0 12px;
+}
+
+.dialog {
 	display: flex;
-	gap: 16px;
-	font-size: 12px;
-	color: var(--color-text-lighter);
-	margin-top: 8px;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px;
+}
+
+.dialog-list {
+	margin: 0;
+	padding-inline-start: 20px;
+}
+
+.dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
 }
 </style>

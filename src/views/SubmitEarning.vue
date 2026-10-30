@@ -50,10 +50,10 @@ const calculatedHours = computed(() => {
 
 const isValid = computed(() => {
 	return (
-		categoryId.value &&
-		hoursClaimed.value &&
-		parseFloat(hoursClaimed.value) > 0 &&
-		description.value.trim()
+		categoryId.value
+		&& hoursClaimed.value
+		&& parseFloat(hoursClaimed.value) > 0
+		&& description.value.trim()
 	)
 })
 
@@ -99,14 +99,14 @@ const fetchMyClaims = async () => {
 
 const getStatusColor = (status: string) => {
 	switch (status) {
-		case 'approved':
-			return 'var(--color-success)'
-		case 'rejected':
-			return 'var(--color-error)'
-		case 'voting':
-			return 'var(--color-warning)'
-		default:
-			return 'var(--color-primary)'
+	case 'approved':
+		return 'var(--color-success)'
+	case 'rejected':
+		return 'var(--color-error)'
+	case 'voting':
+		return 'var(--color-warning)'
+	default:
+		return 'var(--color-primary)'
 	}
 }
 
@@ -137,9 +137,9 @@ onMounted(() => {
 					id="category"
 					v-model="categoryId"
 					:options="categoryOptions"
+					:reduce="(option) => option.id"
 					placeholder="Select category"
-					:disabled="submitting"
-				/>
+					:disabled="submitting" />
 			</div>
 
 			<div class="form-group">
@@ -151,8 +151,7 @@ onMounted(() => {
 					placeholder="How many hours did you work?"
 					:disabled="submitting"
 					min="0.5"
-					step="0.5"
-				/>
+					step="0.5" />
 				<div v-if="calculatedHours > 0" class="hours-calculation">
 					With {{ selectedCategory?.earnRate }}x multiplier = <strong>{{ calculatedHours.toFixed(2) }} hours earned</strong>
 				</div>
@@ -165,15 +164,13 @@ onMounted(() => {
 					v-model="description"
 					placeholder="Describe what work you did..."
 					:disabled="submitting"
-					:rows="4"
-				/>
+					:rows="4" />
 			</div>
 
 			<NcButton
-				type="primary"
-				@click="submit"
+				variant="primary"
 				:disabled="!isValid || submitting"
-			>
+				@click="submit">
 				{{ submitting ? 'Submitting...' : 'Submit Claim' }}
 			</NcButton>
 		</div>
@@ -192,8 +189,7 @@ onMounted(() => {
 					<div class="claim-header">
 						<span
 							class="claim-status"
-							:style="{ background: getStatusColor(claim.status) }"
-						>
+							:style="{ background: getStatusColor(claim.status) }">
 							{{ claim.status }}
 						</span>
 						<span class="claim-date">

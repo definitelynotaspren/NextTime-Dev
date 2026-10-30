@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\CommentService;
+use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -20,12 +21,10 @@ class CommentController extends Controller {
 	public function __construct(
 		string $appName,
 		IRequest $request,
-		CommentService $commentService,
-		?string $userId,
+		private CommentService $commentService,
+		private ?string $userId,
 	) {
 		parent::__construct($appName, $request);
-		$this->commentService = $commentService;
-		$this->userId = $userId;
 	}
 
 	#[NoAdminRequired]
@@ -45,6 +44,7 @@ class CommentController extends Controller {
 		}
 	}
 
+	/** Moderators only. Authors cannot delete their own comments. The removal is kept on record. */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'DELETE', url: '/api/comments/{id}')]
 	public function delete(int $id): JSONResponse {

@@ -2,9 +2,16 @@ import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 
-interface Request {
+export interface Request {
 	id: number
-	requesterId: string
+	/** Who posted it: null unless they chose to show it, or you are staff, an admin, the poster, or accepted. */
+	requesterId: string | null
+	/** True when you posted it. */
+	isMine?: boolean
+	/** The poster chose to show their username to every member. */
+	showUsername?: boolean
+	/** An organizer put it on the board from the desk. */
+	postedForDesk?: boolean
 	title: string
 	description: string
 	categoryId: number
@@ -12,11 +19,83 @@ interface Request {
 	status: string
 	priority: string
 	deadline: string | null
+	/** The ZIP of where help is needed; everyone sees it. */
+	zip: string | null
+	chapter: string | null
+	/** True when you may see the exact location (you posted it, facilitate its state, or your offer is accepted). */
+	exactLocation: boolean
+	/** Address text and point: null unless exactLocation. */
 	location: string | null
+	latitude: number | null
+	longitude: number | null
+	/** Center of the ZIP area, for the map when the exact point is not shared. */
+	zipCenter: { latitude: number, longitude: number } | null
 	createdAt: string
 	updatedAt: string
 	volunteerCount?: number
 	commentCount?: number
+}
+
+export interface Volunteer {
+	id: number
+	requestId: number
+	volunteerId: string
+	proposedHours: number
+	/** Set when the requester accepted; may differ from proposedHours. */
+	agreedHours?: number | null
+	/** What they are credited for: agreedHours, else proposedHours. */
+	hours?: number
+	message: string | null
+	status: string
+	createdAt: string
+	completedInCategory?: number
+	totalHoursProvided?: number
+}
+
+export interface Withdrawal {
+	id: number
+	requestId: number
+	volunteerId: string
+	proposedHours: number
+	reason: string | null
+	createdAt: string
+}
+
+export interface CommentFlag {
+	id: number
+	userId: string
+	reason: string | null
+	createdAt: string
+}
+
+export interface RequestComment {
+	id: number
+	requestId: number
+	/** null when the poster keeps their username private and you may not see it (authorLabel is then set). */
+	userId: string | null
+	authorLabel?: string
+	/** null when the comment is hidden by flags or removed, unless you are a moderator */
+	comment: string | null
+	createdAt: string
+	state: 'visible' | 'hidden' | 'removed'
+	flagCount: number
+	flaggedByMe: boolean
+	removedBy?: string
+	/** Only sent to moderators. */
+	flags?: CommentFlag[]
+}
+
+/**
+ * The server's plain-language message for a failed action, or a fallback.
+ * @param error
+ * @param fallback
+ */
+export function errorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+	const err = error as { response?: { status?: number, data?: { error?: string } } }
+	if (err.response?.status === 429) {
+		return 'You have done that many times in a short while. Please wait a few minutes and try again.'
+	}
+	return err.response?.data?.error || fallback
 }
 
 interface RequestFilters {
@@ -35,8 +114,13 @@ interface RequestState {
 	requests: Request[]
 	currentRequest: {
 		request: Request
-		volunteers: unknown[]
-		comments: unknown[]
+		volunteers: Volunteer[]
+		comments: RequestComment[]
+		/** Only sent to the requester: why people withdrew their help. */
+		withdrawals?: Withdrawal[]
+		canModerate?: boolean
+		/** States you may move this request to; empty when you may not move it. */
+		stateChoices?: { slug: string, name: string }[]
 	} | null
 	filters: RequestFilters
 	pagination: Pagination
@@ -75,8 +159,7 @@ export const useRequestStore = defineStore('requests', {
 			try {
 				const params = new URLSearchParams()
 				if (this.filters.status) params.append('status', this.filters.status)
-				if (this.filters.categoryId)
-					params.append('categoryId', this.filters.categoryId.toString())
+				if (this.filters.categoryId) { params.append('categoryId', this.filters.categoryId.toString()) }
 				if (this.filters.priority) params.append('priority', this.filters.priority)
 				params.append('limit', this.pagination.limit.toString())
 				params.append('offset', this.pagination.offset.toString())
@@ -95,8 +178,14 @@ export const useRequestStore = defineStore('requests', {
 			}
 		},
 
-		async fetchRequestDetails(id: number) {
-			this.loading = true
+		/**
+		 * @param id the request
+		 * @param quiet refresh in place without swapping the page for a spinner
+		 */
+		async fetchRequestDetails(id: number, quiet = false) {
+			if (!quiet) {
+				this.loading = true
+			}
 			this.error = null
 
 			try {
@@ -108,8 +197,90 @@ export const useRequestStore = defineStore('requests', {
 				this.error = err.response?.data?.error || 'Failed to fetch request details'
 				console.error('Error fetching request:', error)
 			} finally {
-				this.loading = false
+				if (!quiet) {
+					this.loading = false
+				}
 			}
+		},
+
+		// The actions below throw on failure so the caller can show the server's message,
+		// and refresh the request quietly on success.
+
+		async offerHelp(requestId: number, proposedHours: number, message: string | null) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/volunteer`), {
+				proposedHours,
+				message,
+			})
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async acceptOffer(offerId: number, requestId: number, agreedHours?: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/volunteers/${offerId}/accept`), { agreedHours })
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async declineOffer(offerId: number, requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/volunteers/${offerId}/decline`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		/**
+		 * Accepted help needs a reason; it goes into the log of withdrawn help.
+		 * @param offerId
+		 * @param requestId
+		 * @param reason
+		 */
+		async withdrawOffer(offerId: number, requestId: number, reason: string | null) {
+			await axios.delete(generateUrl(`/apps/timebank/api/volunteers/${offerId}`), { data: { reason } })
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		/**
+		 * Completes every accepted volunteer; hours are still claimed separately.
+		 * @param requestId
+		 */
+		async completeRequest(requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/complete`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// Only while the request is open; the server refuses anything else.
+		async updateRequest(requestId: number, fields: Partial<Request>) {
+			await axios.put(generateUrl(`/apps/timebank/api/requests/${requestId}`), fields)
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// chapter null sends the request back to the state of its ZIP.
+		async moveRequestState(requestId: number, chapter: string | null) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/state`), { chapter: chapter ?? '' })
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async cancelRequest(requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/cancel`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async flagComment(commentId: number, requestId: number, reason: string | null) {
+			await axios.post(generateUrl(`/apps/timebank/api/comments/${commentId}/flag`), { reason })
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// Moderators only.
+		async removeComment(commentId: number, requestId: number) {
+			await axios.delete(generateUrl(`/apps/timebank/api/comments/${commentId}`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		// Moderators only: the flags stop counting.
+		async dismissFlags(commentId: number, requestId: number) {
+			await axios.post(generateUrl(`/apps/timebank/api/comments/${commentId}/dismiss`))
+			await this.fetchRequestDetails(requestId, true)
+		},
+
+		async addComment(requestId: number, comment: string) {
+			await axios.post(generateUrl(`/apps/timebank/api/requests/${requestId}/comments`), { comment })
+			await this.fetchRequestDetails(requestId, true)
 		},
 
 		async createRequest(data: Partial<Request>) {

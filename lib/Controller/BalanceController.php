@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace OCA\TimeBank\Controller;
 
 use OCA\TimeBank\Service\BalanceService;
-use OCA\TimeBank\Service\TransactionService;
-use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCA\TimeBank\Service\Input;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Controller;
@@ -16,9 +16,9 @@ use OCP\IGroupManager;
 use OCP\IRequest;
 
 class BalanceController extends Controller {
+	use CurrentUser;
 
 	private BalanceService $balanceService;
-	private TransactionService $transactionService;
 	private IGroupManager $groupManager;
 	private ?string $userId;
 
@@ -26,13 +26,11 @@ class BalanceController extends Controller {
 		string $appName,
 		IRequest $request,
 		BalanceService $balanceService,
-		TransactionService $transactionService,
 		IGroupManager $groupManager,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
 		$this->balanceService = $balanceService;
-		$this->transactionService = $transactionService;
 		$this->groupManager = $groupManager;
 		$this->userId = $userId;
 	}

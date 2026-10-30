@@ -40,7 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 
 			<div v-show="isMapExpanded" class="map-wrapper">
-				<div ref="mapContainer" class="map-container" />
+				<div class="map-frame">
+					<div ref="mapContainer" class="map-container" />
+					<MapConsent />
+				</div>
 				<div class="map-instructions">
 					Click on the map to select a location
 				</div>
@@ -57,6 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 import { ref, watch, onMounted } from 'vue'
 import maplibregl, { type LngLatLike, type MapMouseEvent } from 'maplibre-gl'
 import { useMap } from '../composables/useMap'
+import MapConsent from './MapConsent.vue'
 
 interface LocationCoordinates {
 	lat: number
@@ -76,6 +80,8 @@ const props = defineProps({
 
 const emit = defineEmits<{
 	(e: 'update:modelValue', value: string): void
+	/** A point was picked (map click, drag, or typed "lat, lng"); stays in the browser. */
+	(e: 'pin', value: LocationCoordinates): void
 }>()
 
 const locationText = ref(props.modelValue || '')
@@ -86,7 +92,7 @@ const isValid = ref(true)
 const validationMessage = ref('')
 const currentMarker = ref<maplibregl.Marker | null>(null)
 
-const { mapContainer, map, addMarker, clearMarkers } = useMap({
+const { mapContainer, map, clearMarkers } = useMap({
 	center: [-122.7528, 45.4215],
 	zoom: 10,
 })
@@ -129,6 +135,7 @@ function validateLocation() {
 		showValidationMessage.value = true
 		selectedLocation.value = coords
 		updateMapMarker(coords)
+		emit('pin', coords)
 	} else {
 		isValid.value = false
 		validationMessage.value = 'Please enter coordinates in format: latitude, longitude (e.g., 45.4215, -122.7528)'
@@ -191,6 +198,7 @@ function updateSelectedLocation(lat: number, lng: number) {
 	showValidationMessage.value = true
 
 	updateMapMarker({ lat, lng })
+	emit('pin', { lat, lng })
 }
 
 function toggleMapVisibility() {
@@ -219,13 +227,17 @@ watch(() => props.modelValue, (newValue) => {
 })
 
 // Setup map click handler
-onMounted(() => {
-	if (map.value) {
-		map.value.on('load', () => {
-			map.value?.on('click', handleMapClick)
-		})
+// Listen for clicks once a map exists: at mount if the map is already on, or when it is turned on.
+// A pin from an earlier map goes with that map.
+watch(map, (m) => {
+	if (m) {
+		m.on('load', () => m.on('click', handleMapClick))
+	} else {
+		currentMarker.value = null
 	}
+}, { immediate: true })
 
+onMounted(() => {
 	// If there's an initial value, validate it
 	if (locationText.value) {
 		validateLocation()
@@ -309,6 +321,10 @@ onMounted(() => {
 
 .button-secondary:hover {
 	background-color: var(--color-background-hover);
+}
+
+.map-frame {
+	position: relative;
 }
 
 .map-wrapper {

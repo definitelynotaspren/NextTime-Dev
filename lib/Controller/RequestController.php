@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace OCA\TimeBank\Controller;
 
+use OCA\TimeBank\Service\CategoryService;
+use OCA\TimeBank\Service\CommentService;
+use OCA\TimeBank\Service\Input;
 use OCA\TimeBank\Service\RequestService;
+use OCA\TimeBank\Service\StateReassignment;
+use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Controller;
@@ -22,6 +27,9 @@ class RequestController extends Controller {
 		string $appName,
 		IRequest $request,
 		RequestService $requestService,
+		private CommentService $commentService,
+		private CategoryService $categoryService,
+		private StateReassignment $reassignment,
 		?string $userId,
 	) {
 		parent::__construct($appName, $request);
@@ -41,10 +49,10 @@ class RequestController extends Controller {
 
 		$filters = array_filter($filters, fn ($v) => $v !== null);
 
-		$limit = (int)($this->request->getParam('limit') ?? 50);
-		$offset = (int)($this->request->getParam('offset') ?? 0);
+		$limit = Input::limit($this->request->getParam('limit'), 50);
+		$offset = Input::offset($this->request->getParam('offset'));
 
-		$data = $this->requestService->getRequests($filters, $limit, $offset);
+		$data = $this->requestService->getRequests($this->uid(), $filters, $limit, $offset);
 
 		return new JSONResponse($data);
 	}
@@ -65,8 +73,8 @@ class RequestController extends Controller {
 	#[ApiRoute(verb: 'POST', url: '/api/requests')]
 	public function create(): JSONResponse {
 		// Validate required fields
-		$title = $this->request->getParam('title');
-		$description = $this->request->getParam('description');
+		$title = $this->textParam('title');
+		$description = $this->textParam('description');
 		$categoryId = $this->request->getParam('categoryId');
 		$hoursBudget = $this->request->getParam('hoursBudget');
 		$priority = $this->request->getParam('priority', 'normal');
@@ -100,13 +108,17 @@ class RequestController extends Controller {
 		}
 
 		$data = [
-			'title' => trim($title),
-			'description' => trim($description),
+			'title' => $title,
+			'description' => $description,
 			'categoryId' => (int)$categoryId,
 			'hoursBudget' => (float)$hoursBudget,
 			'priority' => $priority,
 			'deadline' => $this->request->getParam('deadline'),
 			'location' => $this->request->getParam('location'),
+			'latitude' => $this->request->getParam('latitude'),
+			'longitude' => $this->request->getParam('longitude'),
+			'zip' => $this->request->getParam('zip'),
+			'showUsername' => $this->request->getParam('showUsername', false),
 		];
 
 		try {
@@ -123,11 +135,16 @@ class RequestController extends Controller {
 		$data = [
 			'title' => $this->request->getParam('title'),
 			'description' => $this->request->getParam('description'),
+			'categoryId' => $this->request->getParam('categoryId'),
 			'hoursBudget' => $this->request->getParam('hoursBudget')
 				? (float)$this->request->getParam('hoursBudget') : null,
 			'priority' => $this->request->getParam('priority'),
 			'deadline' => $this->request->getParam('deadline'),
 			'location' => $this->request->getParam('location'),
+			'latitude' => $this->request->getParam('latitude'),
+			'longitude' => $this->request->getParam('longitude'),
+			'zip' => $this->request->getParam('zip'),
+			'showUsername' => $this->request->getParam('showUsername'),
 		];
 
 		$data = array_filter($data, fn ($v) => $v !== null);

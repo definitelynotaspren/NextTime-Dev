@@ -1,4 +1,4 @@
-.PHONY: help install build clean test appstore docker-up docker-down docker-logs
+.PHONY: help install build clean test appstore docker-up docker-down docker-logs native-setup native-start native-stop test-native smoke demo docker-seed-users docker-data-init docker-data-up docker-data-down docker-data-logs docker-backup
 
 # Default target
 help:
@@ -18,6 +18,11 @@ help:
 	@echo "  make docker-down   - Stop Docker development environment"
 	@echo "  make docker-logs   - View Docker logs"
 	@echo "  make docker-shell  - Open shell in Nextcloud container"
+	@echo "  make native-setup  - Docker-free dev server (clones NC, SQLite)"
+	@echo "  make native-start  - Start it on http://127.0.0.1:8081"
+	@echo "  make test-native   - PHPUnit against ../nc-server"
+	@echo "  make smoke         - End-to-end API smoke test (BASE_URL=...)"
+	@echo "  make demo          - Fill a dev server with demo data to click through (BASE_URL=...)"
 	@echo ""
 
 # Install dependencies
@@ -73,67 +78,144 @@ psalm:
 	@echo "Running Psalm static analysis..."
 	composer psalm
 
-# Build app package for App Store
-appstore:
+# Build app package for App Store / drag-and-drop install
+# Depends on `build` so the compiled js/ and css/ assets are always included.
+appstore: build
 	@echo "Building app package..."
+	@test -d js || (echo "ERROR: js/ directory missing - frontend build failed" && exit 1)
 	@mkdir -p build
 	@rm -rf build/timebank
-	@rsync -av \
+	@rsync -a \
 		--exclude='.git' \
+		--exclude='.claude' \
+		--exclude='screenshots-*' \
+		--exclude='.github' \
+		--exclude='.idea' \
 		--exclude='build' \
 		--exclude='node_modules' \
+		--exclude='vendor' \
 		--exclude='vendor-bin' \
 		--exclude='tests' \
 		--exclude='src' \
-		--exclude='.github' \
+		--exclude='demo' \
 		--exclude='*.log' \
 		--exclude='package*.json' \
 		--exclude='tsconfig.json' \
 		--exclude='vite.config.ts' \
+		--exclude='stylelint.config.cjs' \
+		--exclude='.eslintrc.cjs' \
+		--exclude='.nvmrc' \
+		--exclude='.gitignore' \
+		--exclude='psalm.xml' \
+		--exclude='rector.php' \
+		--exclude='.php-cs-fixer*' \
+		--exclude='composer.lock' \
+		--exclude='openapi.json' \
 		--exclude='.env*' \
 		--exclude='docker-compose.yml' \
+		--exclude='docker' \
 		--exclude='Dockerfile' \
 		--exclude='Makefile' \
+		--exclude='DEPLOYMENT_GUIDE.md' \
 		./ build/timebank/
 	@cd build && tar czf timebank.tar.gz timebank
+	@echo ""
 	@echo "App package created: build/timebank.tar.gz"
+	@echo "Install by extracting into your Nextcloud apps/ or custom_apps/ directory,"
+	@echo "then run: occ app:enable timebank"
 
 # Docker commands
-docker-up:
-	@echo "Starting Docker environment..."
+#
+# Two stacks: the database (docker/data/docker-compose.yml, its volumes are external so nothing
+# here can delete them) and the app (docker-compose.yml). See docs/isolated-data.md.
+DATA_COMPOSE = docker compose --env-file .env -f docker/data/docker-compose.yml
+DB_VOLUME ?= $(or $(NEXTTIME_DB_VOLUME),$(shell sed -n 's/^NEXTTIME_DB_VOLUME=//p' .env 2>/dev/null | tr -d '\r'),nexttime_pgdata)
+FILES_VOLUME ?= $(or $(NEXTTIME_FILES_VOLUME),$(shell sed -n 's/^NEXTTIME_FILES_VOLUME=//p' .env 2>/dev/null | tr -d '\r'),nexttime_files)
+
+# Create the two external volumes if they are not there yet (safe to repeat; never touches data)
+docker-data-init:
 	@if [ ! -f .env ]; then \
 		echo "Creating .env file from .env.example..."; \
 		cp .env.example .env; \
 		echo "Please update .env with your configuration!"; \
 	fi
-	docker-compose up -d
+	@for v in $(DB_VOLUME) $(FILES_VOLUME); do \
+		docker volume inspect $$v >/dev/null 2>&1 \
+			&& echo "Volume $$v already exists (kept as it is)" \
+			|| { docker volume create $$v >/dev/null && echo "Created volume $$v"; }; \
+	done
+
+docker-data-up: docker-data-init
+	$(DATA_COMPOSE) up -d --wait
+
+# Stops the database. The volume, and everything in it, stays.
+docker-data-down:
+	$(DATA_COMPOSE) down
+
+docker-data-logs:
+	$(DATA_COMPOSE) logs -f db
+
+docker-up: docker-data-up
+	@echo "Starting Docker environment..."
+	docker compose up -d
 	@echo "Docker environment started!"
 	@echo "Nextcloud will be available at http://localhost:8080"
 
+# Stops the app only; the database keeps running. Never add -v here.
 docker-down:
 	@echo "Stopping Docker environment..."
-	docker-compose down
+	docker compose down
+
+# Database dump + files archive into BACKUP_DIR (a folder outside this repo, ideally the external drive)
+docker-backup:
+	scripts/backup.sh
 
 docker-logs:
-	docker-compose logs -f nextcloud
+	docker compose logs -f nextcloud
 
 docker-shell:
-	docker-compose exec nextcloud bash
+	docker compose exec nextcloud bash
 
 docker-rebuild:
 	@echo "Rebuilding Docker containers..."
-	docker-compose down
-	docker-compose build --no-cache
-	docker-compose up -d
+	docker compose down
+	docker compose build --no-cache
+	docker compose up -d
 	@echo "Docker containers rebuilt and started!"
 
 # Install app in running Nextcloud container
 docker-install-app:
 	@echo "Installing Time Bank app in Nextcloud..."
-	docker-compose exec -u www-data nextcloud php occ app:enable timebank
+	docker compose exec -u www-data nextcloud php occ app:enable timebank
 	@echo "Time Bank app enabled!"
 
 # Development workflow
 dev: install build docker-up
 	@echo "Development environment ready!"
 	@echo "Access Nextcloud at http://localhost:8080"
+
+# Docker-free dev environment (see scripts/dev-native.sh)
+native-setup:
+	scripts/dev-native.sh setup
+
+native-start:
+	scripts/dev-native.sh start
+
+native-stop:
+	scripts/dev-native.sh stop
+
+test-native:
+	NEXTCLOUD_ROOT=../nc-server composer test:unit
+
+smoke:
+	scripts/smoke-test.sh $(BASE_URL)
+
+demo:
+	scripts/demo-data.sh $(BASE_URL)
+
+# Create the alice/bob/carol test users in the Docker stack
+docker-seed-users:
+	for u in alice bob carol; do \
+		docker compose exec -T -u www-data -e OC_PASS=$$u-pass-123 nextcloud \
+			php occ user:add --password-from-env $$u || true; \
+	done

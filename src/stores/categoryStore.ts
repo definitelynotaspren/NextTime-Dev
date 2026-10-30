@@ -2,13 +2,15 @@ import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 
-interface Category {
+export interface Category {
 	id: number
 	name: string
 	description: string | null
 	earnRate: number
 	icon: string | null
 	createdAt: string | null
+	archived?: boolean
+	archivedAt?: string | null
 }
 
 interface CategoryState {
@@ -25,6 +27,8 @@ export const useCategoryStore = defineStore('categories', {
 	}),
 
 	getters: {
+		// Archived categories keep old requests readable but cannot be chosen for new work.
+		activeCategories: (state) => state.categories.filter((c) => !c.archived),
 		getCategoryById: (state) => (id: number) => {
 			return state.categories.find((c) => c.id === id)
 		},

@@ -28,16 +28,16 @@ class BalanceService {
 		}
 	}
 
-	public function addHours(string $userId, float $hours): Balance {
+	public function addHours(string $userId, float $hours): void {
 		$balance = $this->getBalance($userId);
 		$newBalance = (float)$balance->getBalance() + $hours;
 		$balance->setBalance((string)$newBalance);
 		$balance->setUpdatedAt(new \DateTime());
 
-		return $this->balanceMapper->updateBalance($balance);
+		$this->balanceMapper->updateBalance($balance);
 	}
 
-	public function deductHours(string $userId, float $hours): Balance {
+	public function deductHours(string $userId, float $hours): void {
 		$balance = $this->getBalance($userId);
 		$newBalance = (float)$balance->getBalance() - $hours;
 
@@ -48,7 +48,7 @@ class BalanceService {
 		$balance->setBalance((string)$newBalance);
 		$balance->setUpdatedAt(new \DateTime());
 
-		return $this->balanceMapper->updateBalance($balance);
+		$this->balanceMapper->updateBalance($balance);
 	}
 
 	public function hasSufficientBalance(string $userId, float $hours): bool {

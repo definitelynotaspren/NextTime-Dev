@@ -1,0 +1,74 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer install:*)",
+      "Bash(composer lint)",
+      "Bash(composer cs:check)",
+      "Bash(composer cs:fix)",
+      "Bash(composer psalm)",
+      "Bash(composer test:unit)",
+      "Bash(NEXTCLOUD_ROOT=../nc-server composer test:unit)",
+      "Bash(npm ci)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(npm run lint)",
+      "Bash(npm run stylelint)",
+      "Bash(npx eslint:*)",
+      "Bash(php -l:*)",
+      "Bash(scripts/dev-native.sh:*)",
+      "Bash(scripts/smoke-test.sh:*)",
+      "Bash(make help)",
+      "Bash(make build)",
+      "Bash(make lint)",
+      "Bash(make cs-check)",
+      "Bash(make test)",
+      "Bash(make appstore)",
+      "Bash(make docker-up)",
+      "Bash(make docker-down)",
+      "Bash(make docker-logs)",
+      "Bash(make docker-install-app)",
+      "Bash(docker compose ps)",
+      "Bash(docker compose logs:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(curl -s:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git tag:*)",
+      "Bash(scripts/dev-native.sh reset)",
+      "Bash(make clean)",
+      "Bash(make docker-rebuild)",
+      "Bash(docker compose down:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Edit(./.env)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(docker compose down -v:*)",
+      "Bash(docker volume rm:*)",
+      "Edit(./js/**)",
+      "Edit(./css/**)",
+      "Edit(./vendor/**)",
+      "Edit(./node_modules/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/php-lint.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
