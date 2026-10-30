@@ -18,3 +18,11 @@ updates:
       time: "03:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 10
+    groups:
+      # vite and the Nextcloud config that pins its major move together, so the
+      # next major arrives as one PR whose lockfile can resolve (docs/UPGRADE-vite-8.md, step 4)
+      vite:
+        patterns:
+          - "vite"
+          - "@nextcloud/vite-config"
+          - "@vitejs/*"

@@ -1,6 +1,6 @@
 # Upgrading to vite 8 (PR #60): what changes, what must move first, and the recipe
 
-*2026-10-26. For Brigidt. PR #60 (dependabot, vite 7.3.6 → 8.3.5) is held because it cannot install, and
+*2026-10-26, section 3 and the recipe revised 2026-10-28. For Brigidt. PR #60 (dependabot, vite 7.3.6 → 8.3.5) is held because it cannot install, and
 the thing in the way is not vite. OBSERVED lines name the command or file; JUDGED lines are marked.*
 
 ## 1 · Why #60 cannot install today (OBSERVED)
@@ -51,6 +51,25 @@ So the admitting line exists, as `3.0.0-beta.1` under the `next` tag. Its other 
 `main`'s lock: `@vitejs/plugin-vue` 6.0.7, `browserslist` 4.28.4, `sass` 1.101.0 (`package-lock.json`). The
 day a stable `3.x` is published, `latest` will answer with a range that admits 8, and the check below exits 0.
 
+One more line to read, missed on 2026-10-26 (added 2026-10-28):
+
+```
+$ npm view @nextcloud/vite-config@next engines
+{ node: '^22.18 || ^24 || >=26.0.0' }
+```
+
+`.nvmrc` says `20` and `package.json` engines say `node >=20.0.0`. CI is already past this: `node.yml` reads the
+engines range and installs a node that satisfies it, and `release.yml:32` pins 22. A developer's machine on node 20
+is the one place vite-config 3 will refuse to install, so step 0 of the recipe moves `.nvmrc` to `22` and the
+engines line to `>=22.18`.
+
+Measured 2026-10-28 on a scratch worktree of `main` (`298e82c`) with `@nextcloud/vite-config@3.0.0-beta.1` and
+`vite@8.3.5`, node 22.23.4: `npm install` resolves (no ERESOLVE); `npm run build` transforms 270 modules in 1.63 s
+(12.48 s on main the same day); the same four output files plus map; the main chunk 2% smaller; three consecutive
+builds byte-identical. Upstream's own 3.0 roadmap is nextcloud-libraries/nextcloud-vite-config#963: two rolldown
+bugs still open as of 2026-10-28 (`maxSize` chunking, rolldown#10718; `experimental.strictExecutionOrder`
+reproducibility, rolldown#6670). A beta is a measurement, not a merge: the recipe below still waits for `latest`.
+
 ## 4 · The check (`tools/check-vite-8.sh`)
 
 A POSIX shell script. Exit 0 when the peer range admits vite 8, 1 when it does not, 2 when npm cannot
@@ -81,6 +100,10 @@ The script parses with `dash -n`. It reads the range as npm prints it and unders
 
 ## 5 · The recipe for #60, the day the check exits 0 (JUDGED)
 
+0. **Move the Node floor first** (one commit, independent of vite): `.nvmrc` → `22`, `package.json` engines `node`
+   → `>=22.18`. Everything the app pins today installs on node 22 (`npm ci` on `main` with node 22.23.4 passed
+   2026-10-28); only `@nextcloud/eslint-config` 8.x and `@nextcloud/eslint-plugin` print an `EBADENGINE` warning
+   (they declare `^20.0.0`), and a warning does not stop `npm ci`.
 1. **Let dependabot open the vite-config major** (it will, for `@nextcloud/vite-config` 2 → 3). Merge that
    PR first, after `npm ci && npm run build` on it pass. If dependabot has not opened it yet, make the bump
    yourself on a branch from `main`:
@@ -99,7 +122,11 @@ The script parses with `dash -n`. It reads the range as npm prints it and unders
    Both `npm ci` and `npm run build` exit 0 → `gh pr merge 60 --merge`. Then open the app once: the build's
    output lands in `js/`; a blank page is the symptom of a bundle vite-config no longer writes where
    Nextcloud expects it.
-4. **Keep the check in CI if you want it to call you**: a workflow step `sh tools/check-vite-8.sh || true`
+4. **Let the two bumps arrive together.** `.github/dependabot.yml` now groups `vite`, `@nextcloud/vite-config` and
+   `@vitejs/*` into one `vite` group, so the next major opens as a single PR whose lock can resolve, instead of the
+   pairwise-conflicting PRs of 2026-10-26 (that sheet's lesson: "merges clean" is not "installs"). Steps 1 and 2 then
+   collapse into reading that one PR.
+5. **Keep the check in CI if you want it to call you**: a workflow step `sh tools/check-vite-8.sh || true`
    on a weekly schedule prints the range; the day it says "admitted", do steps 1–3.
 
 Loser kept: `--legacy-peer-deps` (there is a remote branch `ci/allow-legacy-peer-deps-temporary`). It makes
