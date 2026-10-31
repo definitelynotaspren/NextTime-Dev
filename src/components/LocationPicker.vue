@@ -58,7 +58,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import maplibregl, { type LngLatLike, type MapMouseEvent } from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
+import type { LngLatLike, MapMouseEvent } from 'maplibre-gl'
 import { useMap } from '../composables/useMap'
 import MapConsent from './MapConsent.vue'
 

@@ -4,7 +4,8 @@
  */
 
 import { ref, watch, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
-import maplibregl, { type Map, type Marker, type Popup, type LngLatLike } from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
+import type { Map, Marker, Popup, LngLatLike } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useMapConsent } from './useMapConsent'
 
